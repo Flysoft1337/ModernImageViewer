@@ -1,0 +1,24 @@
+# 发现记录
+
+## 现有文档初步观察
+- 产品方向明确：Windows 本地、轻量、快速浏览并带常用编辑。
+- 功能清单较全，但缺少优先级、用户主路径、MVP 边界、验收条件和架构拆分。
+- v1.0 同时包含 RAW、全格式、编辑、标注、导出，范围偏大。
+- 冷启动、热启动和 100MB 图片加载指标没有硬件、缓存、格式、分辨率等测试条件，无法稳定验收。
+- 原技术建议同时列出 WinUI 3/WPF、Native AOT、ImageSharp、LibRaw/WIC，但没有说明各自职责、兼容性和降级策略。
+- “默认非破坏性编辑”需要补充编辑会话、撤销/重做、原文件保护和导出语义。
+
+## 技术路线结论
+- 基线建议：`.NET 10 LTS + WPF + C#`。截至 2026-07，.NET 10 为当前 LTS，支持至 2028-11-14；.NET 9 已非适合新长期项目的基线。
+- UI 选择 WPF，不选 WinUI 3：本项目优先 Windows 10 覆盖、成熟桌面能力、可控启动时间、文件关联与自绘画布。Fluent 外观可通过自建轻量主题实现，不应让设计语言决定 UI 框架。
+- 不把 Native AOT 纳入 WPF 方案：官方资料没有给出受支持的 WPF Native AOT 路径；采用 self-contained、ReadyToRun 和启动路径优化。
+- 渲染层建议使用 SkiaSharp 4，承载缩放、平移、旋转、标注预览与 GPU/CPU 降级；UI 层不直接持有完整解码位图。
+- 编解码采用分层策略：WIC 负责 Windows 原生常见格式与系统扩展；libvips 负责大图、缩略图、导出和更多现代格式；LibRaw 负责 RAW。首版不承诺“几乎所有格式”。
+- 元数据建议 ExifTool 进程调用适合原型但发布体积和性能不理想；生产版优先 MetadataExtractor 读取常见 EXIF/XMP，并由格式层处理 ICC，写入能力按导出格式逐步实现。
+- 架构采用模块化单体，不上插件系统：App/UI、Application、Imaging、Codecs、Metadata、Platform 六层，以接口隔离 native codec。
+- 发布建议 MSIX 为主、便携 ZIP 为辅；二者都需覆盖文件关联、右键菜单、自动更新差异。
+
+## 风险
+- libvips 为 LGPL-2.1-or-later，其依赖的 HEIF/HEVC、AVIF、JXL 编解码器还有独立许可证与专利风险，发布前必须形成依赖清单。
+- 色彩管理不能只写“支持 ICC”；需定义嵌入 profile、显示器 profile、无 profile 图片及导出转换行为。
+- RAW 首屏速度取决于优先读取内嵌预览，完整 demosaic 应异步进行。

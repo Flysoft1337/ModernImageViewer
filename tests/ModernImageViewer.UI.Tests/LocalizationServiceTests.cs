@@ -1,0 +1,120 @@
+using System.ComponentModel;
+using System.Globalization;
+
+using ModernImageViewer.Application.Settings;
+using ModernImageViewer.UI.Localization;
+using ModernImageViewer.UI.ViewModels;
+
+namespace ModernImageViewer.UI.Tests;
+
+[CollectionDefinition("Culture", DisableParallelization = true)]
+public sealed class CultureTestGroup;
+
+[Collection("Culture")]
+public sealed class LocalizationServiceTests
+{
+    [Theory]
+    [InlineData("zh-CN", "zh-CN")]
+    [InlineData("zh-SG", "zh-CN")]
+    [InlineData("zh-Hans", "zh-CN")]
+    [InlineData("zh-TW", "en-US")]
+    [InlineData("fr-FR", "en-US")]
+    [InlineData("invalid", "en-US")]
+    public void NormalizeCultureNameReturnsSupportedCulture(string input, string expected)
+    {
+        Assert.Equal(expected, LocalizationService.NormalizeCultureName(input));
+    }
+
+    [Fact]
+    public void InitializeUsesSavedLanguageBeforeSystemCulture()
+    {
+        using CultureScope scope = new("en-US");
+        InMemoryUserSettings settings = new("zh-CN");
+        LocalizationService service = new(settings);
+
+        service.Initialize();
+
+        Assert.Equal("zh-CN", service.CurrentCulture.Name);
+        Assert.Equal("现代图片查看器", service.GetString("MainWindow_Title"));
+    }
+
+    [Fact]
+    public void UnsupportedCultureFallsBackToEnglish()
+    {
+        using CultureScope scope = new("fr-FR");
+        LocalizationService service = new(new InMemoryUserSettings());
+
+        service.Initialize();
+
+        Assert.Equal("en-US", service.CurrentCulture.Name);
+        Assert.Equal("Modern Image Viewer", service.GetString("MainWindow_Title"));
+    }
+
+    [Fact]
+    public void SwitchingCultureUpdatesViewModelAndSavesPreference()
+    {
+        using CultureScope scope = new("en-US");
+        InMemoryUserSettings settings = new();
+        LocalizationService service = new(settings);
+        service.Initialize();
+        MainWindowViewModel viewModel = new(service);
+        List<string?> changedProperties = [];
+        viewModel.PropertyChanged += (_, e) => changedProperties.Add(e.PropertyName);
+
+        viewModel.SelectedLanguage = service.SupportedLanguages.Single(x => x.CultureName == "zh-CN");
+
+        Assert.Equal("zh-CN", settings.Language);
+        Assert.Equal("现代图片查看器", viewModel.Title);
+        Assert.Equal("M0 项目骨架正在运行", viewModel.StatusText);
+        Assert.Contains(nameof(MainWindowViewModel.Title), changedProperties);
+        Assert.Contains(nameof(MainWindowViewModel.StatusText), changedProperties);
+        Assert.Contains(nameof(MainWindowViewModel.SelectedLanguage), changedProperties);
+    }
+
+    [Theory]
+    [InlineData("en-US", "Language")]
+    [InlineData("zh-CN", "语言")]
+    public void ResourcesContainLanguageLabel(string cultureName, string expected)
+    {
+        using CultureScope scope = new("en-US");
+        LocalizationService service = new(new InMemoryUserSettings(cultureName));
+        service.Initialize();
+
+        Assert.Equal(expected, service.GetString("Language_Label"));
+    }
+
+    private sealed class InMemoryUserSettings(string? language = null) : IUserSettingsService
+    {
+        public string? Language { get; private set; } = language;
+
+        public void SaveLanguage(string value)
+        {
+            Language = value;
+        }
+    }
+
+    private sealed class CultureScope : IDisposable
+    {
+        private readonly CultureInfo _culture = CultureInfo.CurrentCulture;
+        private readonly CultureInfo _uiCulture = CultureInfo.CurrentUICulture;
+        private readonly CultureInfo? _defaultCulture = CultureInfo.DefaultThreadCurrentCulture;
+        private readonly CultureInfo? _defaultUiCulture = CultureInfo.DefaultThreadCurrentUICulture;
+
+        public CultureScope(string cultureName)
+        {
+            CultureInfo culture = CultureInfo.GetCultureInfo(cultureName);
+            CultureInfo.CurrentCulture = culture;
+            CultureInfo.CurrentUICulture = culture;
+            CultureInfo.DefaultThreadCurrentCulture = culture;
+            CultureInfo.DefaultThreadCurrentUICulture = culture;
+        }
+
+        public void Dispose()
+        {
+            CultureInfo.CurrentCulture = _culture;
+            CultureInfo.CurrentUICulture = _uiCulture;
+            CultureInfo.DefaultThreadCurrentCulture = _defaultCulture;
+            CultureInfo.DefaultThreadCurrentUICulture = _defaultUiCulture;
+        }
+    }
+}

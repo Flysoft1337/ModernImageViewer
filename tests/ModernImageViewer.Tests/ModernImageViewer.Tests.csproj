@@ -1,0 +1,29 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="coverlet.collector" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit.v3" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\ModernImageViewer.Application\ModernImageViewer.Application.csproj" />
+    <ProjectReference Include="..\..\src\ModernImageViewer.Imaging\ModernImageViewer.Imaging.csproj" />
+    <ProjectReference Include="..\..\src\ModernImageViewer.Codecs\ModernImageViewer.Codecs.csproj" />
+    <ProjectReference Include="..\..\src\ModernImageViewer.Metadata\ModernImageViewer.Metadata.csproj" />
+    <ProjectReference Include="..\..\src\ModernImageViewer.Platform\ModernImageViewer.Platform.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,18 @@
+<Solution>
+  <Folder Name="/benchmarks/">
+    <Project Path="benchmarks/ModernImageViewer.Benchmarks/ModernImageViewer.Benchmarks.csproj" />
+  </Folder>
+  <Folder Name="/src/">
+    <Project Path="src/ModernImageViewer.App/ModernImageViewer.App.csproj" />
+    <Project Path="src/ModernImageViewer.Application/ModernImageViewer.Application.csproj" />
+    <Project Path="src/ModernImageViewer.Codecs/ModernImageViewer.Codecs.csproj" />
+    <Project Path="src/ModernImageViewer.Imaging/ModernImageViewer.Imaging.csproj" />
+    <Project Path="src/ModernImageViewer.Metadata/ModernImageViewer.Metadata.csproj" />
+    <Project Path="src/ModernImageViewer.Platform/ModernImageViewer.Platform.csproj" />
+    <Project Path="src/ModernImageViewer.UI/ModernImageViewer.UI.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/ModernImageViewer.Tests/ModernImageViewer.Tests.csproj" />
+    <Project Path="tests/ModernImageViewer.UI.Tests/ModernImageViewer.UI.Tests.csproj" />
+  </Folder>
+</Solution>
