@@ -1,5 +1,4 @@
 using System.ComponentModel;
-using System.Runtime.CompilerServices;
 
 using ModernImageViewer.Imaging;
 
@@ -33,7 +32,7 @@ public sealed class ImageOpenCoordinator(IImageFilePicker filePicker, IImageDeco
         }
     }
 
-    public async Task OpenAsync(string path, CancellationToken cancellationToken = default)
+    public async Task<bool> OpenAsync(string path, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
 
@@ -42,9 +41,11 @@ public sealed class ImageOpenCoordinator(IImageFilePicker filePicker, IImageDeco
         _openCancellation?.Dispose();
         _openCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         CancellationToken token = _openCancellation.Token;
-        PixelBuffer? previousImage = State.Image;
+        ImageOpenState previous = State.Status == ImageOpenStatus.Loading
+            ? new(State.Image is null ? ImageOpenStatus.Empty : ImageOpenStatus.Loaded, State.Image, State.FilePath)
+            : State;
 
-        State = new(ImageOpenStatus.Loading, previousImage, Path.GetFileName(path));
+        State = new(ImageOpenStatus.Loading, previous.Image, previous.FilePath, path);
 
         try
         {
@@ -52,18 +53,26 @@ public sealed class ImageOpenCoordinator(IImageFilePicker filePicker, IImageDeco
             if (version != Volatile.Read(ref _requestVersion) || token.IsCancellationRequested)
             {
                 decoded.Dispose();
-                return;
+                return false;
             }
 
-            previousImage?.Dispose();
-            State = new(ImageOpenStatus.Loaded, decoded, Path.GetFileName(path));
+            previous.Image?.Dispose();
+            State = new(ImageOpenStatus.Loaded, decoded, Path.GetFullPath(path));
+            return true;
         }
         catch (OperationCanceledException) when (token.IsCancellationRequested)
         {
+            if (version == Volatile.Read(ref _requestVersion))
+            {
+                State = previous;
+            }
+
+            return false;
         }
         catch (Exception exception) when (version == Volatile.Read(ref _requestVersion))
         {
-            State = new(ImageOpenStatus.Error, previousImage, Path.GetFileName(path), MapError(exception));
+            State = new(ImageOpenStatus.Error, previous.Image, previous.FilePath, path, MapError(exception));
+            return false;
         }
     }
 

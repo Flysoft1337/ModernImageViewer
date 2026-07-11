@@ -1,0 +1,9 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <Geometry x:Key="Icon.Open">M3,5 L9,5 11,8 21,8 18,19 3,19 Z</Geometry>
+  <Geometry x:Key="Icon.Previous">M15,5 L7,12 15,19 Z</Geometry>
+  <Geometry x:Key="Icon.Next">M9,5 L17,12 9,19 Z</Geometry>
+  <Geometry x:Key="Icon.Fit">M4,9 L4,4 9,4 M15,4 L20,4 20,9 M20,15 L20,20 15,20 M9,20 L4,20 4,15</Geometry>
+  <Geometry x:Key="Icon.ZoomIn">M10,4 A6,6 0 1 0 10,16 A6,6 0 1 0 10,4 M14.5,14.5 L20,20 M10,7 L10,13 M7,10 L13,10</Geometry>
+  <Geometry x:Key="Icon.ZoomOut">M10,4 A6,6 0 1 0 10,16 A6,6 0 1 0 10,4 M14.5,14.5 L20,20 M7,10 L13,10</Geometry>
+</ResourceDictionary>

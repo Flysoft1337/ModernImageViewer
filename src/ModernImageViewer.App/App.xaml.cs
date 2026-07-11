@@ -10,6 +10,7 @@ using ModernImageViewer.Metadata;
 using ModernImageViewer.Platform;
 using ModernImageViewer.UI;
 using ModernImageViewer.UI.Localization;
+using ModernImageViewer.UI.ViewModels;
 
 namespace ModernImageViewer.App;
 
@@ -45,6 +46,12 @@ public partial class App : System.Windows.Application
         MainWindow mainWindow = _host.Services.GetRequiredService<MainWindow>();
         MainWindow = mainWindow;
         mainWindow.Show();
+
+        if (e.Args.FirstOrDefault() is { Length: > 0 } path)
+        {
+            MainWindowViewModel viewModel = _host.Services.GetRequiredService<MainWindowViewModel>();
+            await viewModel.OpenPathAsync(path);
+        }
     }
 
     protected override async void OnExit(ExitEventArgs e)

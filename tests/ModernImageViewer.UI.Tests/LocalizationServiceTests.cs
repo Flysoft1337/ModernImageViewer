@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using System.Globalization;
 
+using ModernImageViewer.Application.Browsing;
 using ModernImageViewer.Application.Images;
 using ModernImageViewer.Application.Settings;
 using ModernImageViewer.Imaging;
@@ -60,7 +61,7 @@ public sealed class LocalizationServiceTests
         LocalizationService service = new(settings);
         service.Initialize();
         ImageOpenCoordinator coordinator = new(new NullFilePicker(), new FailingImageDecoder());
-        MainWindowViewModel viewModel = new(service, coordinator);
+        MainWindowViewModel viewModel = new(service, coordinator, new ImageBrowseSession());
         List<string?> changedProperties = [];
         viewModel.PropertyChanged += (_, e) => changedProperties.Add(e.PropertyName);
 
@@ -68,10 +69,8 @@ public sealed class LocalizationServiceTests
 
         Assert.Equal("zh-CN", settings.Language);
         Assert.Equal("现代图片查看器", viewModel.Title);
-        Assert.Equal("打开图片以开始", viewModel.StatusText);
-        Assert.Contains(nameof(MainWindowViewModel.Title), changedProperties);
-        Assert.Contains(nameof(MainWindowViewModel.StatusText), changedProperties);
-        Assert.Contains(nameof(MainWindowViewModel.SelectedLanguage), changedProperties);
+        Assert.Equal("打开图片", viewModel.EmptyTitle);
+        Assert.Contains(string.Empty, changedProperties);
     }
 
     [Theory]
