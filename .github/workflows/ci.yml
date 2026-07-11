@@ -5,13 +5,19 @@ on:
     branches: [master]
   pull_request:
     branches: [master]
+  workflow_dispatch:
 
 permissions:
   contents: read
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  build-and-test:
+  build-test-publish:
     runs-on: windows-latest
+    timeout-minutes: 30
 
     steps:
       - uses: actions/checkout@v4
@@ -20,15 +26,60 @@ jobs:
         uses: actions/setup-dotnet@v4
         with:
           global-json-file: global.json
+          cache: true
+          cache-dependency-path: |
+            Directory.Packages.props
+            **/*.csproj
+
+      - name: Show .NET information
+        run: dotnet --info
 
       - name: Restore
         run: dotnet restore .\ModernImageViewer.slnx
 
-      - name: Build
-        run: dotnet build .\ModernImageViewer.slnx --configuration Release --no-restore
-
-      - name: Test
-        run: dotnet test .\ModernImageViewer.slnx --configuration Release --no-build
-
       - name: Verify formatting
         run: dotnet format .\ModernImageViewer.slnx --verify-no-changes --no-restore
+
+      - name: Build
+        run: dotnet build .\ModernImageViewer.slnx --configuration Release --no-restore -p:ContinuousIntegrationBuild=true
+
+      - name: Test
+        run: >-
+          dotnet test .\ModernImageViewer.slnx
+          --configuration Release
+          --no-build
+          --logger "trx;LogFilePrefix=test-results"
+          --results-directory .\artifacts\test-results
+          --collect:"XPlat Code Coverage"
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: artifacts/test-results/**
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Audit dependencies
+        run: dotnet list .\ModernImageViewer.slnx package --vulnerable --include-transitive
+
+      - name: Restore win-x64 runtime assets
+        run: dotnet restore .\src\ModernImageViewer.App\ModernImageViewer.App.csproj --runtime win-x64
+
+      - name: Publish win-x64
+        run: >-
+          dotnet publish .\src\ModernImageViewer.App\ModernImageViewer.App.csproj
+          --configuration Release
+          --runtime win-x64
+          --self-contained true
+          --no-restore
+          --output .\artifacts\publish\win-x64
+
+      - name: Upload win-x64 application
+        uses: actions/upload-artifact@v4
+        with:
+          name: ModernImageViewer-win-x64
+          path: artifacts/publish/win-x64/**
+          if-no-files-found: error
+          retention-days: 14

@@ -21,9 +21,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\ModernImageViewer.Application\ModernImageViewer.Application.csproj" />
     <ProjectReference Include="..\..\src\ModernImageViewer.Imaging\ModernImageViewer.Imaging.csproj" />
-    <ProjectReference Include="..\..\src\ModernImageViewer.Codecs\ModernImageViewer.Codecs.csproj" />
     <ProjectReference Include="..\..\src\ModernImageViewer.Metadata\ModernImageViewer.Metadata.csproj" />
-    <ProjectReference Include="..\..\src\ModernImageViewer.Platform\ModernImageViewer.Platform.csproj" />
   </ItemGroup>
 
 </Project>

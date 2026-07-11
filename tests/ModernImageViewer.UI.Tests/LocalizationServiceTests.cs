@@ -1,7 +1,9 @@
 using System.ComponentModel;
 using System.Globalization;
 
+using ModernImageViewer.Application.Images;
 using ModernImageViewer.Application.Settings;
+using ModernImageViewer.Imaging;
 using ModernImageViewer.UI.Localization;
 using ModernImageViewer.UI.ViewModels;
 
@@ -57,7 +59,8 @@ public sealed class LocalizationServiceTests
         InMemoryUserSettings settings = new();
         LocalizationService service = new(settings);
         service.Initialize();
-        MainWindowViewModel viewModel = new(service);
+        ImageOpenCoordinator coordinator = new(new NullFilePicker(), new FailingImageDecoder());
+        MainWindowViewModel viewModel = new(service, coordinator);
         List<string?> changedProperties = [];
         viewModel.PropertyChanged += (_, e) => changedProperties.Add(e.PropertyName);
 
@@ -65,7 +68,7 @@ public sealed class LocalizationServiceTests
 
         Assert.Equal("zh-CN", settings.Language);
         Assert.Equal("现代图片查看器", viewModel.Title);
-        Assert.Equal("M0 项目骨架正在运行", viewModel.StatusText);
+        Assert.Equal("打开图片以开始", viewModel.StatusText);
         Assert.Contains(nameof(MainWindowViewModel.Title), changedProperties);
         Assert.Contains(nameof(MainWindowViewModel.StatusText), changedProperties);
         Assert.Contains(nameof(MainWindowViewModel.SelectedLanguage), changedProperties);
@@ -81,6 +84,17 @@ public sealed class LocalizationServiceTests
         service.Initialize();
 
         Assert.Equal(expected, service.GetString("Language_Label"));
+    }
+
+    private sealed class NullFilePicker : IImageFilePicker
+    {
+        public Task<string?> PickImageAsync(CancellationToken cancellationToken) => Task.FromResult<string?>(null);
+    }
+
+    private sealed class FailingImageDecoder : IImageDecoder
+    {
+        public Task<PixelBuffer> DecodeAsync(string path, CancellationToken cancellationToken) =>
+            Task.FromException<PixelBuffer>(new NotSupportedException());
     }
 
     private sealed class InMemoryUserSettings(string? language = null) : IUserSettingsService

@@ -5,6 +5,17 @@
   <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms</value></resheader>
   <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms</value></resheader>
   <data name="MainWindow_Title" xml:space="preserve"><value>Modern Image Viewer</value></data>
-  <data name="MainWindow_StatusSkeletonRunning" xml:space="preserve"><value>M0 skeleton is running</value></data>
+  <data name="MainWindow_StatusSkeletonRunning" xml:space="preserve"><value>Open an image to begin</value></data>
   <data name="Language_Label" xml:space="preserve"><value>Language</value></data>
+  <data name="Command_Open" xml:space="preserve"><value>Open</value></data>
+  <data name="Command_Fit" xml:space="preserve"><value>Fit</value></data>
+  <data name="Command_ActualSize" xml:space="preserve"><value>100%</value></data>
+  <data name="Status_Empty" xml:space="preserve"><value>Open an image to begin</value></data>
+  <data name="Status_Loading" xml:space="preserve"><value>Loading image…</value></data>
+  <data name="Error_FileNotFound" xml:space="preserve"><value>The file could not be found.</value></data>
+  <data name="Error_AccessDenied" xml:space="preserve"><value>Access to the file was denied.</value></data>
+  <data name="Error_UnsupportedFormat" xml:space="preserve"><value>This image format is not supported.</value></data>
+  <data name="Error_CorruptFile" xml:space="preserve"><value>The image file is damaged or incomplete.</value></data>
+  <data name="Error_ImageTooLarge" xml:space="preserve"><value>The image is too large to open safely.</value></data>
+  <data name="Error_DecodeFailed" xml:space="preserve"><value>The image could not be opened.</value></data>
 </root>

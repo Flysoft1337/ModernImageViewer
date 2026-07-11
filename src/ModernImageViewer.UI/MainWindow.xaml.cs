@@ -11,4 +11,14 @@ public partial class MainWindow : Window
         InitializeComponent();
         DataContext = viewModel;
     }
+
+    private void OnFitClick(object sender, RoutedEventArgs e)
+    {
+        Viewport.Fit();
+    }
+
+    private void OnActualSizeClick(object sender, RoutedEventArgs e)
+    {
+        Viewport.ActualSize();
+    }
 }
