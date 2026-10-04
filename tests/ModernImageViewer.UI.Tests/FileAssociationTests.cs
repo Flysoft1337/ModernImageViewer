@@ -1,5 +1,6 @@
 using Microsoft.Win32;
 
+using ModernImageViewer.Application.Images;
 using ModernImageViewer.Application.Integration;
 using ModernImageViewer.Platform.Integration;
 
@@ -47,8 +48,17 @@ public sealed class FileAssociationTests
             metadata.SetValue("Note", "preserve application metadata");
         }
 
+        using (RegistryKey capabilities = registry.Root.OpenSubKey(@"Software\ModernImageViewer\Portable\Capabilities", writable: true)!)
+        {
+            capabilities.SetValue("ApplicationDescription", "Custom description to preserve");
+        }
+
         moved.Unregister();
         Assert.False(moved.ReadStatus().IsRegistered);
+        using (RegistryKey? capabilities = registry.Root.OpenSubKey(@"Software\ModernImageViewer\Portable\Capabilities"))
+        {
+            Assert.Equal("Custom description to preserve", capabilities?.GetValue("ApplicationDescription"));
+        }
         using RegistryKey? imageExtension = registry.Root.OpenSubKey(@"Software\Classes\.jpg");
         Assert.Equal("Other.Image", imageExtension?.GetValue(""));
         using RegistryKey? remainingCandidates = imageExtension?.OpenSubKey("OpenWithProgids");
@@ -142,7 +152,7 @@ public sealed class FileAssociationTests
         Assert.False(installed.ReadStatus().IsRegistered);
         Assert.True(installed.ReadStatus().IsInstalled);
         Assert.True(portable.ReadStatus().IsRegistered);
-        foreach (string extension in new[] { ".jpg", ".jpeg", ".png" })
+        foreach (string extension in SupportedImageFormats.Extensions)
         {
             using RegistryKey? candidates = registry.Root.OpenSubKey(@"Software\Classes\" + extension + @"\OpenWithProgids");
             Assert.Null(candidates?.GetValue("ModernImageViewer.Installed.Image"));
@@ -153,7 +163,27 @@ public sealed class FileAssociationTests
         portable.Unregister();
         Assert.True(installed.ReadStatus().IsRegistered);
         Assert.False(portable.ReadStatus().IsRegistered);
+
+        // Version 0.2 registered only JPEG and PNG. A newer copy must still be able
+        // to remove its entries, including its previous application description.
+        using (RegistryKey capabilities = registry.Root.OpenSubKey(@"Software\ModernImageViewer\Installed\Capabilities", writable: true)!)
+        {
+            capabilities.SetValue("ApplicationDescription", "Browse JPEG and PNG images with Modern Image Viewer.");
+            using RegistryKey formats = capabilities.OpenSubKey("FileAssociations", writable: true)!;
+            foreach (string extension in SupportedImageFormats.Extensions.Skip(3))
+            {
+                formats.DeleteValue(extension);
+                using RegistryKey candidates = registry.Root.OpenSubKey(@"Software\Classes\" + extension + @"\OpenWithProgids", writable: true)!;
+                candidates.DeleteValue("ModernImageViewer.Installed.Image");
+            }
+        }
+        Assert.False(installed.ReadStatus().IsRegistered);
+        Assert.True(installed.ReadStatus().IsOwnedByCurrentExecutable);
         installed.Unregister();
+        using RegistryKey? remainingApplication = registry.Root.OpenSubKey(@"Software\ModernImageViewer\Installed");
+        using RegistryKey? remainingProgId = registry.Root.OpenSubKey(@"Software\Classes\ModernImageViewer.Installed.Image");
+        Assert.Null(remainingApplication);
+        Assert.Null(remainingProgId);
     }
 
     private sealed class IsolatedRegistry : IDisposable

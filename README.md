@@ -2,16 +2,16 @@
 
 面向 Windows 10/11 的本地图片查看器，目标是快速打开、流畅浏览、完成常用编辑，并确保原图安全。
 
-当前正在推进 **M1 图片浏览体验**，M0 的扩展解码器与性能验证仍待完成。已接入 WIC 解码和 SkiaSharp 画布，支持 JPEG/PNG 打开、拖放、同目录自然排序浏览、文件夹打开、循环幻灯片、邻近图片缩略图、适应窗口、实际像素大小、缩放、平移和全屏。采用深色画廊界面，支持浅色与跟随系统主题，文件信息面板默认收起，支持常见 JPEG EXIF 信息和拍摄方向自动纠正。libvips、LibRaw、编辑和完整相邻图片预取尚未实现。
+当前正在推进 **M1 图片浏览体验**，M0 的扩展解码器与性能验证仍待完成。已接入 WIC 解码和 SkiaSharp 画布，支持 JPEG、PNG、BMP、GIF、TIFF、ICO 和 WebP 静态图片打开、拖放、同目录自然排序浏览、文件夹打开、循环幻灯片、邻近图片缩略图、适应窗口、实际像素大小、缩放、平移和全屏。采用深色画廊界面，支持浅色与跟随系统主题，文件信息面板默认收起，支持常见 JPEG EXIF 信息和拍摄方向自动纠正。libvips、LibRaw、编辑和完整相邻图片预取尚未实现。
 
-**当前格式：JPEG（`.jpg`、`.jpeg`）和 PNG（`.png`），仅静态首帧。** WIC 是解码器，SkiaSharp 用于绘制；BMP/GIF/TIFF/WebP/ICO、HEIF/AVIF、RAW 和 SVG 尚未启用。详细像素、尺寸和色彩边界见 [解码器与格式支持](docs/decoder-support.md)。
+**当前格式：JPEG、PNG、BMP、GIF、TIFF、ICO、WebP，共 9 个扩展名（`.jpg`、`.jpeg`、`.png`、`.bmp`、`.gif`、`.tif`、`.tiff`、`.ico`、`.webp`）。** GIF/WebP 仅显示首帧，TIFF 仅显示第一页，ICO 仅显示第一个图标帧；动画播放、多页/多尺寸选择、HEIF/HEIC、AVIF、RAW 和 SVG 尚未实现。WIC 解码前 6 类容器，SkiaSharp 解码 WebP 并绘制所有格式。详细像素、尺寸和色彩边界见 [解码器与格式支持](docs/decoder-support.md)。
 
 ## 安装与分发
 
-0.2.0 提供 Windows x64 EXE 安装器与便携 ZIP，面向 Windows 10 22H2 或 Windows 11。两种分发均包含 .NET 10 和实际 native 运行依赖，用户无需另装 .NET。
+0.3.0 提供 Windows x64 EXE 安装器与便携 ZIP，面向 Windows 10 22H2 或 Windows 11。两种分发均包含 .NET 10 和实际 native 运行依赖，用户无需另装 .NET。
 
-- 安装器：`ModernImageViewer-0.2.0-win-x64-Setup.exe`。默认安装到当前用户的 `%LOCALAPPDATA%\Programs\ModernImageViewer`，无需管理员权限；提供开始菜单入口、可选桌面快捷方式、升级和卸载。
-- 安装时可选注册 JPEG/PNG 打开方式；安装后在 Windows 默认应用中选择 `Modern Image Viewer`，分别设置 `.jpg`、`.jpeg`、`.png`，随后资源管理器双击即可打开。安装器不会自动修改默认应用。
+- 安装器：`ModernImageViewer-0.3.0-win-x64-Setup.exe`。默认安装到当前用户的 `%LOCALAPPDATA%\Programs\ModernImageViewer`，无需管理员权限；提供开始菜单入口、可选桌面快捷方式、升级和卸载。
+- 安装时可选注册上述 9 个扩展名的打开方式；安装后在 Windows 默认应用中选择 `Modern Image Viewer`，按需要选择上述扩展名，随后资源管理器双击即可打开。安装器不会自动修改默认应用。
 - 便携 ZIP 解压后运行 `ModernImageViewer.App.exe`，需要时在应用设置里注册 `Modern Image Viewer (Portable)`。安装版与便携版使用独立关联身份，可共存；卸载安装版不撤销便携版候选。
 - 当前 EXE **未签名**；可信签名发布与 MSIX 继续规划。构建产物和校验清单由 Windows CI 上传，实际安装/卸载验证结果以对应运行记录为准；系统默认选择和 Shell 双击仍需人工验收。
 
@@ -23,7 +23,7 @@ pwsh .\scripts\build-installer.ps1
 pwsh .\scripts\build-installer.ps1 -SkipPublish
 ```
 
-脚本使用固定版本、校验 SHA-256 的 Inno Setup 编译器。发布输入位于 `artifacts/publish/win-x64`，安装器输出位于 `artifacts/installer/ModernImageViewer-0.2.0-win-x64-Setup.exe`。安装、修复、升级与卸载说明见 [Windows 文件关联方案](docs/windows-file-association.md)。
+脚本使用固定版本、校验 SHA-256 的 Inno Setup 编译器。发布输入位于 `artifacts/publish/win-x64`，安装器输出位于 `artifacts/installer/ModernImageViewer-0.3.0-win-x64-Setup.exe`。安装、修复、升级与卸载说明见 [Windows 文件关联方案](docs/windows-file-association.md)。
 
 ## 语言
 
@@ -31,7 +31,7 @@ pwsh .\scripts\build-installer.ps1 -SkipPublish
 
 ## 浏览与交互
 
-- 安装版与便携版均可在右上角“设置 → 用此应用打开图片”中注册或修复 JPEG/PNG 打开方式，再进入 Windows 默认应用选择此应用；随后双击图片即可打开。注册可撤销，便携版移动后需重新注册。请使用 self-contained 发布包，开发运行不注册。详见 [双击图片打开应用](docs/windows-file-association.md)。
+- 安装版与便携版均可在右上角“设置 → 用此应用打开图片”中注册或修复上述格式的打开方式，再进入 Windows 默认应用选择此应用；随后双击图片即可打开。注册可撤销，便携版移动后需重新注册。请使用 self-contained 发布包，开发运行不注册。详见 [双击图片打开应用](docs/windows-file-association.md)。
 - 重复启动会把图片交给同一用户、同一会话的已有窗口；无参数启动恢复窗口。请求受理后后续进程退出，不等待图片完整解码。
 - 命令行和拖放支持多张图片，按选择顺序浏览、缩略图与播放；去重并略过无效项，每次最多 128 项。混合选择中的文件夹不会递归展开；单个文件夹仍按自然名称排序打开。
 - `Ctrl+O` 打开图片，`Ctrl+Shift+O` 打开文件夹；支持拖入文件夹或通过命令行指定文件夹。
@@ -44,13 +44,15 @@ pwsh .\scripts\build-installer.ps1 -SkipPublish
 - 文件夹列表在浏览期间复用；新增、删除或修改图片后，按 `F5` 刷新列表、缩略图与文件信息。
 - 右上角菜单切换主题和语言。主题和语言选择均会持久保存。
 
-缩略图带显示当前位置附近最多 9 张图片，后台同时最多解码 2 张，缓存上限为 24 张降采样图片。文件信息包括尺寸、格式、大小、修改时间和路径；存在 EXIF 时还会显示相机、镜头、拍摄时间、ISO、快门、光圈和焦距。主图及缩略图会遵循 EXIF Orientation（包含旋转和镜像），不改写原文件。
+缩略图带显示当前位置附近最多 9 张图片，后台同时最多解码 2 张，缩略图像素缓存受 2MiB 和 24 项双重上限约束，按最近使用顺序逐出。缓存键包含路径、修改时间和文件长度；文件属性读取也在后台执行。F5 清理缓存并让已在途的旧结果失效。文件信息包括尺寸、格式、大小、修改时间和路径；存在 EXIF 时还会显示相机、镜头、拍摄时间、ISO、快门、光圈和焦距。WIC 格式的主图及缩略图会遵循可读取的 EXIF Orientation（包含旋转和镜像），不改写原文件；WebP 元数据与方向尚未统一读取。
 
 ## 启动与内存
 
 启动只创建必要的依赖与窗口，首次打开图片时才初始化 Skia 画布；不加载后台服务宿主、配置文件监听或命令行配置解析。命令行图片/文件夹在首轮界面布局之后处理。单实例检查先于窗口创建；仅主实例启动后台请求监听，文件关联服务和注册状态读取延迟到打开设置时。
 
-主画布直接使用解码缓冲，不再保留另一份完整 Skia 像素副本。按 `宽 × 高 × 4` 计算，24MP（6000×4000）图片可少一份 96MB（约 91.6MiB）像素副本；这不是进程整体工作集的测量结果。WIC 按需解码，先验证尺寸再分配，全尺寸解码最多并发 1 个；过期排队请求会取消。目录枚举、排序与刷新在后台执行。
+主画布直接使用解码缓冲，不再保留另一份完整 Skia 像素副本。按 `宽 × 高 × 4` 计算，24MP（6000×4000）图片可少一份 96MB（约 91.6MiB）像素副本；这不是进程整体工作集的测量结果。WIC 按需解码，先验证尺寸再分配，全尺寸解码最多并发 1 个；过期排队请求会取消。目录枚举、排序与刷新在后台执行。直接打开单张图片时，先显示已解码主图，再后台建立同目录导航，首图不等待完整目录索引；索引期间不提供依赖目录的跳转。打开文件夹仍需先枚举候选文件，多选序列不展开目录。
+
+缩略图先按 224×140 目标降采样，不走完整主图像素缓冲；但当前主图仍然全尺寸解码，没有渐进主图预览、超限降采样回退或整个进程的内存预算。2MiB 限制仅针对缓存中的缩略图像素，不包含正在解码或显示的缩略图、原生 codec 与主画布。
 
 可在同一台 Windows 机器上比较前后两个 Release self-contained 包（PowerShell 7）：
 
@@ -94,7 +96,12 @@ dotnet run --project .\benchmarks\ModernImageViewer.Benchmarks\ModernImageViewer
 
 ## 后续开发
 
-应用端外部打开、窗口复用和便携关联已实现，新增当前用户 EXE 安装路径；可信签名、MSIX 和 Windows Shell 人工验收继续推进。随后依次完善：渐进预览和大图内存预算、紧凑布局与沉浸全屏、预算内相邻预取，再扩展格式、剪贴板和安全编辑/导出。
+应用端外部打开、窗口复用和便携关联已实现，新增当前用户 EXE 安装路径；可信签名、MSIX 和 Windows Shell 人工验收继续推进。0.3.0 增加静态格式与缩略图字节缓存、单图先显示后索引；仍需补齐以下能力：
+
+- **近期 P1：** 主图渐进预览、按需细化、全管线字节预算与预算内相邻预取；排序、剪贴板打开/复制图片、资源管理器定位、会话旋转/翻转；紧凑高 DPI 布局与全屏自动隐藏。
+- **随后 P2：** GIF/WebP 动画与 TIFF 多页；HEIF/AVIF、RAW、SVG；非破坏性裁剪/尺寸调整、撤销/重做与另存为；ICC 色彩管理、高位深与签名发布。
+
+性能目标仍需固定 Windows 机器实测，当前不承诺整进程内存上限或速度提升百分比。
 
 - [后续迭代路线图](docs/next-iteration-roadmap.md)：当前功能缺口、优先级、UI 和性能优化、完成标准。
 - [Windows 文件关联方案](docs/windows-file-association.md)：安装版/便携版、用户默认应用选择、重复激活和验收步骤。

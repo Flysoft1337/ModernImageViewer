@@ -1,21 +1,29 @@
+using ModernImageViewer.Application.Images;
+
 namespace ModernImageViewer.Application.Browsing;
 
 public sealed class ImageBrowseSession
 {
-    private static readonly HashSet<string> SupportedExtensions = new(StringComparer.OrdinalIgnoreCase) { ".jpg", ".jpeg", ".png" };
+    private readonly Func<string?, string?, CancellationToken, string[]> _enumerate;
     private string[] _items = [];
     private string? _directory;
     private BrowseSnapshot? _prepared;
     private long _revision;
+    private bool _hasCompleteIndex;
+
+    public ImageBrowseSession() : this(Enumerate) { }
+
+    internal ImageBrowseSession(Func<string?, string?, CancellationToken, string[]> enumerate) => _enumerate = enumerate;
 
     public string? CurrentPath { get; private set; }
     public int CurrentIndex { get; private set; } = -1;
     public int Count => _items.Length;
     public IReadOnlyList<string> Items => _items;
     public bool IsSelection { get; private set; }
-    public bool CanMovePrevious => CurrentIndex > 0;
-    public bool CanMoveNext => CurrentIndex >= 0 && CurrentIndex < _items.Length - 1;
-    public static bool IsSupported(string path) => SupportedExtensions.Contains(Path.GetExtension(path));
+    public bool IsIndexing { get; private set; }
+    public bool CanMovePrevious => !IsIndexing && CurrentIndex > 0;
+    public bool CanMoveNext => !IsIndexing && CurrentIndex >= 0 && CurrentIndex < _items.Length - 1;
+    public static bool IsSupported(string path) => SupportedImageFormats.IsSupported(path);
     public string? GetPreviousPath() => CanMovePrevious ? _items[CurrentIndex - 1] : null;
     public string? GetNextPath() => CanMoveNext ? _items[CurrentIndex + 1] : null;
 
@@ -28,7 +36,7 @@ public sealed class ImageBrowseSession
     {
         string fullPath = Path.GetFullPath(path);
         string? directory = Path.GetDirectoryName(fullPath);
-        if ((!resetSelection || !IsSelection) && FindIndex(fullPath) >= 0
+        if (!IsIndexing && _hasCompleteIndex && (!resetSelection || !IsSelection) && FindIndex(fullPath) >= 0
             && (IsSelection || StringComparer.OrdinalIgnoreCase.Equals(directory, _directory)))
         {
             return new BrowseSnapshot(_directory, _items, IsSelection);
@@ -38,7 +46,7 @@ public sealed class ImageBrowseSession
             return prepared;
         }
 
-        string[] items = await Task.Run(() => Enumerate(directory, fullPath, cancellationToken), cancellationToken);
+        string[] items = await Task.Run(() => _enumerate(directory, fullPath, cancellationToken), cancellationToken);
         cancellationToken.ThrowIfCancellationRequested();
         return new BrowseSnapshot(directory, items, false);
     }
@@ -46,10 +54,64 @@ public sealed class ImageBrowseSession
     public async Task<string?> FindFirstAsync(string directory, CancellationToken cancellationToken)
     {
         string fullDirectory = Path.GetFullPath(directory);
-        string[] items = await Task.Run(() => Enumerate(fullDirectory, null, cancellationToken), cancellationToken);
+        string[] items = await Task.Run(() => _enumerate(fullDirectory, null, cancellationToken), cancellationToken);
         cancellationToken.ThrowIfCancellationRequested();
         _prepared = items.Length == 0 ? null : new BrowseSnapshot(fullDirectory, items, false);
         return items.FirstOrDefault();
+    }
+
+    internal bool TryCommitCached(string path, bool resetSelection)
+    {
+        string fullPath = Path.GetFullPath(path);
+        string? directory = Path.GetDirectoryName(fullPath);
+        if (_prepared is { IsSelection: false } prepared && StringComparer.OrdinalIgnoreCase.Equals(directory, prepared.Directory))
+        {
+            CommitSnapshot(prepared, fullPath);
+            return true;
+        }
+        if (!IsIndexing && _hasCompleteIndex && (!resetSelection || !IsSelection) && FindIndex(fullPath) >= 0
+            && (IsSelection || StringComparer.OrdinalIgnoreCase.Equals(directory, _directory)))
+        {
+            CommitSnapshot(new BrowseSnapshot(_directory, _items, IsSelection), fullPath);
+            return true;
+        }
+        return false;
+    }
+
+    internal long BeginIndexing(string path)
+    {
+        string fullPath = Path.GetFullPath(path);
+        CommitSnapshot(new BrowseSnapshot(Path.GetDirectoryName(fullPath), [fullPath], false), fullPath);
+        IsIndexing = true;
+        _hasCompleteIndex = false;
+        return _revision;
+    }
+
+    internal bool CompleteIndexing(long revision, BrowseSnapshot? snapshot, string path)
+    {
+        if (revision != _revision)
+        {
+            return false;
+        }
+        if (snapshot is not null)
+        {
+            CommitSnapshot(snapshot, path);
+        }
+        else
+        {
+            IsIndexing = false;
+            _revision++;
+        }
+        return true;
+    }
+
+    internal void CancelIndexing()
+    {
+        if (IsIndexing)
+        {
+            IsIndexing = false;
+            _revision++;
+        }
     }
 
     public void Commit(string path, bool refresh = false)
@@ -65,7 +127,7 @@ public sealed class ImageBrowseSession
         }
         BrowseSnapshot snapshot = !refresh && _prepared is { } prepared
             && (prepared.IsSelection || StringComparer.OrdinalIgnoreCase.Equals(directory, prepared.Directory))
-            ? prepared : new BrowseSnapshot(directory, Enumerate(directory, fullPath, CancellationToken.None), false);
+            ? prepared : new BrowseSnapshot(directory, _enumerate(directory, fullPath, CancellationToken.None), false);
         CommitSnapshot(snapshot, fullPath);
     }
 
@@ -88,6 +150,8 @@ public sealed class ImageBrowseSession
         CurrentIndex = index;
         _directory = snapshot.Directory;
         IsSelection = snapshot.IsSelection;
+        IsIndexing = false;
+        _hasCompleteIndex = true;
         _prepared = null;
         _revision++;
     }
@@ -98,23 +162,34 @@ public sealed class ImageBrowseSession
         {
             return;
         }
-        long revision = _revision;
+        long revision = ++_revision;
+        IsIndexing = true;
         string? directory = _directory;
         bool isSelection = IsSelection;
         string[] selected = _items;
-        string[] items = await Task.Run(() => isSelection
-            ? selected.Where(item =>
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                return StringComparer.OrdinalIgnoreCase.Equals(item, path) || File.Exists(item);
-            }).ToArray()
-            : Enumerate(directory, path, cancellationToken), cancellationToken);
-        cancellationToken.ThrowIfCancellationRequested();
-        if (revision != _revision)
+        try
         {
-            return;
+            string[] items = await Task.Run(() => isSelection
+                ? selected.Where(item =>
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    return StringComparer.OrdinalIgnoreCase.Equals(item, path) || File.Exists(item);
+                }).ToArray()
+                : _enumerate(directory, path, cancellationToken), cancellationToken);
+            cancellationToken.ThrowIfCancellationRequested();
+            if (revision == _revision)
+            {
+                CommitSnapshot(new BrowseSnapshot(directory, items, isSelection), path);
+            }
         }
-        CommitSnapshot(new BrowseSnapshot(directory, items, isSelection), path);
+        finally
+        {
+            if (revision == _revision)
+            {
+                IsIndexing = false;
+                _revision++;
+            }
+        }
     }
 
     private static string[] Enumerate(string? directory, string? fallback, CancellationToken token)

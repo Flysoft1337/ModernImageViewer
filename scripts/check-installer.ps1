@@ -1,6 +1,7 @@
 #Requires -Version 7.0
 param(
     [Parameter(Mandatory)][string]$InstallerPath,
+    [string]$FixtureDirectory,
     [string]$LogDirectory = (Join-Path $PSScriptRoot "../artifacts/installer-smoke")
 )
 
@@ -15,7 +16,7 @@ $applicationKey = "Software\ModernImageViewer\Installed"
 $progId = "ModernImageViewer.Installed.Image"
 $progIdKey = "Software\Classes\$progId"
 $registeredApplicationsKey = "Software\RegisteredApplications"
-$extensions = @(".jpg", ".jpeg", ".png")
+$extensions = @(".jpg", ".jpeg", ".png", ".bmp", ".gif", ".tif", ".tiff", ".ico", ".webp")
 $foreignCandidate = "ModernImageViewer.InstallerSmoke." + [Guid]::NewGuid().ToString("N")
 $currentUser = [Microsoft.Win32.Registry]::CurrentUser
 $candidateKeys = [Collections.Generic.List[string]]::new()
@@ -103,6 +104,7 @@ function Assert-Registration {
     Assert-Equal (Read-RegistryValue "$progIdKey\shell\open\command" "") ('"' + $executable + '" "%1"') "The installed open command must quote both paths."
     Assert-Equal (Read-RegistryValue "$progIdKey\DefaultIcon" "") ('"' + $executable + '",0') "The installed icon path is incorrect."
     Assert-Equal (Read-RegistryValue "$applicationKey\Capabilities" "ApplicationName") "Modern Image Viewer" "Application capabilities are missing."
+    Assert-Equal (Read-RegistryValue "$applicationKey\Capabilities" "ApplicationDescription") "Browse supported images with Modern Image Viewer." "The capabilities description was not updated."
     Assert-Equal (Read-RegistryValue $registeredApplicationsKey "ModernImageViewer.Installed") "$applicationKey\Capabilities" "RegisteredApplications does not reference the installed capabilities."
     foreach ($extension in $extensions) {
         Assert-Equal (Read-RegistryValue "$applicationKey\Capabilities\FileAssociations" $extension) $progId "A supported format is missing from capabilities."
@@ -179,15 +181,33 @@ try {
     Assert-Equal $marker.distribution "installer" "The installed distribution marker is incorrect."
     Assert-Registration
     $uninstallIdentity = Read-UninstallIdentity
-    & (Join-Path $PSScriptRoot "check-file-activation.ps1") -AppPath $executable
+    & (Join-Path $PSScriptRoot "check-file-activation.ps1") -AppPath $executable -FixtureDirectory $FixtureDirectory
 
     $preferences = Join-Path $directory "custom-user-preferences.json"
     [IO.File]::WriteAllText($preferences, '{"keep":"user data"}')
+    # Reproduce the previous JPEG/PNG-only registry state before repairing it via upgrade.
+    $capabilities = $currentUser.OpenSubKey("$applicationKey\Capabilities", $true)
+    try { $capabilities.SetValue("ApplicationDescription", "Browse JPEG and PNG images with Modern Image Viewer.") }
+    finally { $capabilities.Dispose() }
+    $formats = $currentUser.OpenSubKey("$applicationKey\Capabilities\FileAssociations", $true)
+    try {
+        foreach ($extension in ($extensions | Select-Object -Skip 3)) {
+            $formats.DeleteValue($extension)
+            $key = $currentUser.OpenSubKey("Software\Classes\$extension\OpenWithProgids", $true)
+            try { $key.DeleteValue($progId) }
+            finally { $key.Dispose() }
+        }
+    }
+    finally { $formats.Dispose() }
     Invoke-Setup $installer ($common + @("/LOG=$(Join-Path $logs 'upgrade.log')"))
     Assert-Registration
     Assert-Equal (Read-UninstallIdentity) $uninstallIdentity "Upgrade created a different uninstall identity."
     Assert-Equal ([IO.File]::ReadAllText($preferences)) '{"keep":"user data"}' "Upgrade modified a custom user file."
 
+    # An older description must also be removed; unrelated custom values remain protected.
+    $capabilities = $currentUser.OpenSubKey("$applicationKey\Capabilities", $true)
+    try { $capabilities.SetValue("ApplicationDescription", "Browse JPEG and PNG images with Modern Image Viewer.") }
+    finally { $capabilities.Dispose() }
     Invoke-Setup $uninstaller @("/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/LOG=$(Join-Path $logs 'uninstall.log')")
     if ([IO.File]::Exists($executable)) { throw "Uninstall left the application executable behind." }
     if ([IO.File]::Exists((Join-Path $directory "ModernImageViewer.install.json"))) { throw "Uninstall left the installed distribution marker behind." }
@@ -207,11 +227,11 @@ try {
         finally { if ($null -ne $key) { $key.Dispose() } }
     }
     foreach ($path in $protected.Keys) {
-        $actual = if ($path -match '^Software\\Classes\\\.(jpg|jpeg|png)$') { Read-RegistryValue $path "" } else { Read-RegistrySnapshot $path }
+        $actual = if ($path -match '^Software\\Classes\\\.(jpg|jpeg|png|bmp|gif|tif|tiff|ico|webp)$') { Read-RegistryValue $path "" } else { Read-RegistrySnapshot $path }
         Assert-Equal $actual $protected[$path] "Installation changed an existing default choice or portable identity."
     }
     Assert-Equal (Read-RegistryValue $registeredApplicationsKey "ModernImageViewer.Portable") $portableRegistration "Installation changed the portable RegisteredApplications value."
-    Write-Output "Installer verification passed: current-user install, quoted file activation, same-identity upgrade and clean uninstall; defaults, other candidates and user files were preserved."
+    Write-Output "Installer verification passed: current-user install, quoted file activation, same-version reinstall with legacy JPEG/PNG registry migration and clean uninstall; defaults, other candidates and user files were preserved."
 }
 finally {
     # Only run the uninstaller from our exclusively owned temporary directory.

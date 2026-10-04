@@ -9,6 +9,7 @@ using System.Text.Json;
 
 using Microsoft.Win32;
 
+using ModernImageViewer.Application.Images;
 using ModernImageViewer.Application.Integration;
 
 namespace ModernImageViewer.Platform.Integration;
@@ -25,7 +26,8 @@ public sealed class WindowsFileAssociationService : IFileAssociationService
     private string CapabilitiesKey => ApplicationKey + @"\Capabilities";
     private string ProgIdKey => @"Software\Classes\" + ProgId;
     private const string RegisteredApplicationsKey = @"Software\RegisteredApplications";
-    private static readonly string[] s_extensions = [".jpg", ".jpeg", ".png"];
+    private const string ApplicationDescription = "Browse supported images with Modern Image Viewer.";
+    private const string LegacyApplicationDescription = "Browse JPEG and PNG images with Modern Image Viewer.";
     private static readonly object s_registrationGate = new();
 
     private readonly RegistryKey _registryRoot;
@@ -104,9 +106,9 @@ public sealed class WindowsFileAssociationService : IFileAssociationService
             SetString(ProgIdKey + @"\DefaultIcon", "", Icon(_executablePath));
             SetString(ProgIdKey + @"\shell\open\command", "", Command(_executablePath));
             SetString(CapabilitiesKey, "ApplicationName", ApplicationName);
-            SetString(CapabilitiesKey, "ApplicationDescription", "Browse JPEG and PNG images with Modern Image Viewer.");
+            SetString(CapabilitiesKey, "ApplicationDescription", ApplicationDescription);
             SetString(CapabilitiesKey, "ApplicationIcon", Icon(_executablePath));
-            foreach (string extension in s_extensions)
+            foreach (string extension in SupportedImageFormats.Extensions)
             {
                 SetString(CapabilitiesKey + @"\FileAssociations", extension, ProgId);
                 using RegistryKey candidates = _registryRoot.CreateSubKey(@"Software\Classes\" + extension + @"\OpenWithProgids");
@@ -132,7 +134,7 @@ public sealed class WindowsFileAssociationService : IFileAssociationService
 
             string registeredPath = status.ExecutablePath!;
 
-            foreach (string extension in s_extensions)
+            foreach (string extension in SupportedImageFormats.Extensions)
             {
                 string candidatesPath = @"Software\Classes\" + extension + @"\OpenWithProgids";
                 using (RegistryKey? candidates = _registryRoot.OpenSubKey(candidatesPath, writable: true))
@@ -155,7 +157,8 @@ public sealed class WindowsFileAssociationService : IFileAssociationService
             DeleteMatchingValue(ProgIdKey, "", "Modern Image Viewer image");
             RemovePrivateOwnerIfEmpty(ProgIdKey);
             DeleteMatchingValue(CapabilitiesKey, "ApplicationName", ApplicationName);
-            DeleteMatchingValue(CapabilitiesKey, "ApplicationDescription", "Browse JPEG and PNG images with Modern Image Viewer.");
+            DeleteMatchingValue(CapabilitiesKey, "ApplicationDescription", ApplicationDescription);
+            DeleteMatchingValue(CapabilitiesKey, "ApplicationDescription", LegacyApplicationDescription);
             DeleteMatchingValue(CapabilitiesKey, "ApplicationIcon", Icon(registeredPath));
             DeleteMatchingValue(ApplicationKey, "ExecutablePath", registeredPath);
             RemovePrivateOwnerIfEmpty(ApplicationKey);
@@ -182,7 +185,7 @@ public sealed class WindowsFileAssociationService : IFileAssociationService
         && string.Equals(ReadString(CapabilitiesKey, "ApplicationName"), ApplicationName, StringComparison.Ordinal)
         && string.Equals(ReadString(CapabilitiesKey, "ApplicationIcon"), Icon(path), StringComparison.Ordinal)
         && string.Equals(ReadString(RegisteredApplicationsKey, ApplicationId), CapabilitiesKey, StringComparison.Ordinal)
-        && s_extensions.All(extension =>
+        && SupportedImageFormats.Extensions.All(extension =>
         {
             using RegistryKey? key = _registryRoot.OpenSubKey(@"Software\Classes\" + extension + @"\OpenWithProgids");
             return string.Equals(ReadString(CapabilitiesKey + @"\FileAssociations", extension), ProgId, StringComparison.Ordinal)

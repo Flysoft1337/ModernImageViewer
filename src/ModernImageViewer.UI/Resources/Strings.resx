@@ -23,7 +23,7 @@
   <data name="Command_ZoomIn" xml:space="preserve"><value>Zoom in</value></data>
   <data name="Command_ZoomOut" xml:space="preserve"><value>Zoom out</value></data>
   <data name="Empty_Title" xml:space="preserve"><value>Open an image</value></data>
-  <data name="Empty_Hint" xml:space="preserve"><value>Drop a JPEG or PNG here, or press Ctrl+O</value></data>
+  <data name="Empty_Hint" xml:space="preserve"><value>Drop an image here, or press Ctrl+O</value></data>
   <data name="Status_DimensionsFormat" xml:space="preserve"><value>{0} × {1}</value></data>
   <data name="Status_ZoomFormat" xml:space="preserve"><value>{0:P0}</value></data>
   <data name="Status_PositionFormat" xml:space="preserve"><value>{0} / {1}</value></data>
@@ -71,8 +71,8 @@
   <data name="Exif_OrientationApplied" xml:space="preserve"><value>Auto oriented</value></data>
   <data name="Status_ScanningFolder" xml:space="preserve"><value>Scanning folder…</value></data>
   <data name="Association_Title" xml:space="preserve"><value>Open images with this app</value></data>
-  <data name="Association_Intro" xml:space="preserve"><value>Add JPEG and PNG to Windows Open with, then choose this app as your default image viewer.</value></data>
-  <data name="Association_Formats" xml:space="preserve"><value>Supported image types</value></data>
+  <data name="Association_Intro" xml:space="preserve"><value>Add supported image types to Windows Open with, then choose this app as your default image viewer.</value></data>
+  <data name="Association_Formats" xml:space="preserve"><value>Supported image types · GIF, TIFF and WebP show the first frame</value></data>
   <data name="Association_Registered" xml:space="preserve"><value>Ready in Windows Open with</value></data>
   <data name="Association_NotRegistered" xml:space="preserve"><value>Not registered yet</value></data>
   <data name="Association_OtherLocation" xml:space="preserve"><value>Registered from another location</value></data>

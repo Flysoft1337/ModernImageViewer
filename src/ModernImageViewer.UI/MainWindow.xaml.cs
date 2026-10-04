@@ -12,6 +12,7 @@ using System.Windows.Threading;
 using Microsoft.Win32;
 
 using ModernImageViewer.Application.Browsing;
+using ModernImageViewer.Application.Images;
 using ModernImageViewer.Application.Integration;
 using ModernImageViewer.UI.Controls;
 using ModernImageViewer.UI.Localization;
@@ -34,12 +35,14 @@ public partial class MainWindow : Window
     private double _savedMinHeight;
 
     public MainWindow(MainWindowViewModel viewModel, ThemeService themes,
-        Func<IFileAssociationService>? fileAssociations = null, ILocalizationService? localization = null)
+        Func<IFileAssociationService>? fileAssociations = null, ILocalizationService? localization = null,
+        IThumbnailDecoder? thumbnailDecoder = null)
     {
         _viewModel = viewModel;
         _themes = themes;
         _fileAssociations = fileAssociations;
         _localization = localization;
+        ThumbnailDecoder = thumbnailDecoder;
         _themes.Initialize();
         InitializeComponent();
         DataContext = viewModel;
@@ -61,6 +64,8 @@ public partial class MainWindow : Window
             Viewport.Dispose();
         };
     }
+
+    public IThumbnailDecoder? ThumbnailDecoder { get; }
 
     private void OnFitClick(object sender, RoutedEventArgs e) => Viewport.Fit();
     private void OnActualSizeClick(object sender, RoutedEventArgs e) => Viewport.ActualSize();

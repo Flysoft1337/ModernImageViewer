@@ -13,11 +13,14 @@ namespace ModernImageViewer.UI.ViewModels;
 
 public sealed class MainWindowViewModel : INotifyPropertyChanged, IDisposable
 {
+    private static readonly SemaphoreSlim s_fileInformationGate = new(1, 1);
     private readonly ILocalizationService _localization;
     private readonly ImageOpenCoordinator _coordinator;
     private readonly ImageBrowseSession _browseSession;
     private CancellationTokenSource? _folderCancellation;
     private CancellationTokenSource? _refreshCancellation;
+    private CancellationTokenSource? _fileInformationCancellation;
+    private long _fileInformationVersion;
     private long _inputVersion;
     private bool _disposed;
     private bool _isIndexingFolder;
@@ -56,7 +59,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged, IDisposable
         ? Text("MainWindow_Title")
         : $"{CurrentFileName} — {Text("MainWindow_Title")}";
 
-    public string StatusText => _isIndexingFolder ? Text("Status_ScanningFolder")
+    public string StatusText => _isIndexingFolder || _browseSession.IsIndexing ? Text("Status_ScanningFolder")
         : _messageKey is not null ? Text(_messageKey) : _coordinator.State.Status switch
         {
             ImageOpenStatus.Loading => Text("Status_Loading"),
@@ -110,7 +113,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged, IDisposable
     public string Slideshow5Label => Text("Slideshow_5Seconds");
     public string Slideshow10Label => Text("Slideshow_10Seconds");
     public string SlideshowSpeedLabel => Text("Slideshow_Speed");
-    public bool CanPlaySlideshow => HasImage && _browseSession.Count > 1;
+    public bool CanPlaySlideshow => HasImage && !_browseSession.IsIndexing && _browseSession.Count > 1;
     public IReadOnlyList<MetadataItem> MetadataItems => _metadataItems;
     public bool HasMetadata => _metadataItems.Count > 0;
     public bool IsSlideshowPlaying
@@ -214,11 +217,11 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged, IDisposable
         OnPropertyChanged(nameof(ZoomText));
     }
 
-    public Task<bool> OpenFirstAsync() => _browseSession.Count == 0
+    public Task<bool> OpenFirstAsync() => _browseSession.IsIndexing || _browseSession.Count == 0
         ? Task.FromResult(false)
         : OpenPathAsync(_browseSession.Items[0]);
 
-    public Task<bool> OpenLastAsync() => _browseSession.Count == 0
+    public Task<bool> OpenLastAsync() => _browseSession.IsIndexing || _browseSession.Count == 0
         ? Task.FromResult(false)
         : OpenPathAsync(_browseSession.Items[^1]);
 
@@ -332,15 +335,25 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged, IDisposable
         _refreshCancellation?.Cancel();
         _refreshCancellation?.Dispose();
         _refreshCancellation = new CancellationTokenSource();
+        _coordinator.CancelPendingIndexing();
         try
         {
-            await _browseSession.RefreshAsync(_refreshCancellation.Token);
-            ReadFileInformation();
+            Task refresh = _browseSession.RefreshAsync(_refreshCancellation.Token);
+            NotifyAll();
+            await refresh;
+            await ReadFileInformationAsync();
             UpdateBrowseItems();
             _isSlideshowPlaying = _isSlideshowPlaying && CanPlaySlideshow;
             NotifyAll();
         }
         catch (OperationCanceledException) { }
+        finally
+        {
+            if (!_disposed)
+            {
+                NotifyAll();
+            }
+        }
     }
 
     public Task<bool> AdvanceSlideshowAsync() => !_isSlideshowPlaying || !CanPlaySlideshow || IsLoading
@@ -354,6 +367,9 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged, IDisposable
         _refreshCancellation?.Cancel();
         _refreshCancellation?.Dispose();
         _refreshCancellation = null;
+        _fileInformationCancellation?.Cancel();
+        _fileInformationCancellation?.Dispose();
+        _fileInformationCancellation = null;
         _localization.CultureChanged -= OnCultureChanged;
         _coordinator.PropertyChanged -= OnCoordinatorPropertyChanged;
         GC.SuppressFinalize(this);
@@ -434,20 +450,22 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged, IDisposable
     {
         if (_coordinator.State is { Status: ImageOpenStatus.Loaded, FilePath: not null } state)
         {
-            if (!StringComparer.OrdinalIgnoreCase.Equals(_browseSession.CurrentPath, state.FilePath))
-            {
-                _browseSession.Commit(state.FilePath);
-            }
             UpdateBrowseItems();
-            ReadFileInformation();
-            UpdateMetadataItems();
+            if (e.PropertyName == nameof(ImageOpenCoordinator.State))
+            {
+                _ = ReadFileInformationAsync();
+                UpdateMetadataItems();
+            }
         }
         if (_coordinator.State.Status == ImageOpenStatus.Error)
         {
             _isSlideshowPlaying = false;
         }
 
-        _messageKey = null;
+        if (e.PropertyName == nameof(ImageOpenCoordinator.State))
+        {
+            _messageKey = null;
+        }
 
         NotifyAll();
     }
@@ -462,21 +480,51 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged, IDisposable
             .ToArray();
     }
 
-    private void ReadFileInformation()
+    private async Task ReadFileInformationAsync()
     {
+        _fileInformationCancellation?.Cancel();
+        _fileInformationCancellation?.Dispose();
+        CancellationTokenSource cancellation = new();
+        _fileInformationCancellation = cancellation;
+        CancellationToken token = cancellation.Token;
+        long version = ++_fileInformationVersion;
+        string path = CurrentFilePath;
         _fileLength = null;
         _modified = null;
         try
         {
-            FileInfo file = new(CurrentFilePath);
-            if (file.Exists)
+            await s_fileInformationGate.WaitAsync(token);
+            (long? length, DateTime? modified) information;
+            try
             {
-                _fileLength = file.Length;
-                _modified = file.LastWriteTime;
+                information = await Task.Run(() =>
+                {
+                    FileInfo file = new(path);
+                    return file.Exists ? ((long?)file.Length, (DateTime?)file.LastWriteTime) : (null, null);
+                }, token);
+            }
+            finally
+            {
+                s_fileInformationGate.Release();
+            }
+            if (!_disposed && version == _fileInformationVersion && !token.IsCancellationRequested)
+            {
+                (_fileLength, _modified) = information;
+                OnPropertyChanged(nameof(FileSizeText));
+                OnPropertyChanged(nameof(ModifiedText));
             }
         }
+        catch (OperationCanceledException) when (token.IsCancellationRequested) { }
         catch (IOException) { }
         catch (UnauthorizedAccessException) { }
+        finally
+        {
+            if (ReferenceEquals(_fileInformationCancellation, cancellation))
+            {
+                _fileInformationCancellation = null;
+            }
+            cancellation.Dispose();
+        }
     }
 
     private void UpdateMetadataItems()

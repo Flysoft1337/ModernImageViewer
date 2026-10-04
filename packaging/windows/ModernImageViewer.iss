@@ -43,12 +43,12 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 Name: "chinesesimplified"; MessagesFile: "compiler:Languages\ChineseSimplified.isl"
 
 [CustomMessages]
-english.Associations=Add to Open with for JPEG and PNG images
+english.Associations=Add to Open with for supported image formats
 english.DesktopShortcut=Create a desktop shortcut
 english.OpenViewer=Open Modern Image Viewer
 english.UninstallViewer=Uninstall Modern Image Viewer
 english.AssociationCollision=The Open with registration belongs to another application. Clear the Open with option to continue installing without changing that registration.
-chinesesimplified.Associations=加入 JPEG 和 PNG 图片的“打开方式”候选
+chinesesimplified.Associations=加入支持的图片格式的“打开方式”候选
 chinesesimplified.DesktopShortcut=创建桌面快捷方式
 chinesesimplified.OpenViewer=打开 Modern Image Viewer
 chinesesimplified.UninstallViewer=卸载 Modern Image Viewer
@@ -80,7 +80,8 @@ const
   ApplicationName = 'Modern Image Viewer';
   Owner = 'ModernImageViewer.Installed.v1';
   ImageDescription = 'Modern Image Viewer image';
-  ApplicationDescription = 'Browse JPEG and PNG images with Modern Image Viewer.';
+  ApplicationDescription = 'Browse supported images with Modern Image Viewer.';
+  LegacyApplicationDescription = 'Browse JPEG and PNG images with Modern Image Viewer.';
   RegisteredApplicationsKey = 'Software\RegisteredApplications';
   KeyReadWrite64 = $2011F;
 
@@ -209,6 +210,12 @@ begin
   RegisterExtension('.jpg');
   RegisterExtension('.jpeg');
   RegisterExtension('.png');
+  RegisterExtension('.bmp');
+  RegisterExtension('.gif');
+  RegisterExtension('.tif');
+  RegisterExtension('.tiff');
+  RegisterExtension('.ico');
+  RegisterExtension('.webp');
   WriteString(RegisteredApplicationsKey, ApplicationId, CapabilitiesKey);
   NotifyAssociations($08000000, 0, 0, 0);
 end;
@@ -255,6 +262,12 @@ begin
   UnregisterExtension('.jpg');
   UnregisterExtension('.jpeg');
   UnregisterExtension('.png');
+  UnregisterExtension('.bmp');
+  UnregisterExtension('.gif');
+  UnregisterExtension('.tif');
+  UnregisterExtension('.tiff');
+  UnregisterExtension('.ico');
+  UnregisterExtension('.webp');
   DeleteMatching(RegisteredApplicationsKey, ApplicationId, CapabilitiesKey, False);
   DeleteMatching(ProgIdKey + '\shell\open\command', '', OpenCommand(), True);
   DeleteMatching(ProgIdKey + '\DefaultIcon', '', IconPath(), True);
@@ -264,6 +277,7 @@ begin
   RemovePrivateOwnerIfEmpty(ProgIdKey);
   DeleteMatching(CapabilitiesKey, 'ApplicationName', ApplicationName, True);
   DeleteMatching(CapabilitiesKey, 'ApplicationDescription', ApplicationDescription, True);
+  DeleteMatching(CapabilitiesKey, 'ApplicationDescription', LegacyApplicationDescription, True);
   DeleteMatching(CapabilitiesKey, 'ApplicationIcon', IconPath(), True);
   DeleteMatching(AppKey, 'ExecutablePath', Value, False);
   RemovePrivateOwnerIfEmpty(AppKey);

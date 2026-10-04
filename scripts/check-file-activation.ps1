@@ -1,5 +1,8 @@
 #Requires -Version 7.0
-param([Parameter(Mandatory)][string]$AppPath)
+param(
+    [Parameter(Mandatory)][string]$AppPath,
+    [string]$FixtureDirectory
+)
 
 $ErrorActionPreference = "Stop"
 $executable = (Resolve-Path $AppPath).Path
@@ -38,21 +41,41 @@ try {
     # A generated 1x1 RGBA PNG with valid chunk checksums; no external sample download.
     $png = [Convert]::FromBase64String("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGNImfbrPwAGSgL09Lc0kwAAAABJRU5ErkJggg==")
     $firstName = "初次打开 & (1).png"
-    $secondName = "后续打开 & (2).png"
+    $secondName = "后续打开 & (2).webp"
     $first = Join-Path $directory $firstName
     $second = Join-Path $directory $secondName
     [IO.File]::WriteAllBytes($first, $png)
-    [IO.File]::WriteAllBytes($second, $png)
+    # A valid 2x2 lossless WebP fixture; verifies the bundled native codec in published builds.
+    $webp = [Convert]::FromBase64String("UklGRhwAAABXRUJQVlA4TA8AAAAvAUAAEAcQ/Y8CBiKi/wEA")
+    [IO.File]::WriteAllBytes($second, $webp)
 
     $primary = Start-Viewer @($first)
     Wait-ForImage $primary $firstName
     $secondary = Start-Viewer @($second)
     Assert-Forwarded $secondary
     Wait-ForImage $primary $secondName
+    $currentName = $secondName
+    if ($FixtureDirectory) {
+        $fixturePath = (Resolve-Path $FixtureDirectory).Path
+        $fixtures = @(Get-ChildItem -LiteralPath $fixturePath -File | Sort-Object Name)
+        foreach ($group in @(".jpg;.jpeg", ".png", ".bmp", ".gif", ".tif;.tiff", ".ico", ".webp")) {
+            $extensions = $group.Split(';')
+            if (@($fixtures | Where-Object { $_.Extension.ToLowerInvariant() -in $extensions }).Count -eq 0) {
+                throw "The fixture directory is missing a required format: $group."
+            }
+        }
+        foreach ($fixture in $fixtures) {
+            $secondary = Start-Viewer @($fixture.FullName)
+            Assert-Forwarded $secondary
+            Wait-ForImage $primary $fixture.Name
+            $currentName = $fixture.Name
+        }
+        Write-Output "Published application opened real JPEG, PNG, BMP, GIF, TIFF, ICO and WebP fixtures."
+    }
     $activation = Start-Viewer @()
     Assert-Forwarded $activation
-    Wait-ForImage $primary $secondName
-    Write-Output "Published application opened two images in one primary window; secondary requests exited successfully."
+    Wait-ForImage $primary $currentName
+    Write-Output "PNG and WebP file activation passed in one primary window; secondary requests exited successfully."
 }
 finally {
     foreach ($process in $processes) {

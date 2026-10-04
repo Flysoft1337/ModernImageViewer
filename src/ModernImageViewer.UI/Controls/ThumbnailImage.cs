@@ -4,22 +4,24 @@ using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 
+using ModernImageViewer.Application.Images;
 using ModernImageViewer.Imaging;
 
 namespace ModernImageViewer.UI.Controls;
 
 public sealed class ThumbnailImage : Image, IDisposable
 {
-    private const int CacheCapacity = 24;
-    private static readonly string[] OrientationQueries = ["/app1/ifd/{ushort=274}", "/ifd/{ushort=274}"];
+    private static readonly PixelSize MaximumSize = new(224, 140);
     private static readonly SemaphoreSlim DecodeSlots = new(2);
-    private static readonly Dictionary<string, BitmapSource> Cache = new(StringComparer.OrdinalIgnoreCase);
-    private static readonly Queue<string> CacheOrder = new();
-    private static readonly object CacheLock = new();
+    private static readonly ThumbnailCache<BitmapSource> Cache = new(24, 2 * 1024 * 1024);
     private CancellationTokenSource? _loadCancellation;
+    private int _loadVersion;
 
     public static readonly DependencyProperty FilePathProperty = DependencyProperty.Register(
-        nameof(FilePath), typeof(string), typeof(ThumbnailImage), new PropertyMetadata(null, OnFilePathChanged));
+        nameof(FilePath), typeof(string), typeof(ThumbnailImage), new PropertyMetadata(null, OnInputChanged));
+
+    public static readonly DependencyProperty DecoderProperty = DependencyProperty.Register(
+        nameof(Decoder), typeof(IThumbnailDecoder), typeof(ThumbnailImage), new PropertyMetadata(null, OnInputChanged));
 
     public ThumbnailImage()
     {
@@ -33,17 +35,17 @@ public sealed class ThumbnailImage : Image, IDisposable
         set => SetValue(FilePathProperty, value);
     }
 
-    public static void ClearCache()
+    public IThumbnailDecoder? Decoder
     {
-        lock (CacheLock)
-        {
-            Cache.Clear();
-            CacheOrder.Clear();
-        }
+        get => (IThumbnailDecoder?)GetValue(DecoderProperty);
+        set => SetValue(DecoderProperty, value);
     }
+
+    public static void ClearCache() => Cache.Clear();
 
     public void Dispose()
     {
+        _loadVersion++;
         _loadCancellation?.Cancel();
         _loadCancellation?.Dispose();
         _loadCancellation = null;
@@ -51,127 +53,87 @@ public sealed class ThumbnailImage : Image, IDisposable
         GC.SuppressFinalize(this);
     }
 
-    private static void OnFilePathChanged(DependencyObject sender, DependencyPropertyChangedEventArgs e) =>
+    private static void OnInputChanged(DependencyObject sender, DependencyPropertyChangedEventArgs e) =>
         ((ThumbnailImage)sender).LoadThumbnail();
 
     private async void LoadThumbnail()
     {
         Dispose();
-        if (!IsLoaded || FilePath is not { Length: > 0 } path)
+        if (!IsLoaded || FilePath is not { Length: > 0 } path || Decoder is not { } decoder)
         {
             return;
         }
 
-        lock (CacheLock)
-        {
-            if (Cache.TryGetValue(path, out BitmapSource? cached))
-            {
-                Source = cached;
-                return;
-            }
-        }
-
+        int version = _loadVersion;
         _loadCancellation = new CancellationTokenSource();
         CancellationToken token = _loadCancellation.Token;
         try
         {
-            await DecodeSlots.WaitAsync(token);
-            BitmapSource thumbnail;
-            try
-            {
-                thumbnail = await Task.Run(() => DecodeThumbnail(path, token), token);
-            }
-            finally
-            {
-                DecodeSlots.Release();
-            }
-
+            // File metadata, decoder work and WPF pixel copies all stay off the UI thread.
+            var result = await Task.Run(() => GetThumbnailAsync(path, decoder, token), token);
             token.ThrowIfCancellationRequested();
-            lock (CacheLock)
+            if (IsLoaded && version == _loadVersion && StringComparer.OrdinalIgnoreCase.Equals(path, FilePath)
+                && ReferenceEquals(decoder, Decoder) && Cache.Generation == result.Generation)
             {
-                if (Cache.TryAdd(path, thumbnail))
-                {
-                    CacheOrder.Enqueue(path);
-                    while (Cache.Count > CacheCapacity)
-                    {
-                        Cache.Remove(CacheOrder.Dequeue());
-                    }
-                }
+                Source = result.Source;
             }
-
-            Source = thumbnail;
         }
         catch (OperationCanceledException) { }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException
-            or NotSupportedException or ArgumentException or FormatException
+            or NotSupportedException or ArgumentException or FormatException or ImageDecodeException
             or System.Runtime.InteropServices.COMException or ImageSizeLimitExceededException)
         {
-            // The tile keeps its placeholder. Opening the file still reports the normal error.
+            // Keep the tile placeholder; opening the file reports its decoding error.
         }
     }
 
-    private static BitmapSource DecodeThumbnail(string path, CancellationToken token)
+    private static async Task<(BitmapSource Source, long Generation)> GetThumbnailAsync(
+        string path, IThumbnailDecoder decoder, CancellationToken token)
     {
         token.ThrowIfCancellationRequested();
-        using FileStream stream = new(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
-        BitmapDecoder decoder = BitmapDecoder.Create(stream, BitmapCreateOptions.DelayCreation, BitmapCacheOption.None);
-        if (decoder is not (JpegBitmapDecoder or PngBitmapDecoder))
+        long generation = Cache.Generation;
+        ThumbnailCacheKey key = ReadFileStamp(path);
+        if (Cache.TryGet(key, out BitmapSource? cached))
         {
-            throw new NotSupportedException("Only JPEG and PNG thumbnails are supported.");
+            token.ThrowIfCancellationRequested();
+            return (cached!, generation);
         }
 
-        if (decoder.Frames.Count == 0)
-        {
-            throw new FileFormatException();
-        }
-
-        BitmapFrame frame = decoder.Frames[0];
-        ImageDecodeLimits.Default.ValidateAndGetStride(new PixelSize(frame.PixelWidth, frame.PixelHeight));
-
-        ushort orientation = 1;
+        await DecodeSlots.WaitAsync(token).ConfigureAwait(false);
         try
         {
-            if (frame.Metadata is BitmapMetadata metadata)
+            token.ThrowIfCancellationRequested();
+            if (Cache.TryGet(key, out cached))
             {
-                foreach (string query in OrientationQueries)
-                {
-                    try
-                    {
-                        if (metadata.GetQuery(query) is ushort number && number is >= 1 and <= 8)
-                        {
-                            orientation = number;
-                            break;
-                        }
-                    }
-                    catch (Exception exception) when (exception is NotSupportedException or ArgumentException
-                        or InvalidOperationException or IOException or System.Runtime.InteropServices.COMException)
-                    { }
-                }
+                return (cached!, generation);
             }
-        }
-        catch (Exception exception) when (exception is NotSupportedException or ArgumentException
-            or InvalidOperationException or IOException or System.Runtime.InteropServices.COMException)
-        { }
 
-        stream.Position = 0;
-        BitmapImage image = new();
-        image.BeginInit();
-        image.CacheOption = BitmapCacheOption.OnLoad;
-        image.StreamSource = stream;
-        double displayWidth = orientation >= 5 ? frame.PixelHeight : frame.PixelWidth;
-        double displayHeight = orientation >= 5 ? frame.PixelWidth : frame.PixelHeight;
-        double scale = Math.Min(1, Math.Min(224 / displayWidth, 140 / displayHeight));
-        image.DecodePixelWidth = Math.Max(1, (int)Math.Floor(frame.PixelWidth * scale));
-        image.EndInit();
-        image.Freeze();
-        token.ThrowIfCancellationRequested();
-        if (orientation == 1)
-        {
-            return image;
+            using PixelBuffer pixels = await decoder.DecodeThumbnailAsync(path, MaximumSize, token).ConfigureAwait(false);
+            token.ThrowIfCancellationRequested();
+            byte[] copy = pixels.Pixels.ToArray();
+            BitmapSource thumbnail = BitmapSource.Create(pixels.Size.Width, pixels.Size.Height, 96, 96,
+                PixelFormats.Pbgra32, null, copy, pixels.Stride);
+            thumbnail.Freeze();
+            token.ThrowIfCancellationRequested();
+
+            // A changed file or an F5 cache clear must not be repopulated by an old decode.
+            if (key == ReadFileStamp(path))
+            {
+                long pixelBytes = checked((long)pixels.Size.Width * pixels.Size.Height * 4);
+                Cache.Store(key, thumbnail, pixelBytes, generation);
+            }
+
+            return (thumbnail, generation);
         }
-        var matrix = ImageOrientation.GetMatrix(orientation);
-        TransformedBitmap oriented = new(image, new MatrixTransform(matrix.M11, matrix.M12, matrix.M21, matrix.M22, 0, 0));
-        oriented.Freeze();
-        return oriented;
+        finally
+        {
+            DecodeSlots.Release();
+        }
+    }
+
+    private static ThumbnailCacheKey ReadFileStamp(string path)
+    {
+        FileInfo file = new(path);
+        return new ThumbnailCacheKey(file.FullName, file.LastWriteTimeUtc.Ticks, file.Length);
     }
 }

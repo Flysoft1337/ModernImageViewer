@@ -23,7 +23,7 @@
   <data name="Command_ZoomIn" xml:space="preserve"><value>放大</value></data>
   <data name="Command_ZoomOut" xml:space="preserve"><value>缩小</value></data>
   <data name="Empty_Title" xml:space="preserve"><value>打开图片</value></data>
-  <data name="Empty_Hint" xml:space="preserve"><value>将 JPEG 或 PNG 拖放到此处，或按 Ctrl+O</value></data>
+  <data name="Empty_Hint" xml:space="preserve"><value>将图片拖放到此处，或按 Ctrl+O</value></data>
   <data name="Status_DimensionsFormat" xml:space="preserve"><value>{0} × {1}</value></data>
   <data name="Status_ZoomFormat" xml:space="preserve"><value>{0:P0}</value></data>
   <data name="Status_PositionFormat" xml:space="preserve"><value>{0} / {1}</value></data>
@@ -71,8 +71,8 @@
   <data name="Exif_OrientationApplied" xml:space="preserve"><value>已自动纠正</value></data>
   <data name="Status_ScanningFolder" xml:space="preserve"><value>正在扫描文件夹…</value></data>
   <data name="Association_Title" xml:space="preserve"><value>用此应用打开图片</value></data>
-  <data name="Association_Intro" xml:space="preserve"><value>将 JPEG 和 PNG 加入 Windows“打开方式”，再选择此应用作为默认图片查看器。</value></data>
-  <data name="Association_Formats" xml:space="preserve"><value>支持的图片类型</value></data>
+  <data name="Association_Intro" xml:space="preserve"><value>将支持的图片格式加入 Windows“打开方式”，再选择此应用作为默认图片查看器。</value></data>
+  <data name="Association_Formats" xml:space="preserve"><value>支持的图片类型 · GIF、TIFF 和 WebP 显示首帧</value></data>
   <data name="Association_Registered" xml:space="preserve"><value>已加入 Windows 打开方式</value></data>
   <data name="Association_NotRegistered" xml:space="preserve"><value>尚未注册打开方式</value></data>
   <data name="Association_OtherLocation" xml:space="preserve"><value>已从其他位置注册</value></data>
