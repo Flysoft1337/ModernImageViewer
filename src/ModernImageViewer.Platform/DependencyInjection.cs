@@ -1,8 +1,10 @@
 using Microsoft.Extensions.DependencyInjection;
 
 using ModernImageViewer.Application.Images;
+using ModernImageViewer.Application.Integration;
 using ModernImageViewer.Application.Settings;
 using ModernImageViewer.Platform.Files;
+using ModernImageViewer.Platform.Integration;
 using ModernImageViewer.Platform.Settings;
 
 namespace ModernImageViewer.Platform;
@@ -13,6 +15,8 @@ public static class DependencyInjection
     {
         services.AddSingleton<IUserSettingsService, UserSettingsService>();
         services.AddSingleton<IImageFilePicker, WindowsImageFilePicker>();
+        services.AddSingleton<IFileAssociationService, WindowsFileAssociationService>();
+        services.AddSingleton<Func<IFileAssociationService>>(provider => provider.GetRequiredService<IFileAssociationService>);
         return services;
     }
 }

@@ -3,6 +3,7 @@ using System.IO;
 
 using ModernImageViewer.Application.Browsing;
 using ModernImageViewer.Application.Images;
+using ModernImageViewer.Application.Integration;
 using ModernImageViewer.Imaging;
 using ModernImageViewer.UI.Commands;
 using ModernImageViewer.UI.Localization;
@@ -134,6 +135,9 @@ public sealed class MainWindowViewModelTests
                 using Themes.ThemeService themes = new();
                 MainWindowViewModel viewModel = new(new TestLocalization(), coordinator, new ImageBrowseSession());
                 MainWindow window = new(viewModel, themes);
+                FileAssociationWindow associations = new(new NoopFileAssociations(), new TestLocalization());
+                associations.Measure(new System.Windows.Size(620, 650));
+                associations.Arrange(new System.Windows.Rect(0, 0, 620, 650));
                 window.Measure(new System.Windows.Size(1280, 820));
                 window.Arrange(new System.Windows.Rect(0, 0, 1280, 820));
                 Controls.ImageViewport viewport = (Controls.ImageViewport)window.FindName("Viewport");
@@ -142,9 +146,11 @@ public sealed class MainWindowViewModelTests
                 {
                     themes.Apply(theme);
                     Assert.IsType<System.Windows.Media.SolidColorBrush>(window.FindResource("CanvasBrush"));
+                    Assert.IsType<System.Windows.Media.SolidColorBrush>(associations.FindResource("SurfaceBrush"));
                     Assert.Equal(theme, themes.CurrentTheme);
                 }
                 window.Close();
+                associations.Close();
             }
             catch (Exception exception)
             {
@@ -163,6 +169,14 @@ public sealed class MainWindowViewModelTests
         {
             System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(failure).Throw();
         }
+    }
+
+    private sealed class NoopFileAssociations : IFileAssociationService
+    {
+        public FileAssociationStatus ReadStatus() => new(false, false, null, false);
+        public void Register() { }
+        public void Unregister() { }
+        public void OpenDefaultAppsSettings() { }
     }
 
     private sealed class FixedFilePicker(string? path) : IImageFilePicker

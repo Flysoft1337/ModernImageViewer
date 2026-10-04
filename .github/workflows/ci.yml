@@ -93,6 +93,10 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
+      - name: Check published application file activation
+        shell: pwsh
+        run: .\scripts\check-file-activation.ps1 -AppPath .\artifacts\publish\win-x64\ModernImageViewer.App.exe
+
       - name: Upload win-x64 application
         uses: actions/upload-artifact@v7
         with:
