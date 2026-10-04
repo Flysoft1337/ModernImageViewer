@@ -27,4 +27,28 @@
   <data name="Status_DimensionsFormat" xml:space="preserve"><value>{0} × {1}</value></data>
   <data name="Status_ZoomFormat" xml:space="preserve"><value>{0:P0}</value></data>
   <data name="Status_PositionFormat" xml:space="preserve"><value>{0} / {1}</value></data>
+  <data name="Welcome_Title" xml:space="preserve"><value>每一张图片，都值得细看</value></data>
+  <data name="Welcome_Hint" xml:space="preserve"><value>拖入一张图片，或打开图片开始浏览整个文件夹</value></data>
+  <data name="Command_FullScreen" xml:space="preserve"><value>全屏浏览 · F11</value></data>
+  <data name="Command_Information" xml:space="preserve"><value>图片信息</value></data>
+  <data name="Command_Filmstrip" xml:space="preserve"><value>缩略图带</value></data>
+  <data name="Command_CopyPath" xml:space="preserve"><value>复制文件路径</value></data>
+  <data name="Command_Refresh" xml:space="preserve"><value>刷新文件夹</value></data>
+  <data name="Appearance_Label" xml:space="preserve"><value>外观</value></data>
+  <data name="Theme_Dark" xml:space="preserve"><value>深色画廊</value></data>
+  <data name="Theme_Light" xml:space="preserve"><value>浅色</value></data>
+  <data name="Theme_System" xml:space="preserve"><value>跟随系统</value></data>
+  <data name="Information_FileName" xml:space="preserve"><value>文件名</value></data>
+  <data name="Information_Folder" xml:space="preserve"><value>所在文件夹</value></data>
+  <data name="Information_Format" xml:space="preserve"><value>格式</value></data>
+  <data name="Information_Dimensions" xml:space="preserve"><value>图片尺寸</value></data>
+  <data name="Information_FileSize" xml:space="preserve"><value>文件大小</value></data>
+  <data name="Information_Modified" xml:space="preserve"><value>修改时间</value></data>
+  <data name="Navigation_Hint" xml:space="preserve"><value>← → 切换  ·  滚轮缩放  ·  F11 全屏</value></data>
+  <data name="Browsing_CountFormat" xml:space="preserve"><value>文件夹中共 {0} 张图片</value></data>
+  <data name="Window_Minimize" xml:space="preserve"><value>最小化</value></data>
+  <data name="Window_Maximize" xml:space="preserve"><value>最大化 / 还原</value></data>
+  <data name="Window_Close" xml:space="preserve"><value>关闭</value></data>
+  <data name="Status_PathCopied" xml:space="preserve"><value>已复制文件路径</value></data>
+  <data name="Error_ClipboardBusy" xml:space="preserve"><value>剪贴板暂时不可用，请稍后重试</value></data>
 </root>

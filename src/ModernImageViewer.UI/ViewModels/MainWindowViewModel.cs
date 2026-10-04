@@ -18,6 +18,13 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     private readonly ImageBrowseSession _browseSession;
     private SupportedLanguage _selectedLanguage;
     private double _scale = 1;
+    private bool _showInformation;
+    private bool _isFullScreen;
+    private bool _showFilmstrip = true;
+    private long? _fileLength;
+    private DateTime? _modified;
+    private string? _messageKey;
+    private IReadOnlyList<BrowseItem> _browseItems = [];
 
     public MainWindowViewModel(
         ILocalizationService localization,
@@ -45,7 +52,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     {
         ImageOpenStatus.Loading => Text("Status_Loading"),
         ImageOpenStatus.Error => Text($"Error_{_coordinator.State.Error}"),
-        _ => string.Empty,
+        _ => _messageKey is null ? string.Empty : Text(_messageKey),
     };
 
     public string CurrentFileName => _coordinator.State.FilePath is null
@@ -72,6 +79,64 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     public string ZoomOutLabel => Text("Command_ZoomOut");
     public string EmptyTitle => Text("Empty_Title");
     public string EmptyHint => Text("Empty_Hint");
+    public string MinimizeLabel => Text("Window_Minimize");
+    public string MaximizeLabel => Text("Window_Maximize");
+    public string CloseLabel => Text("Window_Close");
+    public bool HasStatusMessage => !IsLoading && StatusText.Length > 0;
+    public bool IsFullScreen
+    {
+        get => _isFullScreen;
+        set { _isFullScreen = value; OnPropertyChanged(); }
+    }
+    public string AppName => Text("MainWindow_Title");
+    public string WelcomeTitle => Text("Welcome_Title");
+    public string WelcomeHint => Text("Welcome_Hint");
+    public string FullScreenLabel => Text("Command_FullScreen");
+    public string InformationLabel => Text("Command_Information");
+    public string FilmstripLabel => Text("Command_Filmstrip");
+    public string CopyPathLabel => Text("Command_CopyPath");
+    public string RefreshLabel => Text("Command_Refresh");
+    public string AppearanceLabel => Text("Appearance_Label");
+    public string DarkThemeLabel => Text("Theme_Dark");
+    public string LightThemeLabel => Text("Theme_Light");
+    public string SystemThemeLabel => Text("Theme_System");
+    public string FileNameLabel => Text("Information_FileName");
+    public string FolderLabel => Text("Information_Folder");
+    public string FormatLabel => Text("Information_Format");
+    public string DimensionsLabel => Text("Information_Dimensions");
+    public string FileSizeLabel => Text("Information_FileSize");
+    public string ModifiedLabel => Text("Information_Modified");
+    public string KeyboardHint => Text("Navigation_Hint");
+    public string CurrentFilePath => _coordinator.State.FilePath ?? string.Empty;
+    public string DirectoryPath => Path.GetDirectoryName(CurrentFilePath) ?? string.Empty;
+    public string DirectoryName => Path.GetFileName(DirectoryPath) is { Length: > 0 } name ? name : DirectoryPath;
+    public string FormatText => HasImage ? Path.GetExtension(CurrentFilePath).TrimStart('.').ToUpperInvariant() : "—";
+    public string FileSizeText => _fileLength is { } length ? FormatFileSize(length) : "—";
+    public string ModifiedText => _modified?.ToString("g", _localization.CurrentCulture) ?? "—";
+    public string FolderImagesText => string.Format(_localization.CurrentCulture, Text("Browsing_CountFormat"), _browseSession.Count);
+    public IReadOnlyList<BrowseItem> BrowseItems => _browseItems;
+    public bool IsFilmstripVisible => HasImage && _showFilmstrip && _browseSession.Count > 1;
+
+    public bool ShowInformation
+    {
+        get => _showInformation;
+        set
+        {
+            _showInformation = value;
+            OnPropertyChanged();
+        }
+    }
+
+    public bool ShowFilmstrip
+    {
+        get => _showFilmstrip;
+        set
+        {
+            _showFilmstrip = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(IsFilmstripVisible));
+        }
+    }
 
     public PixelBuffer? CurrentImage => _coordinator.State.Image;
     public bool HasImage => CurrentImage is not null;
@@ -110,6 +175,34 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         OnPropertyChanged(nameof(ZoomText));
     }
 
+    public Task<bool> OpenFirstAsync() => _browseSession.Count == 0
+        ? Task.FromResult(false)
+        : OpenPathAsync(_browseSession.Items[0]);
+
+    public Task<bool> OpenLastAsync() => _browseSession.Count == 0
+        ? Task.FromResult(false)
+        : OpenPathAsync(_browseSession.Items[^1]);
+
+    public void RefreshFolder()
+    {
+        if (!HasImage)
+        {
+            return;
+        }
+
+        _browseSession.Commit(CurrentFilePath, refresh: true);
+        ReadFileInformation();
+        UpdateBrowseItems();
+        NotifyAll();
+    }
+
+    public void ShowMessage(string? resourceKey)
+    {
+        _messageKey = resourceKey;
+        OnPropertyChanged(nameof(StatusText));
+        OnPropertyChanged(nameof(HasStatusMessage));
+    }
+
     private async Task MovePreviousAsync()
     {
         string? path = _browseSession.GetPreviousPath();
@@ -139,9 +232,54 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         if (_coordinator.State is { Status: ImageOpenStatus.Loaded, FilePath: not null } state)
         {
             _browseSession.Commit(state.FilePath);
+            UpdateBrowseItems();
+            ReadFileInformation();
         }
 
+        _messageKey = null;
+
         NotifyAll();
+    }
+
+    private void UpdateBrowseItems()
+    {
+        // Keep the strip bounded, including at the beginning and end of a directory.
+        const int visibleCount = 9;
+        int start = Math.Clamp(_browseSession.CurrentIndex - (visibleCount / 2), 0, Math.Max(0, _browseSession.Count - visibleCount));
+        _browseItems = _browseSession.Items.Skip(start).Take(visibleCount)
+            .Select((path, offset) => new BrowseItem(path, start + offset, start + offset == _browseSession.CurrentIndex))
+            .ToArray();
+    }
+
+    private void ReadFileInformation()
+    {
+        _fileLength = null;
+        _modified = null;
+        try
+        {
+            FileInfo file = new(CurrentFilePath);
+            if (file.Exists)
+            {
+                _fileLength = file.Length;
+                _modified = file.LastWriteTime;
+            }
+        }
+        catch (IOException) { }
+        catch (UnauthorizedAccessException) { }
+    }
+
+    private string FormatFileSize(long length)
+    {
+        string[] units = ["B", "KB", "MB", "GB"];
+        double size = length;
+        int unit = 0;
+        while (size >= 1024 && unit < units.Length - 1)
+        {
+            size /= 1024;
+            unit++;
+        }
+
+        return string.Format(_localization.CurrentCulture, "{0:0.#} {1}", size, units[unit]);
     }
 
     private void NotifyAll()

@@ -12,6 +12,7 @@ namespace ModernImageViewer.UI.Tests;
 
 public sealed class MainWindowViewModelTests
 {
+    private static readonly string[] ThemeResourceFiles = ["Colors.xaml", "Controls.xaml", "Icons.xaml"];
     [Fact]
     public async Task PickerOpenEstablishesBrowsingAndNavigatesBothDirections()
     {
@@ -84,6 +85,57 @@ public sealed class MainWindowViewModelTests
         Assert.True(viewModel.CanMovePrevious);
         Assert.True(viewModel.CanMoveNext);
         Assert.Equal(fails ? ImageOpenStatus.Error : ImageOpenStatus.Loaded, coordinator.State.Status);
+    }
+
+    [Fact]
+    public void WindowResourcesLoadAndThemesSwitch()
+    {
+        Exception? failure = null;
+        Thread thread = new(() =>
+        {
+            System.Windows.Application app = new() { ShutdownMode = System.Windows.ShutdownMode.OnExplicitShutdown };
+            try
+            {
+                foreach (string file in ThemeResourceFiles)
+                {
+                    app.Resources.MergedDictionaries.Add(new System.Windows.ResourceDictionary
+                    {
+                        Source = new Uri($"pack://application:,,,/ModernImageViewer.UI;component/Themes/{file}"),
+                    });
+                }
+                app.Resources.Add("BooleanToVisibilityConverter", new System.Windows.Controls.BooleanToVisibilityConverter());
+                app.Resources.Add("InverseBooleanToVisibilityConverter", new Converters.InverseBooleanToVisibilityConverter());
+                using ImageOpenCoordinator coordinator = new(new FixedFilePicker(null), new SuccessfulDecoder());
+                using Themes.ThemeService themes = new();
+                MainWindowViewModel viewModel = new(new TestLocalization(), coordinator, new ImageBrowseSession());
+                MainWindow window = new(viewModel, themes);
+                window.Measure(new System.Windows.Size(1280, 820));
+                window.Arrange(new System.Windows.Rect(0, 0, 1280, 820));
+                foreach (Themes.AppTheme theme in Enum.GetValues<Themes.AppTheme>())
+                {
+                    themes.Apply(theme);
+                    Assert.IsType<System.Windows.Media.SolidColorBrush>(window.FindResource("CanvasBrush"));
+                    Assert.Equal(theme, themes.CurrentTheme);
+                }
+                window.Close();
+            }
+            catch (Exception exception)
+            {
+                failure = exception;
+            }
+            finally
+            {
+                app.Shutdown();
+            }
+        });
+        thread.IsBackground = true;
+        thread.SetApartmentState(ApartmentState.STA);
+        thread.Start();
+        Assert.True(thread.Join(TimeSpan.FromSeconds(20)), "Window loading timed out.");
+        if (failure is not null)
+        {
+            System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(failure).Throw();
+        }
     }
 
     private sealed class FixedFilePicker(string? path) : IImageFilePicker

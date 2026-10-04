@@ -10,12 +10,15 @@ public sealed class ImageBrowseSession
     };
 
     private string[] _items = [];
+    private string? _directory;
 
     public string? CurrentPath { get; private set; }
 
     public int CurrentIndex { get; private set; } = -1;
 
     public int Count => _items.Length;
+
+    public IReadOnlyList<string> Items => _items;
 
     public bool CanMovePrevious => CurrentIndex > 0;
 
@@ -27,10 +30,21 @@ public sealed class ImageBrowseSession
 
     public string? GetNextPath() => CanMoveNext ? _items[CurrentIndex + 1] : null;
 
-    public void Commit(string path)
+    public void Commit(string path, bool refresh = false)
     {
         string fullPath = Path.GetFullPath(path);
         string? directory = Path.GetDirectoryName(fullPath);
+
+        if (!refresh && StringComparer.OrdinalIgnoreCase.Equals(directory, _directory))
+        {
+            int existingIndex = FindIndex(fullPath);
+            if (existingIndex >= 0)
+            {
+                CurrentPath = fullPath;
+                CurrentIndex = existingIndex;
+                return;
+            }
+        }
 
         try
         {
@@ -38,7 +52,7 @@ public sealed class ImageBrowseSession
                 ? [fullPath]
                 : Directory.EnumerateFiles(directory)
                     .Where(IsSupported)
-                    .OrderBy(Path.GetFileName, StringComparer.OrdinalIgnoreCase)
+                    .OrderBy(Path.GetFileName, NaturalFileNameComparer.Instance)
                     .ToArray();
         }
         catch (IOException)
@@ -59,6 +73,7 @@ public sealed class ImageBrowseSession
 
         CurrentPath = fullPath;
         CurrentIndex = index;
+        _directory = directory;
     }
 
     private int FindIndex(string path)
