@@ -50,6 +50,7 @@ public sealed class ImagePipelineTests
                 }
             }
             BitmapSource source = BitmapSource.Create(80, 60, 96, 96, PixelFormats.Bgra32, null, pixels, 80 * 4);
+            source.Freeze();
             WicImageDecoder decoder = new();
             for (ushort orientation = 1; orientation <= 8; orientation++)
             {

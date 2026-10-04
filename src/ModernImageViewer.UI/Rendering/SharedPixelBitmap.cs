@@ -10,6 +10,7 @@ public static class SharedPixelBitmap
 {
     private static readonly SKBitmapReleaseDelegate ReleasePixels = (_, context) => ((PinnedPixels)context).Dispose();
 
+    // Rendering view only: the storage belongs to PixelBuffer and must not be mutated.
     public static SKBitmap Create(PixelBuffer image)
     {
         ArgumentNullException.ThrowIfNull(image);
@@ -18,10 +19,11 @@ public static class SharedPixelBitmap
             throw new InvalidOperationException("An array-backed pixel buffer is required.");
         }
 
-        PinnedPixels pin = new(pixels.Array, pixels.Offset);
         SKBitmap bitmap = new();
+        PinnedPixels? pin = null;
         try
         {
+            pin = new PinnedPixels(pixels.Array, pixels.Offset);
             SKImageInfo info = new(image.Size.Width, image.Size.Height, SKColorType.Bgra8888, SKAlphaType.Premul);
             if (!bitmap.InstallPixels(info, pin.Address, image.Stride, ReleasePixels, pin))
             {
@@ -32,7 +34,7 @@ public static class SharedPixelBitmap
         catch
         {
             bitmap.Dispose();
-            pin.Dispose();
+            pin?.Dispose();
             throw;
         }
     }
