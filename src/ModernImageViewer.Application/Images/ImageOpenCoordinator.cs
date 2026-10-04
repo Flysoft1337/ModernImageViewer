@@ -9,6 +9,7 @@ public sealed class ImageOpenCoordinator(IImageFilePicker filePicker, IImageDeco
 {
     private CancellationTokenSource? _openCancellation;
     private long _requestVersion;
+    private bool _disposed;
     private ImageOpenState _state = new(ImageOpenStatus.Empty);
 
     public event PropertyChangedEventHandler? PropertyChanged;
@@ -25,6 +26,7 @@ public sealed class ImageOpenCoordinator(IImageFilePicker filePicker, IImageDeco
 
     public async Task PickAndOpenAsync(CancellationToken cancellationToken = default)
     {
+        ObjectDisposedException.ThrowIf(_disposed, this);
         string? path = await filePicker.PickImageAsync(cancellationToken);
         if (path is not null)
         {
@@ -34,6 +36,7 @@ public sealed class ImageOpenCoordinator(IImageFilePicker filePicker, IImageDeco
 
     public async Task<bool> OpenAsync(string path, CancellationToken cancellationToken = default)
     {
+        ObjectDisposedException.ThrowIf(_disposed, this);
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
 
         long version = Interlocked.Increment(ref _requestVersion);
@@ -69,15 +72,26 @@ public sealed class ImageOpenCoordinator(IImageFilePicker filePicker, IImageDeco
 
             return false;
         }
-        catch (Exception exception) when (version == Volatile.Read(ref _requestVersion))
+        catch (Exception exception)
         {
-            State = new(ImageOpenStatus.Error, previous.Image, previous.FilePath, path, MapError(exception));
+            if (version == Volatile.Read(ref _requestVersion))
+            {
+                State = new(ImageOpenStatus.Error, previous.Image, previous.FilePath, path, MapError(exception));
+            }
+
             return false;
         }
     }
 
     public void Dispose()
     {
+        if (_disposed)
+        {
+            return;
+        }
+
+        _disposed = true;
+        Interlocked.Increment(ref _requestVersion);
         _openCancellation?.Cancel();
         _openCancellation?.Dispose();
         State.Image?.Dispose();
