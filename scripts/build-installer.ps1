@@ -143,7 +143,18 @@ if ($LASTEXITCODE -ne 0 -or -not (Test-Path $expectedInstaller -PathType Leaf)) 
 $hash = (Get-FileHash $expectedInstaller -Algorithm SHA256).Hash.ToLowerInvariant()
 [IO.File]::WriteAllText("$expectedInstaller.sha256", "$hash  $([IO.Path]::GetFileName($expectedInstaller))`n", [Text.UTF8Encoding]::new($false))
 $portableArchive = Join-Path $OutputDirectory "ModernImageViewer-$version-win-x64-Portable.zip"
-Compress-Archive -Path (Join-Path $PublishDirectory "*") -DestinationPath $portableArchive -CompressionLevel Optimal -Force
+if (Test-Path $portableArchive) { Remove-Item $portableArchive }
+$archive = [IO.Compression.ZipFile]::Open($portableArchive, [IO.Compression.ZipArchiveMode]::Create)
+try {
+    foreach ($file in [IO.Directory]::EnumerateFiles($PublishDirectory, "*", [IO.SearchOption]::AllDirectories)) {
+        # Match the installer: debugger symbols are unnecessary for running the portable application.
+        if ([IO.Path]::GetExtension($file) -ieq ".pdb") { continue }
+        $relativePath = [IO.Path]::GetRelativePath($PublishDirectory, $file).Replace('\', '/')
+        [IO.Compression.ZipFileExtensions]::CreateEntryFromFile($archive, $file, $relativePath,
+            [IO.Compression.CompressionLevel]::Optimal) | Out-Null
+    }
+}
+finally { $archive.Dispose() }
 $portableHash = (Get-FileHash $portableArchive -Algorithm SHA256).Hash.ToLowerInvariant()
 [IO.File]::WriteAllText("$portableArchive.sha256", "$portableHash  $([IO.Path]::GetFileName($portableArchive))`n", [Text.UTF8Encoding]::new($false))
 Write-Output "Installer: $expectedInstaller"

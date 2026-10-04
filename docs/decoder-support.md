@@ -1,51 +1,66 @@
 # 解码器与图片格式支持
 
-> 核对日期：2026-10-04；分发版本：0.2.0。以下支持范围来自当前代码，不将项目计划或 Windows 已安装的额外 codec 当成应用能力。
+> 核对日期：2026-10-04；本轮分发版本：0.3.0。以下支持范围按本轮实际接入的 codec 记录，不将项目目标或系统另装的 codec 当成应用能力；构建、固定样本和安装结果见本轮交付 PR/CI。
 
 ## 实际解码与绘制路径
 
-主图唯一启用的 `IImageDecoder` 是 `WicImageDecoder`，通过 WPF `BitmapDecoder` 使用 Windows Imaging Component（WIC）。读取实际容器 GUID 后，只接受 JPEG 和 PNG，再取第一帧、读取可用 EXIF、纠正方向并转换为 `Pbgra32` 像素。主图在后台解码，同一时间最多一个全尺寸解码；排队和结果提交支持取消，已经执行的原生 WIC 调用不保证立即中断。
+JPEG、PNG、BMP、GIF、TIFF、ICO 使用 Windows Imaging Component（WIC），通过 WPF `BitmapDecoder` 读取实际容器后取第一帧。WebP 使用已有 SkiaSharp 4.153.1 的 `SKCodec`，核对实际容器后解码首帧；不要求用户另装系统 WebP 扩展。所有格式均输出预乘 Alpha 的 8-bit BGRA 供 SkiaSharp 画布绘制。WIC 路径读取可用 EXIF 后纠正方向；WebP 的 EXIF/ICC 尚未统一读取，不承诺自动方向纠正或拍摄信息。两条路径都不修改原文件。
 
-缩略图使用 WPF/WIC 的 JPEG/PNG 路径，先降采样，再应用 EXIF 方向。SkiaSharp 4.153.1 负责画布绘制和共享解码像素，不负责本应用的文件解码。libvips、LibRaw 和 MetadataExtractor 尚未接入；当前元数据读取来自 WIC，`Metadata` 工程的存在不代表已有独立元数据引擎。
+主图在后台解码，同一时间最多一个全尺寸解码；排队和结果提交支持取消，已经执行的原生 codec 调用不保证立即中断。缩略图复用格式识别和方向处理，按 224×140 目标先降采样，不通过主图完整像素缓冲生成。SkiaSharp 本轮既负责 WebP 解码，也负责全部格式的绘制。libvips、LibRaw 和 MetadataExtractor 尚未接入，元数据可用程度取决于对应 codec；`Metadata` 工程存在不代表已有独立元数据引擎。
 
 ## 当前能力表
 
-| 格式 | 文件扩展名 | 主图 | 缩略图 / 目录浏览 | 安装版与便携版打开方式 | 边界 |
-|---|---|---|---|---|---|
-| JPEG | `.jpg`、`.jpeg` | 支持 | 支持 | 支持候选注册 | 静态首帧；可用的常见 EXIF 字段与 8 种 Orientation；不承诺 CMYK/广色域的色彩准确性 |
-| PNG | `.png` | 支持 | 支持 | 支持候选注册 | 静态首帧、透明像素；16-bit 输入最终转换为 8-bit 通道；不提供 APNG 动画播放 |
-| BMP、GIF、TIFF、WebP、ICO | 相应扩展名 | 未启用 | 未启用 | 不注册 | 即使 Windows WIC 能解码，也会被当前应用容器白名单拒绝；无动画或多页浏览 |
-| HEIF/HEIC、AVIF | 相应扩展名 | 未实现 | 未实现 | 不注册 | 不依赖用户安装系统扩展来宣称支持；后续需验证 codec 与分发方式 |
-| RAW、SVG | 相应扩展名 | 未实现 | 未实现 | 不注册 | LibRaw 与受限 SVG 渲染仍属后续计划 |
+| 格式 | 扩展名 | 主图 / 缩略图 / 浏览 / 候选关联 | 实际解码器 | 能力边界 |
+|---|---|---|---|---|
+| JPEG | `.jpg`、`.jpeg` | 支持 | WIC | 静态；可用的常见 EXIF 与 8 种 Orientation；不承诺 CMYK/广色域色彩准确性 |
+| PNG | `.png` | 支持 | WIC | 静态首帧、透明像素；16-bit 输入转为 8-bit 通道；不提供 APNG 播放 |
+| BMP | `.bmp` | 支持 | WIC | 静态；编码变体能否读取取决于 WIC，不承诺所有历史变体 |
+| GIF | `.gif` | 支持 | WIC | 仅首帧；没有动画播放、暂停或逐帧查看 |
+| TIFF | `.tif`、`.tiff` | 支持 | WIC | 仅第一页；没有多页浏览；高位深转为 8-bit 通道 |
+| ICO | `.ico` | 支持 | WIC | 仅第一个图标帧；没有多尺寸/多帧选择，不承诺总能自动选最大尺寸 |
+| WebP | `.webp` | 支持 | SkiaSharp | 静态或动画文件的首帧、透明像素；没有动画播放 |
+| HEIF/HEIC、AVIF | 对应扩展名 | 未实现，不注册 | 尚未接入 | 需验证随包 codec、许可证、平台与颜色行为，不依赖机器预装扩展宣称支持 |
+| RAW、SVG | 对应扩展名 | 未实现，不注册 | 尚未接入 | LibRaw 预览与受限 SVG 渲染仍属后续计划 |
 
-文件选择器、目录/多选过滤与关联注册均限定 `.jpg`、`.jpeg`、`.png`，扩展名比较不区分大小写。主解码器另外核对容器，不会因为把 BMP 改名为 `.jpg` 就接受它。反过来，即使内容是 JPEG/PNG，使用其他扩展名也不属于完整浏览流程的支持范围；建议保留正确扩展名。
+统一格式目录驱动文件选择器、目录/多选过滤、关联注册和安装器的扩展名清单，扩展名不区分大小写。解码器另外核对真实容器：把未支持的格式改名为 `.jpg` 不会使其获得支持。已有支持容器使用其他扩展名也不属于完整浏览/关联流程的支持范围，建议保留正确扩展名。
 
-支持某种容器不代表任意损坏文件、编码变体或超限尺寸都可打开。损坏、不支持、无权限、文件消失和尺寸超限会通过打开管线反馈；查看图片和自动方向纠正不改写原文件。
+支持容器不代表所有损坏文件、编码变体或超限尺寸都可打开。损坏、不支持、权限拒绝、文件消失与尺寸超限由打开管线反馈；新请求全部失败时保留当前图片和浏览会话。静态首帧、动画、多页、导出、色彩管理分别是独立能力。
 
 ## 像素、尺寸与内存边界
 
-- 主图输出为预乘 Alpha 的 BGRA，四个 8-bit 通道，每像素 4 字节；不是保留 16-bit 原始精度的处理管线。
-- 默认单边不超过 32,768 像素、总像素不超过 100,000,000（100MP）、输出像素字节不超过 400,000,000（约 381.5MiB）。解码器在分配主图缓冲前检查，并在方向变换后再次检查。
-- 这些限制只约束单张输出图，不是整个进程的内存预算。当前旧图交接、WIC 原生分配、缩略图和绘制 surface 可能同时占用内存；主图尚无超限降采样回退、渐进预览或分块/区域解码。
-- 缩略图以不超过原始尺寸的 224×140 显示包围盒为降采样目标，后台最多 2 个任务、缓存最多 24 张，按路径和数量做 FIFO；并非按字节做 LRU。超出主图尺寸限制的输入也不会先生成缩略图绕过检查。
-- 缩略图读取可用的 EXIF Orientation 1–8，与主图方向保持一致；缓存可由 F5 刷新清理，尚无基于文件修改时间的自动失效。
+- 主图输出为四个 8-bit 通道的预乘 BGRA，每像素 4 字节；不是保留 16-bit 原始精度的处理管线。
+- 默认主图单边不超过 32,768 像素、总像素不超过 100,000,000（100MP）、输出不超过 400,000,000 字节（约 381.5MiB）。分配主图输出缓冲前检查尺寸，并在方向变换后检查。
+- 这些限制只约束单张图，不是整个进程的内存预算。旧图交接、原生 codec、缩略图、在途任务及绘制 surface 可同时占用内存；本轮没有渐进主图预览、超限降采样回退、分块或区域解码。
+- 缩略图目标是 224×140 包围盒，不放大原图，最多并发 2 个任务；也先验证原始尺寸安全，不用缩略图入口绕过单图尺寸/像素限制。解码器按可用的原生缩放能力生成较小像素缓冲，但原生 codec 的内部工作内存不计入缩略图缓存上限。
+- 缩略图缓存按实际保留的像素字节计费，2MiB 与 24 项双重上限，采用 LRU 逐出。224×140 的 32-bit 缩略图最多 125,440 字节，预算可容纳最多 16 张满尺寸缩略图；较窄图片可缓存更多，但仍不超过 24 项。键包含路径、修改时间和文件长度；属性读取与解码均在后台进行。该上限不包含已显示或在途缩略图、WIC/Skia native 分配及其他应用资源。
+- F5 清理缓存并增加代次，使刷新前的在途结果不能重新进入新缓存；本轮没有持续文件监听。同路径内容变化但修改时间与长度均不变时，仍需 F5 强制失效。
+- WIC 路径可读的 EXIF Orientation 1–8 用于主图和缩略图方向；WebP 元数据尚未统一读取。缺失或不适用的元数据不阻止图片打开。
 
-当前没有应用级 ICC 转换、显示器 profile 切换、HDR/广色域输出或高位深编辑保证。Windows codec 可能完成自身的格式转换，但不能据此宣称已经实现完整色彩管理。常见 JPEG EXIF 展示包括相机、镜头、拍摄时间、ISO、快门、光圈和焦距；缺失或无法读取的可选元数据不会阻止图片打开。
+当前没有应用级 ICC 转换、显示器 profile 切换、HDR/广色域输出或高位深编辑保证。Windows/Skia codec 自身的格式转换不等于完整色彩管理。常见 JPEG EXIF 展示包括相机、镜头、拍摄时间、ISO、快门、光圈和焦距；不保证各格式的所有元数据都能读取。
+
+## 首图响应与目录索引
+
+直接打开单张图片，先完成解码并显示，再后台建立同目录自然排序导航。索引期间禁用前后/首尾导航与幻灯片，状态提示正在扫描。第一张可辨认画面不等待完整目录扫描；索引失败或取消仍保留已经显示的图片，索引结果按请求版本提交，过期结果不能覆盖后来打开的会话。多选输入沿用选择顺序，不展开每张图所在目录；打开文件夹仍需先枚举候选文件，因此超大目录或慢网络目录仍可能影响文件夹首图。
+
+这里是目录索引与显示解耦，不是主图低分辨率预览：第一张主图仍会全尺寸解码。固定 Windows 机器上的首帧、工作集和长期浏览数据仍需另行测量，不宣称速度百分比或整进程峰值已达目标。
 
 ## 安装包的依赖与格式声明
 
-0.2.0 EXE 安装器面向 Windows 10 22H2 / Windows 11 x64，包含 self-contained .NET 10 应用、WPF 运行依赖和发布输出中的 SkiaSharp native 依赖；用户无需另装 .NET 或 libvips/LibRaw。WIC 来自 Windows。安装器只提供 JPEG/PNG 候选注册，不设置系统默认应用，也不添加尚未启用的扩展名。
+0.3.0 EXE 安装器面向 Windows 10 22H2 / Windows 11 x64，包含 self-contained .NET 10、WPF 和固定版本的 SkiaSharp native 依赖。WIC 来自 Windows，不需要另装 .NET、WebP 扩展、libvips 或 LibRaw。
 
-安装器构建和使用见 [README](../README.md#安装与分发)，文件关联、升级与卸载边界见 [Windows 文件关联方案](windows-file-association.md)。Windows CI 的安装/激活检查与真实 Windows 默认应用/Shell 人工验收分别记录，不能互相代替。
+安装版与便携版使用独立身份，均提供上述 9 个扩展名的候选注册；0.3.0 沿用 0.2.0 安装身份和目录。旧版升级后修复候选注册可补齐新格式，卸载只清理属于当前安装的候选。应用与安装器均不改写系统默认应用；用户按需要在 Windows 中选择各扩展名的默认程序。
+
+安装、修复与卸载详见 [README](../README.md#安装与分发)和 [Windows 文件关联方案](windows-file-association.md)。Windows CI 自动化安装/激活与真实默认选择/Shell 人工验收分别记录，不能互相代替。当前 EXE 未签名，签名与 MSIX 另行推进。
 
 ## 后续格式交付规则
 
-每增加一种格式，先确认 codec 实际接入、native 依赖、许可证、损坏输入和内存边界，再同步主图、缩略图、选择器、导航、关联声明和本表。静态首帧、完整动画、多页、高位深与色彩管理分别验收，不把其中一项实现当成其他项已支持。
+增加格式前确认实际 codec、native 依赖、许可证、损坏输入与内存边界，再同步主图、缩略图、选择器、导航、关联声明和本表。动画、TIFF 多页、ICO 多尺寸、导出、高位深、ICC 分别验收，不把静态首帧标成完整播放或编辑支持。
 
 代码核对入口：
 
-- [`DependencyInjection.cs`](../src/ModernImageViewer.Codecs/DependencyInjection.cs)：实际注册的解码器。
-- [`WicImageDecoder.cs`](../src/ModernImageViewer.Codecs/Wic/WicImageDecoder.cs)：容器白名单、首帧、格式转换和主图并发。
-- [`ImageDecodeLimits.cs`](../src/ModernImageViewer.Imaging/ImageDecodeLimits.cs)：单图默认限制。
-- [`ThumbnailImage.cs`](../src/ModernImageViewer.UI/Controls/ThumbnailImage.cs)：缩略图解码、尺寸目标、并发与缓存。
-- [`ImageBrowseSession.cs`](../src/ModernImageViewer.Application/Browsing/ImageBrowseSession.cs) 与 [`WindowsImageFilePicker.cs`](../src/ModernImageViewer.Platform/Files/WindowsImageFilePicker.cs)：浏览和选择扩展名。
+- [`DependencyInjection.cs`](../src/ModernImageViewer.Codecs/DependencyInjection.cs) 与 [`ImageDecoder.cs`](../src/ModernImageViewer.Codecs/ImageDecoder.cs)：组合解码器与 WIC/WebP 分派。
+- [`SupportedImageFormats.cs`](../src/ModernImageViewer.Application/Images/SupportedImageFormats.cs)：统一格式和扩展名目录。
+- [`WicImageDecoder.cs`](../src/ModernImageViewer.Codecs/Wic/WicImageDecoder.cs)：WIC 容器、首帧、格式转换与尺寸检查。
+- [`ImageDecodeLimits.cs`](../src/ModernImageViewer.Imaging/ImageDecodeLimits.cs)：主图单图默认限制。
+- [`ThumbnailImage.cs`](../src/ModernImageViewer.UI/Controls/ThumbnailImage.cs)：尺寸目标、后台加载、并发与缓存。
+- [`ImageBrowseSession.cs`](../src/ModernImageViewer.Application/Browsing/ImageBrowseSession.cs) 与 [`ImageOpenCoordinator.cs`](../src/ModernImageViewer.Application/Images/ImageOpenCoordinator.cs)：目录索引、打开提交与取消。

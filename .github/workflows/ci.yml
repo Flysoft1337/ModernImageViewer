@@ -44,6 +44,8 @@ jobs:
         run: dotnet build .\ModernImageViewer.slnx --configuration Release --no-restore -p:ContinuousIntegrationBuild=true
 
       - name: Test
+        env:
+          MIV_FORMAT_FIXTURE_DIRECTORY: ${{ github.workspace }}\artifacts\format-fixtures
         run: >-
           dotnet test .\ModernImageViewer.slnx
           --configuration Release
@@ -95,7 +97,10 @@ jobs:
 
       - name: Check published application file activation
         shell: pwsh
-        run: .\scripts\check-file-activation.ps1 -AppPath .\artifacts\publish\win-x64\ModernImageViewer.App.exe
+        run: >-
+          .\scripts\check-file-activation.ps1
+          -AppPath .\artifacts\publish\win-x64\ModernImageViewer.App.exe
+          -FixtureDirectory .\artifacts\format-fixtures
 
       - name: Build win-x64 installer
         id: installer_build
@@ -107,7 +112,7 @@ jobs:
         run: |
           $installers = @(Get-ChildItem .\artifacts\installer\*-Setup.exe)
           if ($installers.Count -ne 1) { throw 'Expected exactly one installer.' }
-          .\scripts\check-installer.ps1 -InstallerPath $installers[0].FullName
+          .\scripts\check-installer.ps1 -InstallerPath $installers[0].FullName -FixtureDirectory .\artifacts\format-fixtures
 
       - name: Upload win-x64 installer
         if: always() && steps.installer_build.outcome == 'success'

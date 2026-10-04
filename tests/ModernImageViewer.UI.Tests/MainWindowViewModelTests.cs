@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Globalization;
 using System.IO;
 
@@ -23,6 +24,7 @@ public sealed class MainWindowViewModelTests
         MainWindowViewModel viewModel = new(new TestLocalization(), coordinator, session);
 
         await ((AsyncRelayCommand)viewModel.OpenCommand).ExecuteAsync();
+        await coordinator.WaitForIndexingAsync(TestContext.Current.CancellationToken);
 
         Assert.Equal(directory.Second, session.CurrentPath);
         Assert.Equal(3, session.Count);
@@ -49,19 +51,20 @@ public sealed class MainWindowViewModelTests
         using ImageOpenCoordinator coordinator = new(new FixedFilePicker(null), new SuccessfulDecoder());
         ImageBrowseSession session = new();
         MainWindowViewModel viewModel = new(new TestLocalization(), coordinator, session);
-        List<string?> notifiedPaths = [];
+        ConcurrentQueue<string?> notifiedPaths = new();
         viewModel.PropertyChanged += (_, _) =>
         {
             if (coordinator.State.Status == ImageOpenStatus.Loaded)
             {
-                notifiedPaths.Add(session.CurrentPath);
+                notifiedPaths.Enqueue(session.CurrentPath);
             }
         };
 
         Assert.True(await viewModel.OpenPathAsync(directory.Second));
+        await coordinator.WaitForIndexingAsync(TestContext.Current.CancellationToken);
 
         Assert.NotEmpty(notifiedPaths);
-        Assert.All(notifiedPaths, path => Assert.Equal(directory.Second, path));
+        Assert.All(notifiedPaths.ToArray(), path => Assert.Equal(directory.Second, path));
         Assert.Equal("2 / 3", viewModel.PositionText);
     }
 
@@ -76,9 +79,11 @@ public sealed class MainWindowViewModelTests
         ImageBrowseSession session = new();
         MainWindowViewModel viewModel = new(new TestLocalization(), coordinator, session);
         Assert.True(await viewModel.OpenPathAsync(directory.Second));
+        await coordinator.WaitForIndexingAsync(TestContext.Current.CancellationToken);
         PixelBuffer? image = viewModel.CurrentImage;
 
         await ((AsyncRelayCommand)viewModel.OpenCommand).ExecuteAsync();
+        await coordinator.WaitForIndexingAsync(TestContext.Current.CancellationToken);
 
         Assert.Equal(directory.Second, session.CurrentPath);
         Assert.Equal("2 / 3", viewModel.PositionText);
@@ -98,8 +103,10 @@ public sealed class MainWindowViewModelTests
         using ImageOpenCoordinator coordinator = new(new FixedFilePicker(null), new SuccessfulDecoder());
         using MainWindowViewModel viewModel = new(new TestLocalization(), coordinator, new ImageBrowseSession());
         Assert.True(await viewModel.OpenFolderAsync(directory.Path));
+        await coordinator.WaitForIndexingAsync(TestContext.Current.CancellationToken);
         Assert.Equal(directory.First, viewModel.CurrentFilePath);
         Assert.True(await viewModel.OpenLastAsync());
+        await coordinator.WaitForIndexingAsync(TestContext.Current.CancellationToken);
         Assert.Equal(last, viewModel.CurrentFilePath);
         viewModel.IsSlideshowPlaying = true;
         Assert.True(await viewModel.AdvanceSlideshowAsync());

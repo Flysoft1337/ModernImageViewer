@@ -31,6 +31,7 @@ public sealed class MultiInputTests
         using ImageOpenCoordinator coordinator = new(new FixedPicker(second), new FileDecoder());
         using MainWindowViewModel viewModel = new(new TestLocalization(), coordinator, session);
         Assert.True(await viewModel.OpenInputsAsync([corrupt, second, first, second, missing, files.Directory]));
+        await coordinator.WaitForIndexingAsync(TestContext.Current.CancellationToken);
         Assert.True(session.IsSelection);
         Assert.Equal([second, first], session.Items);
         Assert.Equal(second, viewModel.CurrentFilePath);
@@ -38,6 +39,7 @@ public sealed class MultiInputTests
         Assert.Equal("Input_PartiallySkipped", viewModel.StatusText);
         Assert.Equal([second, first], viewModel.BrowseItems.Select(item => item.FilePath));
         Assert.True(await viewModel.OpenLastAsync());
+        await coordinator.WaitForIndexingAsync(TestContext.Current.CancellationToken);
         Assert.Equal(first, viewModel.CurrentFilePath);
         viewModel.IsSlideshowPlaying = true;
         Assert.True(await viewModel.AdvanceSlideshowAsync());
@@ -52,10 +54,13 @@ public sealed class MultiInputTests
 
         files.Add("另一目录/100.png");
         Assert.True(await viewModel.OpenInputAsync(second));
+        await coordinator.WaitForIndexingAsync(TestContext.Current.CancellationToken);
         Assert.False(session.IsSelection);
         Assert.Equal(3, session.Count);
         Assert.True(await viewModel.OpenInputsAsync([second, files.Add("picked.png")]));
+        await coordinator.WaitForIndexingAsync(TestContext.Current.CancellationToken);
         await ((AsyncRelayCommand)viewModel.OpenCommand).ExecuteAsync();
+        await coordinator.WaitForIndexingAsync(TestContext.Current.CancellationToken);
         Assert.False(session.IsSelection);
     }
 
@@ -70,6 +75,7 @@ public sealed class MultiInputTests
         using ImageOpenCoordinator coordinator = new(new FixedPicker(null), new FileDecoder());
         using MainWindowViewModel viewModel = new(new TestLocalization(), coordinator, session);
         Assert.True(await viewModel.OpenInputsAsync([second, first]));
+        await coordinator.WaitForIndexingAsync(TestContext.Current.CancellationToken);
         PixelBuffer? image = viewModel.CurrentImage;
 
         Assert.False(await viewModel.OpenInputsAsync(["https://example.com/image.png", Path.Combine(files.Directory, "missing.jpg")]));
@@ -101,6 +107,7 @@ public sealed class MultiInputTests
         PixelBuffer latestImage = CreateImage();
         newDecode.SetResult(latestImage);
         Assert.True(await newer);
+        await coordinator.WaitForIndexingAsync(TestContext.Current.CancellationToken);
         PixelBuffer stale = CreateImage();
         oldDecode.SetResult(stale);
 

@@ -10,6 +10,9 @@ public sealed class ImageOpenCoordinator(IImageFilePicker filePicker, IImageDeco
 {
     private CancellationTokenSource? _openCancellation;
     private long _requestVersion;
+    private CancellationTokenSource? _indexCancellation;
+    private Task _indexingTask = Task.CompletedTask;
+    private ImageBrowseSession? _indexingSession;
     private bool _disposed;
     private ImageOpenState _state = new(ImageOpenStatus.Empty);
 
@@ -26,6 +29,8 @@ public sealed class ImageOpenCoordinator(IImageFilePicker filePicker, IImageDeco
     }
 
     public int SkippedCandidateCount { get; private set; }
+
+    public bool IsIndexing => _indexingSession?.IsIndexing == true;
 
     public Task PickAndOpenAsync(CancellationToken cancellationToken = default) =>
         PickAndOpenAsync(null, cancellationToken);
@@ -57,6 +62,7 @@ public sealed class ImageOpenCoordinator(IImageFilePicker filePicker, IImageDeco
             ArgumentException.ThrowIfNullOrWhiteSpace(path);
         }
 
+        CancelPendingIndexing();
         long version = Interlocked.Increment(ref _requestVersion);
         _openCancellation?.Cancel();
         _openCancellation?.Dispose();
@@ -84,31 +90,27 @@ public sealed class ImageOpenCoordinator(IImageFilePicker filePicker, IImageDeco
                     return false;
                 }
 
-                ImageBrowseSession.BrowseSnapshot? snapshot = null;
-                if (session is not null && !selection)
-                {
-                    snapshot = await session.PrepareSnapshotAsync(path, token, resetSelection);
-                }
-                if (version != Volatile.Read(ref _requestVersion) || token.IsCancellationRequested)
-                {
-                    decoded.Dispose();
-                    return false;
-                }
-
-                // Browsing and pixels are submitted together, only by the latest successful request.
+                long? indexingRevision = null;
                 if (session is not null)
                 {
                     if (selection)
                     {
                         session.CommitSelection(paths.Skip(SkippedCandidateCount).ToArray(), path);
                     }
-                    else if (snapshot is not null)
+                    else if (!session.TryCommitCached(path, resetSelection))
                     {
-                        session.CommitSnapshot(snapshot, path);
+                        indexingRevision = session.BeginIndexing(path);
                     }
                 }
                 previous.Image?.Dispose();
                 State = new(ImageOpenStatus.Loaded, decoded, Path.GetFullPath(path));
+                if (session is not null && indexingRevision is { } revision
+                    && !_disposed && version == Volatile.Read(ref _requestVersion))
+                {
+                    _indexingSession = session;
+                    _indexCancellation = CancellationTokenSource.CreateLinkedTokenSource(token);
+                    _indexingTask = IndexDirectoryAsync(session, path, revision, version, _indexCancellation.Token);
+                }
                 return true;
             }
             catch (OperationCanceledException) when (token.IsCancellationRequested)
@@ -139,9 +141,53 @@ public sealed class ImageOpenCoordinator(IImageFilePicker filePicker, IImageDeco
         return false;
     }
 
+    // Opening completes when pixels are ready; callers that need navigation can await the index separately.
+    public Task WaitForIndexingAsync(CancellationToken cancellationToken = default) =>
+        _indexingTask.WaitAsync(cancellationToken);
+
+    public void CancelPendingIndexing()
+    {
+        bool wasIndexing = IsIndexing;
+        _indexCancellation?.Cancel();
+        _indexCancellation?.Dispose();
+        _indexCancellation = null;
+        _indexingSession?.CancelIndexing();
+        _indexingSession = null;
+        _indexingTask = Task.CompletedTask;
+        if (wasIndexing && !_disposed)
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsIndexing)));
+        }
+    }
+
+    private async Task IndexDirectoryAsync(ImageBrowseSession session, string path, long revision, long version, CancellationToken token)
+    {
+        ImageBrowseSession.BrowseSnapshot? snapshot = null;
+        try
+        {
+            snapshot = await session.PrepareSnapshotAsync(path, token, resetSelection: true);
+        }
+        catch (OperationCanceledException) when (token.IsCancellationRequested) { }
+        catch (IOException) { }
+        catch (Exception)
+        {
+            // Index failures retain the displayed image and its provisional single-item navigation.
+        }
+        finally
+        {
+            if (!_disposed && version == Volatile.Read(ref _requestVersion)
+                && session.CompleteIndexing(revision, token.IsCancellationRequested ? null : snapshot, path))
+            {
+                _indexingSession = null;
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsIndexing)));
+            }
+        }
+    }
+
     public void CancelPendingOpen()
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
+        CancelPendingIndexing();
         Interlocked.Increment(ref _requestVersion);
         _openCancellation?.Cancel();
         if (State.Status == ImageOpenStatus.Loading)
@@ -158,6 +204,7 @@ public sealed class ImageOpenCoordinator(IImageFilePicker filePicker, IImageDeco
         }
 
         _disposed = true;
+        CancelPendingIndexing();
         Interlocked.Increment(ref _requestVersion);
         _openCancellation?.Cancel();
         _openCancellation?.Dispose();

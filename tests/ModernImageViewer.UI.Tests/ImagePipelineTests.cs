@@ -3,6 +3,7 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 
 using ModernImageViewer.Application.Images;
+using ModernImageViewer.Codecs;
 using ModernImageViewer.Codecs.Wic;
 using ModernImageViewer.Imaging;
 using ModernImageViewer.UI.Rendering;
@@ -14,7 +15,7 @@ namespace ModernImageViewer.UI.Tests;
 public sealed class ImagePipelineTests
 {
     [Fact]
-    public async Task DecoderAcceptsOnlyJpegAndPngContainersEvenWhenExtensionsMatch()
+    public async Task DecoderAcceptsSupportedWicContainersEvenWhenExtensionsAreMisleading()
     {
         string directory = Path.Combine(Path.GetTempPath(), $"viewer-formats-{Guid.NewGuid():N}");
         Directory.CreateDirectory(directory);
@@ -25,12 +26,13 @@ public sealed class ImagePipelineTests
             source.Freeze();
             WicImageDecoder decoder = new();
             Func<BitmapEncoder>[] encoders = [() => new JpegBitmapEncoder(), () => new PngBitmapEncoder(),
-                () => new BmpBitmapEncoder(), () => new GifBitmapEncoder(), () => new TiffBitmapEncoder()];
+                () => new BmpBitmapEncoder(), () => new GifBitmapEncoder(), () => new TiffBitmapEncoder(),
+                () => new WmpBitmapEncoder()];
             foreach (Func<BitmapEncoder> createEncoder in encoders)
             {
                 // WPF encoders belong to their creating thread, which may change after await.
                 BitmapEncoder encoder = createEncoder();
-                // Unsupported containers disguised with a supported extension must be rejected.
+                // Container inspection, rather than the filename, controls acceptance.
                 string path = Path.Combine(directory, encoder.GetType().Name + ".jpg");
                 encoder.Frames.Add(BitmapFrame.Create(source));
                 using (FileStream file = File.Create(path))
@@ -38,7 +40,7 @@ public sealed class ImagePipelineTests
                     encoder.Save(file);
                 }
 
-                if (encoder is JpegBitmapEncoder or PngBitmapEncoder)
+                if (encoder is not WmpBitmapEncoder)
                 {
                     using PixelBuffer image = await decoder.DecodeAsync(path, TestContext.Current.CancellationToken);
                     Assert.Equal(new PixelSize(1, 1), image.Size);
@@ -117,6 +119,10 @@ public sealed class ImagePipelineTests
                     encoder.Save(file);
                 }
                 using PixelBuffer image = await decoder.DecodeAsync(path, TestContext.Current.CancellationToken);
+                using PixelBuffer thumbnail = await new ImageDecoder().DecodeThumbnailAsync(path, new PixelSize(20, 12), TestContext.Current.CancellationToken);
+                Assert.InRange(thumbnail.Size.Width, 1, 20);
+                Assert.InRange(thumbnail.Size.Height, 1, 12);
+                Assert.Equal(orientation, thumbnail.Metadata.Orientation);
                 Assert.Equal("Canon Test camera", image.Metadata.Camera);
                 Assert.Equal((uint)200, image.Metadata.Iso);
                 Assert.Equal(1.0 / 125, image.Metadata.ExposureSeconds);

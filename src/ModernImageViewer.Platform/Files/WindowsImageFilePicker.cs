@@ -13,7 +13,7 @@ public sealed class WindowsImageFilePicker : IImageFilePicker
         OpenFileDialog dialog = new()
         {
             CheckFileExists = true,
-            Filter = "Images (*.jpg;*.jpeg;*.png)|*.jpg;*.jpeg;*.png|All files (*.*)|*.*",
+            Filter = $"Images ({SupportedImageFormats.PickerPattern})|{SupportedImageFormats.PickerPattern}|All files (*.*)|*.*",
             Multiselect = false,
             Title = "Open image",
         };
