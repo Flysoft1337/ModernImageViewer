@@ -24,5 +24,6 @@ public enum ImageOpenError
 public sealed record ImageOpenState(
     ImageOpenStatus Status,
     PixelBuffer? Image = null,
-    string? FileName = null,
+    string? FilePath = null,
+    string? PendingPath = null,
     ImageOpenError Error = ImageOpenError.None);

@@ -12,6 +12,8 @@ namespace ModernImageViewer.UI.Controls;
 
 public partial class ImageViewport : UserControl, IDisposable
 {
+    public event EventHandler<double>? ScaleChanged;
+
     public static readonly DependencyProperty ImageProperty = DependencyProperty.Register(
         nameof(Image),
         typeof(PixelBuffer),
@@ -25,7 +27,9 @@ public partial class ImageViewport : UserControl, IDisposable
     public ImageViewport()
     {
         InitializeComponent();
-        Unloaded += (_, _) => DisposeBitmap();
+        Loaded += OnLoaded;
+        Unloaded += OnUnloaded;
+        LostMouseCapture += (_, _) => _lastPointer = null;
     }
 
     public PixelBuffer? Image
@@ -42,7 +46,7 @@ public partial class ImageViewport : UserControl, IDisposable
         }
 
         _transform.Fit(Image.Size, Canvas.ActualWidth, Canvas.ActualHeight);
-        Canvas.InvalidateVisual();
+        NotifyTransformChanged();
     }
 
     public void ActualSize()
@@ -53,7 +57,7 @@ public partial class ImageViewport : UserControl, IDisposable
         }
 
         _transform.ActualSize(Image.Size, Canvas.ActualWidth, Canvas.ActualHeight);
-        Canvas.InvalidateVisual();
+        NotifyTransformChanged();
     }
 
     private static void OnImageChanged(DependencyObject dependencyObject, DependencyPropertyChangedEventArgs e)
@@ -74,7 +78,12 @@ public partial class ImageViewport : UserControl, IDisposable
         SKImageInfo info = new(image.Size.Width, image.Size.Height, SKColorType.Bgra8888, SKAlphaType.Premul);
         _bitmap = new SKBitmap(info);
         byte[] pixels = image.Pixels.ToArray();
-        System.Runtime.InteropServices.Marshal.Copy(pixels, 0, _bitmap.GetPixels(), pixels.Length);
+        int rowLength = checked(image.Size.Width * 4);
+        for (int row = 0; row < image.Size.Height; row++)
+        {
+            IntPtr destination = IntPtr.Add(_bitmap.GetPixels(), checked(row * _bitmap.RowBytes));
+            System.Runtime.InteropServices.Marshal.Copy(pixels, checked(row * image.Stride), destination, rowLength);
+        }
         Fit();
     }
 
@@ -96,15 +105,29 @@ public partial class ImageViewport : UserControl, IDisposable
         canvas.Restore();
     }
 
+    public void ZoomIn() => ZoomAtCenter(1.15);
+
+    public void ZoomOut() => ZoomAtCenter(1 / 1.15);
+
     private void OnMouseWheel(object sender, MouseWheelEventArgs e)
     {
+        if (Image is null)
+        {
+            return;
+        }
+
         Point point = e.GetPosition(Canvas);
         _transform.ZoomAt(e.Delta > 0 ? 1.15 : 1 / 1.15, point.X, point.Y);
-        Canvas.InvalidateVisual();
+        NotifyTransformChanged();
     }
 
     private void OnMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
+        if (Image is null)
+        {
+            return;
+        }
+
         if (e.ClickCount == 2)
         {
             ToggleFitAndActualSize();
@@ -153,6 +176,33 @@ public partial class ImageViewport : UserControl, IDisposable
             Fit();
         }
     }
+
+    private void ZoomAtCenter(double factor)
+    {
+        if (Image is null)
+        {
+            return;
+        }
+
+        _transform.ZoomAt(factor, Canvas.ActualWidth / 2, Canvas.ActualHeight / 2);
+        NotifyTransformChanged();
+    }
+
+    private void NotifyTransformChanged()
+    {
+        Canvas.InvalidateVisual();
+        ScaleChanged?.Invoke(this, _transform.Scale);
+    }
+
+    private void OnLoaded(object sender, RoutedEventArgs e)
+    {
+        if (Image is not null && _bitmap is null)
+        {
+            RebuildBitmap(Image);
+        }
+    }
+
+    private void OnUnloaded(object sender, RoutedEventArgs e) => DisposeBitmap();
 
     public void Dispose()
     {
