@@ -82,6 +82,7 @@
   <data name="Association_Unregister" xml:space="preserve"><value>取消注册</value></data>
   <data name="Association_DefaultApps" xml:space="preserve"><value>选择默认应用</value></data>
   <data name="Association_DefaultHint" xml:space="preserve"><value>Windows 由你选择每种图片类型的默认应用。注册后，当前默认选择不会改变。</value></data>
+  <data name="Association_InstalledHint" xml:space="preserve"><value>通过安装器安装；卸载时会移除本应用的注册，并保留你的偏好设置。</value></data>
   <data name="Association_PortableHint" xml:space="preserve"><value>移动应用后，请在新位置重新注册；删除应用文件夹前可取消注册。</value></data>
   <data name="Association_DevelopmentHint" xml:space="preserve"><value>请运行发布包中的 ModernImageViewer.App.exe 后注册打开方式。</value></data>
   <data name="Association_Success" xml:space="preserve"><value>注册已更新。在 Windows 默认应用中选择此应用后，即可双击打开图片。</value></data>

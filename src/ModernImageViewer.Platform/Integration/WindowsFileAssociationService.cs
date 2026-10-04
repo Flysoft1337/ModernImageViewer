@@ -13,16 +13,17 @@ using ModernImageViewer.Application.Integration;
 
 namespace ModernImageViewer.Platform.Integration;
 
-/// <summary>Opt-in, per-user association candidates for the portable distribution.</summary>
+/// <summary>Opt-in, per-user association candidates for installed and portable distributions.</summary>
 public sealed class WindowsFileAssociationService : IFileAssociationService
 {
-    private const string ProgId = "ModernImageViewer.Portable.Image";
-    private const string ApplicationId = "ModernImageViewer.Portable";
-    private const string ApplicationName = "Modern Image Viewer (Portable)";
-    private const string Owner = "ModernImageViewer.Portable.v1";
-    private const string ApplicationKey = @"Software\ModernImageViewer\Portable";
-    private const string CapabilitiesKey = ApplicationKey + @"\Capabilities";
-    private const string ProgIdKey = @"Software\Classes\" + ProgId;
+    private readonly RegistrationProfile _profile;
+    private string ProgId => _profile.ProgId;
+    private string ApplicationId => _profile.ApplicationId;
+    private string ApplicationName => _profile.ApplicationName;
+    private string Owner => _profile.Owner;
+    private string ApplicationKey => _profile.ApplicationKey;
+    private string CapabilitiesKey => ApplicationKey + @"\Capabilities";
+    private string ProgIdKey => @"Software\Classes\" + ProgId;
     private const string RegisteredApplicationsKey = @"Software\RegisteredApplications";
     private static readonly string[] s_extensions = [".jpg", ".jpeg", ".png"];
     private static readonly object s_registrationGate = new();
@@ -34,17 +35,17 @@ public sealed class WindowsFileAssociationService : IFileAssociationService
     private readonly string _registrationGateName;
 
     public WindowsFileAssociationService()
-        : this(Registry.CurrentUser, Environment.ProcessPath ?? string.Empty, IsPortableExecutable(), true)
+        : this(Registry.CurrentUser, Environment.ProcessPath ?? string.Empty, IsPublishedExecutable(), true, false)
     {
     }
 
     /// <summary>Uses an isolated HKCU root for registration verification without touching Shell associations.</summary>
-    public WindowsFileAssociationService(RegistryKey registryRoot, string executablePath, bool canRegister)
-        : this(registryRoot, executablePath, canRegister, false)
+    public WindowsFileAssociationService(RegistryKey registryRoot, string executablePath, bool canRegister, bool isInstalled = false)
+        : this(registryRoot, executablePath, canRegister, false, isInstalled)
     {
     }
 
-    private WindowsFileAssociationService(RegistryKey registryRoot, string executablePath, bool canRegister, bool isSystemRoot)
+    private WindowsFileAssociationService(RegistryKey registryRoot, string executablePath, bool canRegister, bool isSystemRoot, bool isInstalled)
     {
         ArgumentNullException.ThrowIfNull(registryRoot);
         ArgumentNullException.ThrowIfNull(executablePath);
@@ -57,10 +58,12 @@ public sealed class WindowsFileAssociationService : IFileAssociationService
         _registryRoot = registryRoot;
         _executablePath = executablePath;
         _canRegister = canRegister && IsValidExecutablePath(executablePath);
+        _profile = isInstalled || isSystemRoot && _canRegister && HasInstallationMarker(executablePath)
+            ? RegistrationProfile.Installed : RegistrationProfile.Portable;
         _isSystemRoot = isSystemRoot;
         using WindowsIdentity identity = WindowsIdentity.GetCurrent();
         string gateIdentity = identity.User?.Value + ":" + registryRoot.Name;
-        _registrationGateName = @"Local\ModernImageViewer.Portable.Associations."
+        _registrationGateName = @"Local\" + ApplicationId + ".Associations."
             + Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(gateIdentity)));
     }
 
@@ -72,7 +75,7 @@ public sealed class WindowsFileAssociationService : IFileAssociationService
             string? path = ReadString(ApplicationKey, "ExecutablePath");
             bool registered = path is not null && HasCompleteRegistration(path);
             bool owned = path is not null && HasCoreOwnership(path) && PathsEqual(path, _executablePath);
-            return new FileAssociationStatus(registered, owned, path, _canRegister);
+            return new FileAssociationStatus(registered, owned, path, _canRegister, _profile.IsInstalled);
         }
     }
 
@@ -91,7 +94,7 @@ public sealed class WindowsFileAssociationService : IFileAssociationService
             string? registeredApplication = ReadString(RegisteredApplicationsKey, ApplicationId);
             if (registeredApplication is not null && !string.Equals(registeredApplication, CapabilitiesKey, StringComparison.Ordinal))
             {
-                throw new InvalidOperationException("The portable application identity is already used by another registration.");
+                throw new InvalidOperationException("The application identity is already used by another registration.");
             }
 
             SetString(ApplicationKey, "Owner", Owner);
@@ -120,7 +123,7 @@ public sealed class WindowsFileAssociationService : IFileAssociationService
         lock (s_registrationGate)
         {
             using RegistrationLease lease = new(_registrationGateName);
-            // A moved or newer portable copy may own the stable identity now.
+            // A moved or newer copy may own this distribution's stable identity now.
             FileAssociationStatus status = ReadStatus();
             if (!status.IsOwnedByCurrentExecutable)
             {
@@ -213,7 +216,7 @@ public sealed class WindowsFileAssociationService : IFileAssociationService
         using RegistryKey? key = _registryRoot.OpenSubKey(path);
         if (key is not null && !string.Equals(key.GetValue("Owner") as string, Owner, StringComparison.Ordinal))
         {
-            throw new InvalidOperationException("An existing registry key does not belong to this portable application.");
+            throw new InvalidOperationException("An existing registry key does not belong to this application.");
         }
     }
 
@@ -296,7 +299,7 @@ public sealed class WindowsFileAssociationService : IFileAssociationService
         && !path.Contains('\r', StringComparison.Ordinal)
         && !path.Contains('\n', StringComparison.Ordinal);
 
-    private static bool IsPortableExecutable()
+    private static bool IsPublishedExecutable()
     {
         string? processPath = Environment.ProcessPath;
         if (processPath is null || !IsValidExecutablePath(processPath) || !File.Exists(processPath))
@@ -325,6 +328,48 @@ public sealed class WindowsFileAssociationService : IFileAssociationService
         }
     }
 
+    private static bool HasInstallationMarker(string executablePath)
+    {
+        string markerPath = Path.Combine(Path.GetDirectoryName(executablePath)!, "ModernImageViewer.install.json");
+        try
+        {
+            using FileStream marker = File.OpenRead(markerPath);
+            if (marker.Length is <= 0 or > 4096)
+            {
+                return false;
+            }
+
+            byte[] content = new byte[checked((int)marker.Length)];
+            marker.ReadExactly(content);
+            using JsonDocument document = JsonDocument.Parse(content);
+            return document.RootElement.ValueKind == JsonValueKind.Object
+                && document.RootElement.TryGetProperty("distribution", out JsonElement distribution)
+                && distribution.ValueKind == JsonValueKind.String
+                && string.Equals(distribution.GetString(), "installer", StringComparison.Ordinal);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or JsonException)
+        {
+            return false;
+        }
+    }
+
+    private sealed record RegistrationProfile(
+        string ProgId,
+        string ApplicationId,
+        string ApplicationName,
+        string Owner,
+        string ApplicationKey,
+        bool IsInstalled)
+    {
+        public static RegistrationProfile Portable { get; } = new(
+            "ModernImageViewer.Portable.Image", "ModernImageViewer.Portable", "Modern Image Viewer (Portable)",
+            "ModernImageViewer.Portable.v1", @"Software\ModernImageViewer\Portable", false);
+
+        public static RegistrationProfile Installed { get; } = new(
+            "ModernImageViewer.Installed.Image", "ModernImageViewer.Installed", "Modern Image Viewer",
+            "ModernImageViewer.Installed.v1", @"Software\ModernImageViewer\Installed", true);
+    }
+
     [DllImport("shell32.dll")]
     private static extern void SHChangeNotify(uint eventId, uint flags, IntPtr item1, IntPtr item2);
 
@@ -339,7 +384,7 @@ public sealed class WindowsFileAssociationService : IFileAssociationService
             {
                 if (!_mutex.WaitOne(TimeSpan.FromSeconds(5)))
                 {
-                    throw new InvalidOperationException("Another portable copy is updating file associations. Please try again.");
+                    throw new InvalidOperationException("Another copy is updating file associations. Please try again.");
                 }
             }
             catch (AbandonedMutexException)

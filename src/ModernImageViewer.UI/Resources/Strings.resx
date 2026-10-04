@@ -82,6 +82,7 @@
   <data name="Association_Unregister" xml:space="preserve"><value>Remove registration</value></data>
   <data name="Association_DefaultApps" xml:space="preserve"><value>Choose default apps</value></data>
   <data name="Association_DefaultHint" xml:space="preserve"><value>Windows lets you choose the default app for each image type. Registration keeps your current choices.</value></data>
+  <data name="Association_InstalledHint" xml:space="preserve"><value>Installed with Setup. Uninstalling removes this app’s registration and keeps your preferences.</value></data>
   <data name="Association_PortableHint" xml:space="preserve"><value>Moved this app? Register again from the new location. Remove registration before deleting the app folder.</value></data>
   <data name="Association_DevelopmentHint" xml:space="preserve"><value>Run the published ModernImageViewer.App.exe to register file types.</value></data>
   <data name="Association_Success" xml:space="preserve"><value>Registration updated. Choose this app in Windows default apps to open images by double-clicking.</value></data>
