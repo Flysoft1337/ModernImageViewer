@@ -1,9 +1,19 @@
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
   <Geometry x:Key="Icon.Open">M3,5 L9,5 11,8 21,8 18,19 3,19 Z</Geometry>
-  <Geometry x:Key="Icon.Previous">M15,5 L7,12 15,19 Z</Geometry>
-  <Geometry x:Key="Icon.Next">M9,5 L17,12 9,19 Z</Geometry>
+  <Geometry x:Key="Icon.Previous">M15,5 L7,12 15,19</Geometry>
+  <Geometry x:Key="Icon.Next">M9,5 L17,12 9,19</Geometry>
   <Geometry x:Key="Icon.Fit">M4,9 L4,4 9,4 M15,4 L20,4 20,9 M20,15 L20,20 15,20 M9,20 L4,20 4,15</Geometry>
   <Geometry x:Key="Icon.ZoomIn">M10,4 A6,6 0 1 0 10,16 A6,6 0 1 0 10,4 M14.5,14.5 L20,20 M10,7 L10,13 M7,10 L13,10</Geometry>
   <Geometry x:Key="Icon.ZoomOut">M10,4 A6,6 0 1 0 10,16 A6,6 0 1 0 10,4 M14.5,14.5 L20,20 M7,10 L13,10</Geometry>
+  <Geometry x:Key="Icon.Image">M4,3 L20,3 20,21 4,21 Z M4,16 L9,11 14,16 17,13 20,16 M8,7 A1,1 0 1 0 10,7 A1,1 0 1 0 8,7</Geometry>
+  <Geometry x:Key="Icon.Info">M12,3 A9,9 0 1 0 12,21 A9,9 0 1 0 12,3 M12,10 L12,17 M12,7 L12,7.5</Geometry>
+  <Geometry x:Key="Icon.Filmstrip">M3,4 L21,4 21,20 3,20 Z M7,4 L7,20 M17,4 L17,20 M3,9 L7,9 M3,15 L7,15 M17,9 L21,9 M17,15 L21,15</Geometry>
+  <Geometry x:Key="Icon.FullScreen">M3,9 L3,3 9,3 M15,3 L21,3 21,9 M21,15 L21,21 15,21 M9,21 L3,21 3,15</Geometry>
+  <Geometry x:Key="Icon.Close">M5,5 L19,19 M19,5 L5,19</Geometry>
+  <Geometry x:Key="Icon.Copy">M8,8 L20,8 20,21 8,21 Z M4,16 L4,3 16,3 16,5</Geometry>
+  <Geometry x:Key="Icon.Refresh">M20,8 A8,8 0 1 0 21,14 M20,3 L20,8 15,8</Geometry>
+  <Geometry x:Key="Icon.More">M5,11 A1,1 0 1 0 5,13 A1,1 0 1 0 5,11 M12,11 A1,1 0 1 0 12,13 A1,1 0 1 0 12,11 M19,11 A1,1 0 1 0 19,13 A1,1 0 1 0 19,11</Geometry>
+  <Geometry x:Key="Icon.Play">M6,3 L21,12 6,21 Z</Geometry>
+  <Geometry x:Key="Icon.Pause">M7,4 L7,20 M17,4 L17,20</Geometry>
 </ResourceDictionary>

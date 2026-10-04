@@ -4,9 +4,11 @@ using System.Windows.Input;
 using System.Windows.Media;
 
 using ModernImageViewer.Imaging;
+using ModernImageViewer.UI.Rendering;
 
 using SkiaSharp;
 using SkiaSharp.Views.Desktop;
+using SkiaSharp.Views.WPF;
 
 namespace ModernImageViewer.UI.Controls;
 
@@ -20,6 +22,21 @@ public partial class ImageViewport : UserControl, IDisposable
         typeof(ImageViewport),
         new PropertyMetadata(null, OnImageChanged));
 
+    public static readonly DependencyProperty CanvasBackgroundProperty = DependencyProperty.Register(
+        nameof(CanvasBackground), typeof(Brush), typeof(ImageViewport),
+        new PropertyMetadata(Brushes.Transparent, (sender, _) => ((ImageViewport)sender)._surface?.InvalidateVisual()));
+
+    public Brush CanvasBackground
+    {
+        get => (Brush)GetValue(CanvasBackgroundProperty);
+        set => SetValue(CanvasBackgroundProperty, value);
+    }
+
+    private SKElement? _surface;
+    private SKBitmap? _checkerTile;
+    private SKPaint? _checkerPaint;
+    private SKColor _checkerDark;
+    private SKColor _checkerLight;
     private readonly ViewportTransform _transform = new();
     private SKBitmap? _bitmap;
     private Point? _lastPointer;
@@ -29,7 +46,7 @@ public partial class ImageViewport : UserControl, IDisposable
         InitializeComponent();
         Loaded += OnLoaded;
         Unloaded += OnUnloaded;
-        LostMouseCapture += (_, _) => _lastPointer = null;
+        LostMouseCapture += (_, _) => { _lastPointer = null; Cursor = Image is null ? Cursors.Arrow : Cursors.Hand; };
     }
 
     public PixelBuffer? Image
@@ -56,7 +73,7 @@ public partial class ImageViewport : UserControl, IDisposable
             return;
         }
 
-        _transform.ActualSize(Image.Size, Canvas.ActualWidth, Canvas.ActualHeight);
+        _transform.ActualSize(Image.Size, Canvas.ActualWidth, Canvas.ActualHeight, 1 / VisualTreeHelper.GetDpi(Canvas).DpiScaleX);
         NotifyTransformChanged();
     }
 
@@ -69,28 +86,27 @@ public partial class ImageViewport : UserControl, IDisposable
     private void RebuildBitmap(PixelBuffer? image)
     {
         DisposeBitmap();
+        Cursor = image is null ? Cursors.Arrow : Cursors.Hand;
         if (image is null)
         {
-            Canvas.InvalidateVisual();
+            _surface?.InvalidateVisual();
             return;
         }
 
-        SKImageInfo info = new(image.Size.Width, image.Size.Height, SKColorType.Bgra8888, SKAlphaType.Premul);
-        _bitmap = new SKBitmap(info);
-        byte[] pixels = image.Pixels.ToArray();
-        int rowLength = checked(image.Size.Width * 4);
-        for (int row = 0; row < image.Size.Height; row++)
+        if (_surface is null)
         {
-            IntPtr destination = IntPtr.Add(_bitmap.GetPixels(), checked(row * _bitmap.RowBytes));
-            System.Runtime.InteropServices.Marshal.Copy(pixels, checked(row * image.Stride), destination, rowLength);
+            _surface = new SKElement();
+            _surface.PaintSurface += OnPaintSurface;
+            Canvas.Children.Add(_surface);
         }
+        _bitmap = SharedPixelBitmap.Create(image);
         Fit();
     }
 
     private void OnPaintSurface(object? sender, SKPaintSurfaceEventArgs e)
     {
         SKCanvas canvas = e.Surface.Canvas;
-        canvas.Clear(new SKColor(17, 19, 24));
+        canvas.Clear(ToSkColor(CanvasBackground));
         if (_bitmap is null)
         {
             return;
@@ -99,6 +115,10 @@ public partial class ImageViewport : UserControl, IDisposable
         double dpiScale = VisualTreeHelper.GetDpi(Canvas).DpiScaleX;
         canvas.Save();
         canvas.Scale((float)dpiScale);
+        EnsureCheckerPaint();
+        canvas.DrawRect(new SKRect((float)_transform.OffsetX, (float)_transform.OffsetY,
+            (float)(_transform.OffsetX + (_bitmap.Width * _transform.Scale)),
+            (float)(_transform.OffsetY + (_bitmap.Height * _transform.Scale))), _checkerPaint!);
         canvas.Translate((float)_transform.OffsetX, (float)_transform.OffsetY);
         canvas.Scale((float)_transform.Scale);
         canvas.DrawBitmap(_bitmap, 0, 0, new SKSamplingOptions(SKFilterMode.Linear));
@@ -117,7 +137,8 @@ public partial class ImageViewport : UserControl, IDisposable
         }
 
         Point point = e.GetPosition(Canvas);
-        _transform.ZoomAt(e.Delta > 0 ? 1.15 : 1 / 1.15, point.X, point.Y);
+        _transform.ZoomAt(Math.Pow(1.15, e.Delta / 120.0), point.X, point.Y);
+        e.Handled = true;
         NotifyTransformChanged();
     }
 
@@ -134,8 +155,11 @@ public partial class ImageViewport : UserControl, IDisposable
             return;
         }
 
+        Focus();
         _lastPointer = e.GetPosition(Canvas);
         Canvas.CaptureMouse();
+        Cursor = Cursors.SizeAll;
+        e.Handled = true;
     }
 
     private void OnMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
@@ -154,7 +178,7 @@ public partial class ImageViewport : UserControl, IDisposable
         Point point = e.GetPosition(Canvas);
         _transform.Pan(point.X - _lastPointer.Value.X, point.Y - _lastPointer.Value.Y);
         _lastPointer = point;
-        Canvas.InvalidateVisual();
+        NotifyTransformChanged();
     }
 
     private void ToggleFitAndActualSize()
@@ -175,6 +199,10 @@ public partial class ImageViewport : UserControl, IDisposable
         {
             Fit();
         }
+        else if (_transform.Mode == ViewportMode.ActualSize)
+        {
+            ActualSize();
+        }
     }
 
     private void ZoomAtCenter(double factor)
@@ -190,8 +218,57 @@ public partial class ImageViewport : UserControl, IDisposable
 
     private void NotifyTransformChanged()
     {
-        Canvas.InvalidateVisual();
-        ScaleChanged?.Invoke(this, _transform.Scale);
+        _surface?.InvalidateVisual();
+        ScaleChanged?.Invoke(this, _transform.Scale * VisualTreeHelper.GetDpi(Canvas).DpiScaleX);
+    }
+
+    protected override void OnDpiChanged(DpiScale oldDpi, DpiScale newDpi)
+    {
+        base.OnDpiChanged(oldDpi, newDpi);
+        if (_transform.Mode == ViewportMode.ActualSize)
+        {
+            ActualSize();
+        }
+        else
+        {
+            NotifyTransformChanged();
+        }
+    }
+
+    private static SKColor ToSkColor(Brush brush)
+    {
+        Color color = brush is SolidColorBrush solid ? solid.Color : Colors.Transparent;
+        return new SKColor(color.R, color.G, color.B, color.A);
+    }
+
+    private void EnsureCheckerPaint()
+    {
+        SKColor dark = ToSkColor((Brush)FindResource("CheckerDarkBrush"));
+        SKColor light = ToSkColor((Brush)FindResource("CheckerLightBrush"));
+        if (_checkerPaint is not null && dark == _checkerDark && light == _checkerLight)
+        {
+            return;
+        }
+
+        DisposeChecker();
+        _checkerDark = dark;
+        _checkerLight = light;
+        _checkerTile = new SKBitmap(16, 16);
+        using SKCanvas tileCanvas = new(_checkerTile);
+        tileCanvas.Clear(dark);
+        using SKPaint squares = new() { Color = light };
+        tileCanvas.DrawRect(0, 0, 8, 8, squares);
+        tileCanvas.DrawRect(8, 8, 8, 8, squares);
+        using SKShader shader = SKShader.CreateBitmap(_checkerTile, SKShaderTileMode.Repeat, SKShaderTileMode.Repeat);
+        _checkerPaint = new SKPaint { Shader = shader };
+    }
+
+    private void DisposeChecker()
+    {
+        _checkerPaint?.Dispose();
+        _checkerPaint = null;
+        _checkerTile?.Dispose();
+        _checkerTile = null;
     }
 
     private void OnLoaded(object sender, RoutedEventArgs e)
@@ -202,11 +279,28 @@ public partial class ImageViewport : UserControl, IDisposable
         }
     }
 
-    private void OnUnloaded(object sender, RoutedEventArgs e) => DisposeBitmap();
+    private void OnUnloaded(object sender, RoutedEventArgs e)
+    {
+        DisposeBitmap();
+        DisposeChecker();
+        RemoveSurface();
+    }
+
+    private void RemoveSurface()
+    {
+        if (_surface is not null)
+        {
+            _surface.PaintSurface -= OnPaintSurface;
+            Canvas.Children.Remove(_surface);
+            _surface = null;
+        }
+    }
 
     public void Dispose()
     {
         DisposeBitmap();
+        DisposeChecker();
+        RemoveSurface();
         GC.SuppressFinalize(this);
     }
 

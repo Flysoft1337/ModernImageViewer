@@ -76,6 +76,23 @@ jobs:
           --no-restore
           --output .\artifacts\publish\win-x64
 
+      - name: Check published application startup
+        shell: pwsh
+        run: >-
+          .\scripts\measure-startup.ps1
+          -AppPath .\artifacts\publish\win-x64\ModernImageViewer.App.exe
+          -Iterations 1
+          -ObservationSeconds 1
+          -OutputPath .\artifacts\startup-results.json
+
+      - name: Upload startup observation
+        uses: actions/upload-artifact@v7
+        with:
+          name: startup-observation
+          path: artifacts/startup-results.json
+          if-no-files-found: error
+          retention-days: 14
+
       - name: Upload win-x64 application
         uses: actions/upload-artifact@v7
         with:

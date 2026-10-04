@@ -4,7 +4,7 @@ public sealed class PixelBuffer : IDisposable
 {
     private byte[]? _pixels;
 
-    public PixelBuffer(PixelSize size, int stride, byte[] pixels)
+    public PixelBuffer(PixelSize size, int stride, byte[] pixels, ImageMetadata? metadata = null)
     {
         ArgumentNullException.ThrowIfNull(pixels);
 
@@ -17,10 +17,13 @@ public sealed class PixelBuffer : IDisposable
             throw new ArgumentException("The pixel buffer is too small.", nameof(pixels));
         }
 
+        Metadata = metadata ?? ImageMetadata.Empty;
         Size = size;
         Stride = stride;
         _pixels = pixels;
     }
+
+    public ImageMetadata Metadata { get; }
 
     public PixelSize Size { get; }
 

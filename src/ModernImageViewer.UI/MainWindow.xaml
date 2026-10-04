@@ -1,67 +1,140 @@
 <Window x:Class="ModernImageViewer.UI.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:automation="clr-namespace:System.Windows.Automation;assembly=PresentationCore"
+        xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
         xmlns:controls="clr-namespace:ModernImageViewer.UI.Controls"
-        Title="{Binding Title}"
-        Width="1180" Height="760" MinWidth="720" MinHeight="520"
-        Background="{DynamicResource WindowBackgroundBrush}"
-        AllowDrop="True" DragOver="OnDragOver" Drop="OnDrop"
-        PreviewKeyDown="OnPreviewKeyDown"
+        Title="{Binding Title}" Width="1280" Height="820" MinWidth="860" MinHeight="600"
+        WindowStyle="None" Background="{DynamicResource WindowBackgroundBrush}"
+        Foreground="{DynamicResource PrimaryTextBrush}" FontFamily="Segoe UI Variable, Segoe UI"
+        UseLayoutRounding="True" SnapsToDevicePixels="True"
+        AllowDrop="True" DragOver="OnDragOver" Drop="OnDrop" PreviewKeyDown="OnPreviewKeyDown"
         WindowStartupLocation="CenterScreen">
+  <shell:WindowChrome.WindowChrome>
+    <shell:WindowChrome CaptionHeight="54" ResizeBorderThickness="6" GlassFrameThickness="0" CornerRadius="0" />
+  </shell:WindowChrome.WindowChrome>
   <Window.InputBindings>
     <KeyBinding Key="O" Modifiers="Control" Command="{Binding OpenCommand}" />
-    <KeyBinding Key="Left" Command="{Binding PreviousCommand}" />
-    <KeyBinding Key="Right" Command="{Binding NextCommand}" />
   </Window.InputBindings>
-  <DockPanel>
-    <Border DockPanel.Dock="Top" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1" Padding="10,7">
+  <Grid x:Name="WindowLayout">
+    <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /><RowDefinition Height="Auto" /><RowDefinition Height="32" /></Grid.RowDefinitions>
+    <Border x:Name="TitleBar" Height="54" Padding="18,0,6,0" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1" Visibility="{Binding IsFullScreen, Converter={StaticResource InverseBooleanToVisibilityConverter}}">
       <Grid>
-        <StackPanel Orientation="Horizontal">
-          <Button Style="{StaticResource ToolbarButtonStyle}" Command="{Binding OpenCommand}" ToolTip="Ctrl+O" automation:AutomationProperties.Name="{Binding OpenLabel}">
-            <StackPanel Orientation="Horizontal"><Path Width="18" Height="18" Stretch="Uniform" Stroke="{DynamicResource PrimaryTextBrush}" Data="{StaticResource Icon.Open}" /><TextBlock Margin="8,0,0,0" VerticalAlignment="Center" Text="{Binding OpenLabel}" /></StackPanel>
+        <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+          <Border Width="28" Height="28" CornerRadius="8" Background="{DynamicResource AccentSurfaceBrush}"><Path Style="{StaticResource IconStyle}" Width="16" Height="16" Stroke="{DynamicResource AccentBrush}" Data="{StaticResource Icon.Image}" /></Border>
+          <TextBlock Text="{Binding AppName}" Margin="10,0,20,0" VerticalAlignment="Center" FontWeight="SemiBold" FontSize="13" />
+        </StackPanel>
+        <TextBlock Grid.Column="1" VerticalAlignment="Center" Text="{Binding CurrentFileName}" Foreground="{DynamicResource SecondaryTextBrush}" TextTrimming="CharacterEllipsis" Margin="10,0,20,0" />
+        <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" shell:WindowChrome.IsHitTestVisibleInChrome="True">
+          <Button Style="{StaticResource ToolbarButtonStyle}" Command="{Binding OpenCommand}" ToolTip="Ctrl+O">
+            <StackPanel Orientation="Horizontal"><Path Style="{StaticResource IconStyle}" Data="{StaticResource Icon.Open}" /><TextBlock Text="{Binding OpenLabel}" Margin="8,0,0,0" VerticalAlignment="Center" /></StackPanel>
           </Button>
-          <Separator Margin="6,5" />
-          <Button Style="{StaticResource ToolbarButtonStyle}" Command="{Binding PreviousCommand}" ToolTip="←" automation:AutomationProperties.Name="{Binding PreviousLabel}"><Path Width="18" Height="18" Stretch="Uniform" Fill="{DynamicResource PrimaryTextBrush}" Data="{StaticResource Icon.Previous}" /></Button>
-          <Button Style="{StaticResource ToolbarButtonStyle}" Command="{Binding NextCommand}" ToolTip="→" automation:AutomationProperties.Name="{Binding NextLabel}"><Path Width="18" Height="18" Stretch="Uniform" Fill="{DynamicResource PrimaryTextBrush}" Data="{StaticResource Icon.Next}" /></Button>
-          <Separator Margin="6,5" />
-          <Button Style="{StaticResource ToolbarButtonStyle}" IsEnabled="{Binding HasImage}" Click="OnFitClick" ToolTip="0" Content="{Binding FitLabel}" />
-          <Button Style="{StaticResource ToolbarButtonStyle}" IsEnabled="{Binding HasImage}" Click="OnActualSizeClick" ToolTip="1" Content="{Binding ActualSizeLabel}" />
-          <Button Style="{StaticResource ToolbarButtonStyle}" IsEnabled="{Binding HasImage}" Click="OnZoomOutClick" ToolTip="-" automation:AutomationProperties.Name="{Binding ZoomOutLabel}"><Path Width="18" Height="18" Stretch="Uniform" Stroke="{DynamicResource PrimaryTextBrush}" Data="{StaticResource Icon.ZoomOut}" /></Button>
-          <Button Style="{StaticResource ToolbarButtonStyle}" IsEnabled="{Binding HasImage}" Click="OnZoomInClick" ToolTip="+" automation:AutomationProperties.Name="{Binding ZoomInLabel}"><Path Width="18" Height="18" Stretch="Uniform" Stroke="{DynamicResource PrimaryTextBrush}" Data="{StaticResource Icon.ZoomIn}" /></Button>
-        </StackPanel>
-        <StackPanel HorizontalAlignment="Right" Orientation="Horizontal">
-          <TextBlock Margin="0,0,8,0" VerticalAlignment="Center" Foreground="{DynamicResource SecondaryTextBrush}" Text="{Binding LanguageLabel}" />
-          <ComboBox Width="120" ItemsSource="{Binding SupportedLanguages}" SelectedItem="{Binding SelectedLanguage}" DisplayMemberPath="DisplayName" />
+          <Button Style="{StaticResource ToolbarButtonStyle}" Click="OnSettingsClick" ToolTip="{Binding AppearanceLabel}" AutomationProperties.Name="{Binding AppearanceLabel}">
+            <Path Style="{StaticResource IconStyle}" Data="{StaticResource Icon.More}" />
+            <Button.ContextMenu>
+              <ContextMenu DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}" Opened="OnSettingsOpened">
+                <MenuItem Header="{Binding OpenFolderLabel}" InputGestureText="Ctrl+Shift+O" Click="OnOpenFolderClick" />
+                <Separator />
+                <MenuItem Header="{Binding AppearanceLabel}">
+                  <MenuItem x:Name="DarkThemeItem" Header="{Binding DarkThemeLabel}" Tag="Dark" IsCheckable="True" Click="OnThemeClick" />
+                  <MenuItem x:Name="LightThemeItem" Header="{Binding LightThemeLabel}" Tag="Light" IsCheckable="True" Click="OnThemeClick" />
+                  <MenuItem x:Name="SystemThemeItem" Header="{Binding SystemThemeLabel}" Tag="System" IsCheckable="True" Click="OnThemeClick" />
+                </MenuItem>
+                <MenuItem Header="{Binding LanguageLabel}"><MenuItem Header="简体中文" Tag="zh-CN" Click="OnLanguageClick" /><MenuItem Header="English" Tag="en-US" Click="OnLanguageClick" /></MenuItem>
+                <MenuItem Header="{Binding SlideshowSpeedLabel}">
+                  <MenuItem x:Name="Slideshow2Item" Header="{Binding Slideshow2Label}" Tag="2" IsCheckable="True" Click="OnSlideshowSpeedClick" />
+                  <MenuItem x:Name="Slideshow5Item" Header="{Binding Slideshow5Label}" Tag="5" IsCheckable="True" Click="OnSlideshowSpeedClick" />
+                  <MenuItem x:Name="Slideshow10Item" Header="{Binding Slideshow10Label}" Tag="10" IsCheckable="True" Click="OnSlideshowSpeedClick" />
+                </MenuItem>
+                <Separator /><MenuItem Header="{Binding RefreshLabel}" InputGestureText="F5" Click="OnRefreshClick" IsEnabled="{Binding HasImage}" />
+              </ContextMenu>
+            </Button.ContextMenu>
+          </Button>
+          <Border Style="{StaticResource ToolDividerStyle}" />
+          <Button Style="{StaticResource WindowButtonStyle}" Click="OnMinimizeClick" ToolTip="{Binding MinimizeLabel}" AutomationProperties.Name="{Binding MinimizeLabel}"><Path Width="12" Height="1" Stroke="{DynamicResource PrimaryTextBrush}" Data="M0,0 L12,0" /></Button>
+          <Button Style="{StaticResource WindowButtonStyle}" Click="OnMaximizeClick" ToolTip="{Binding MaximizeLabel}" AutomationProperties.Name="{Binding MaximizeLabel}"><Path Width="11" Height="11" Stroke="{DynamicResource PrimaryTextBrush}" Data="M0,0 L10,0 10,10 0,10 Z" /></Button>
+          <Button Style="{StaticResource CloseWindowButtonStyle}" Click="OnCloseClick" ToolTip="{Binding CloseLabel}" AutomationProperties.Name="{Binding CloseLabel}"><Path Style="{StaticResource IconStyle}" Width="13" Height="13" Data="{StaticResource Icon.Close}" /></Button>
         </StackPanel>
       </Grid>
     </Border>
-    <Border DockPanel.Dock="Bottom" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,1,0,0" Padding="12,7">
-      <Grid>
-        <TextBlock Foreground="{DynamicResource PrimaryTextBrush}" Text="{Binding CurrentFileName}" />
-        <StackPanel HorizontalAlignment="Center" Orientation="Horizontal">
-          <TextBlock Foreground="{DynamicResource SecondaryTextBrush}" Text="{Binding DimensionsText}" />
-          <TextBlock Margin="18,0" Foreground="{DynamicResource SecondaryTextBrush}" Text="{Binding PositionText}" />
+    <DockPanel Grid.Row="1">
+      <Border DockPanel.Dock="Right" Width="272" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1,0,0,0" Visibility="{Binding ShowInformation, Converter={StaticResource BooleanToVisibilityConverter}}">
+        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+          <StackPanel Margin="22,18">
+            <Grid><TextBlock Text="{Binding InformationLabel}" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center" /><Button HorizontalAlignment="Right" Style="{StaticResource ToolbarButtonStyle}" Click="OnInformationClick" ToolTip="{Binding CloseLabel}" AutomationProperties.Name="{Binding CloseLabel}"><Path Style="{StaticResource IconStyle}" Width="14" Height="14" Data="{StaticResource Icon.Close}" /></Button></Grid>
+            <TextBlock Style="{StaticResource PanelLabelStyle}" Text="{Binding FileNameLabel}" /><TextBlock Style="{StaticResource PanelValueStyle}" Text="{Binding CurrentFileName}" FontWeight="SemiBold" />
+            <TextBlock Style="{StaticResource PanelLabelStyle}" Text="{Binding FolderLabel}" /><TextBox Text="{Binding DirectoryPath, Mode=OneWay}" IsReadOnly="True" TextWrapping="Wrap" Background="Transparent" BorderThickness="0" Padding="0" Foreground="{DynamicResource SecondaryTextBrush}" />
+            <TextBlock Style="{StaticResource PanelLabelStyle}" Text="{Binding DimensionsLabel}" /><TextBlock Style="{StaticResource PanelValueStyle}" Text="{Binding DimensionsText}" />
+            <TextBlock Style="{StaticResource PanelLabelStyle}" Text="{Binding FormatLabel}" /><TextBlock Style="{StaticResource PanelValueStyle}" Text="{Binding FormatText}" />
+            <TextBlock Style="{StaticResource PanelLabelStyle}" Text="{Binding FileSizeLabel}" /><TextBlock Style="{StaticResource PanelValueStyle}" Text="{Binding FileSizeText}" />
+            <TextBlock Style="{StaticResource PanelLabelStyle}" Text="{Binding ModifiedLabel}" /><TextBlock Style="{StaticResource PanelValueStyle}" Text="{Binding ModifiedText}" />
+            <StackPanel Margin="0,26,0,0" Visibility="{Binding HasMetadata, Converter={StaticResource BooleanToVisibilityConverter}}">
+              <Border BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,1,0,0" Padding="0,20,0,0"><TextBlock Text="{Binding ExifLabel}" FontSize="14" FontWeight="SemiBold" /></Border>
+              <ItemsControl ItemsSource="{Binding MetadataItems}" Margin="0,12,0,0">
+                <ItemsControl.ItemTemplate><DataTemplate><Grid Margin="0,6"><Grid.ColumnDefinitions><ColumnDefinition Width="80" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions><TextBlock Text="{Binding Label}" Foreground="{DynamicResource SecondaryTextBrush}" FontSize="12" /><TextBlock Grid.Column="1" Text="{Binding Value}" TextWrapping="Wrap" FontSize="12" /></Grid></DataTemplate></ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </StackPanel>
+            <Button Margin="0,28,0,0" HorizontalAlignment="Left" Style="{StaticResource ToolbarButtonStyle}" Click="OnCopyPathClick" IsEnabled="{Binding HasImage}"><StackPanel Orientation="Horizontal"><Path Style="{StaticResource IconStyle}" Data="{StaticResource Icon.Copy}" /><TextBlock Text="{Binding CopyPathLabel}" Margin="8,0,0,0" /></StackPanel></Button>
+          </StackPanel>
+        </ScrollViewer>
+      </Border>
+      <Grid Background="{DynamicResource CanvasBrush}">
+        <controls:ImageViewport x:Name="Viewport" Margin="28,28,28,92" Image="{Binding CurrentImage}" CanvasBackground="{DynamicResource CanvasBrush}" />
+        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="{Binding HasImage, Converter={StaticResource InverseBooleanToVisibilityConverter}}">
+          <Grid Width="180" Height="136" Margin="0,0,0,30">
+            <Border Width="108" Height="98" CornerRadius="14" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" RenderTransformOrigin="0.5,0.5" HorizontalAlignment="Left" VerticalAlignment="Center"><Border.RenderTransform><RotateTransform Angle="-14" /></Border.RenderTransform></Border>
+            <Border Width="108" Height="98" CornerRadius="14" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" RenderTransformOrigin="0.5,0.5" HorizontalAlignment="Right" VerticalAlignment="Center"><Border.RenderTransform><RotateTransform Angle="14" /></Border.RenderTransform></Border>
+            <Border Width="110" Height="116" CornerRadius="16" Background="{DynamicResource AccentSurfaceBrush}" BorderBrush="{DynamicResource AccentBrush}" BorderThickness="1" HorizontalAlignment="Center" VerticalAlignment="Center"><Path Width="52" Height="58" Stretch="Uniform" Stroke="{DynamicResource AccentBrush}" StrokeThickness="1.2" Data="{StaticResource Icon.Image}" /></Border>
+          </Grid>
+          <TextBlock Text="{Binding WelcomeTitle}" FontSize="30" FontWeight="SemiBold" HorizontalAlignment="Center" />
+          <TextBlock Text="{Binding WelcomeHint}" Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,12,0,28" HorizontalAlignment="Center" />
+          <Button Style="{StaticResource PrimaryButtonStyle}" Command="{Binding OpenCommand}" HorizontalAlignment="Center"><StackPanel Orientation="Horizontal"><Path Style="{StaticResource IconStyle}" Stroke="{DynamicResource AccentTextBrush}" Data="{StaticResource Icon.Open}" /><TextBlock Text="{Binding OpenLabel}" Margin="10,0,16,0" VerticalAlignment="Center" /><TextBlock Text="Ctrl + O" Opacity="0.7" FontSize="12" VerticalAlignment="Center" /></StackPanel></Button>
+          <Button Style="{StaticResource ToolbarButtonStyle}" Click="OnOpenFolderClick" HorizontalAlignment="Center" Margin="0,12,0,0" Foreground="{DynamicResource AccentBrush}" Content="{Binding OpenFolderLabel}" ToolTip="Ctrl+Shift+O" />
+          <TextBlock Text="JPEG  ·  PNG" Foreground="{DynamicResource SecondaryTextBrush}" Opacity="0.7" Margin="0,18,0,0" FontSize="11" HorizontalAlignment="Center" />
         </StackPanel>
-        <TextBlock HorizontalAlignment="Right" Foreground="{DynamicResource SecondaryTextBrush}" Text="{Binding ZoomText}" />
+        <Border HorizontalAlignment="Center" VerticalAlignment="Top" Margin="20" Padding="16,10" CornerRadius="10" Background="{DynamicResource SurfaceBrush}" Visibility="{Binding IsLoading, Converter={StaticResource BooleanToVisibilityConverter}}"><StackPanel Orientation="Horizontal"><ProgressBar Width="56" Height="3" IsIndeterminate="True" VerticalAlignment="Center" /><TextBlock Text="{Binding StatusText}" Margin="12,0,0,0" Foreground="{DynamicResource PrimaryTextBrush}" /></StackPanel></Border>
+        <Border HorizontalAlignment="Left" VerticalAlignment="Top" Margin="20" Padding="14,9" CornerRadius="10" Background="{DynamicResource SurfaceBrush}" Visibility="{Binding HasStatusMessage, Converter={StaticResource BooleanToVisibilityConverter}}"><TextBlock Text="{Binding StatusText}" TextWrapping="Wrap" MaxWidth="450" Foreground="{DynamicResource PrimaryTextBrush}" AutomationProperties.LiveSetting="Polite" /></Border>
+        <Button HorizontalAlignment="Right" VerticalAlignment="Top" Margin="16" Style="{StaticResource ToolbarButtonStyle}" Background="{DynamicResource SurfaceBrush}" Click="OnFullScreenClick" ToolTip="Esc" AutomationProperties.Name="{Binding FullScreenLabel}" Visibility="{Binding IsFullScreen, Converter={StaticResource BooleanToVisibilityConverter}}"><Path Style="{StaticResource IconStyle}" Data="{StaticResource Icon.Close}" /></Button>
+        <Border HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="12,0,12,20" Padding="8,5" CornerRadius="14" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Visibility="{Binding HasImage, Converter={StaticResource BooleanToVisibilityConverter}}">
+          <Border.Effect><DropShadowEffect BlurRadius="24" ShadowDepth="5" Opacity="0.18" /></Border.Effect>
+          <StackPanel Orientation="Horizontal">
+            <Button Style="{StaticResource ToolbarButtonStyle}" Command="{Binding PreviousCommand}" ToolTip="{Binding PreviousLabel}" AutomationProperties.Name="{Binding PreviousLabel}"><Path Style="{StaticResource IconStyle}" Data="{StaticResource Icon.Previous}" /></Button>
+            <Button Style="{StaticResource ToolbarButtonStyle}" Command="{Binding NextCommand}" ToolTip="{Binding NextLabel}" AutomationProperties.Name="{Binding NextLabel}"><Path Style="{StaticResource IconStyle}" Data="{StaticResource Icon.Next}" /></Button>
+            <Border Style="{StaticResource ToolDividerStyle}" />
+            <Button Style="{StaticResource ToolbarButtonStyle}" Click="OnFitClick" ToolTip="{Binding FitLabel}" AutomationProperties.Name="{Binding FitLabel}"><Path Style="{StaticResource IconStyle}" Data="{StaticResource Icon.Fit}" /></Button>
+            <Button Style="{StaticResource ToolbarButtonStyle}" Click="OnActualSizeClick" ToolTip="{Binding ActualSizeLabel}" Content="1:1" FontSize="12" />
+            <Button Style="{StaticResource ToolbarButtonStyle}" Click="OnZoomOutClick" ToolTip="{Binding ZoomOutLabel}" AutomationProperties.Name="{Binding ZoomOutLabel}"><Path Style="{StaticResource IconStyle}" Data="{StaticResource Icon.ZoomOut}" /></Button>
+            <TextBlock Text="{Binding ZoomText}" Width="54" TextAlignment="Center" VerticalAlignment="Center" FontSize="12" />
+            <Button Style="{StaticResource ToolbarButtonStyle}" Click="OnZoomInClick" ToolTip="{Binding ZoomInLabel}" AutomationProperties.Name="{Binding ZoomInLabel}"><Path Style="{StaticResource IconStyle}" Data="{StaticResource Icon.ZoomIn}" /></Button>
+            <Border Style="{StaticResource ToolDividerStyle}" />
+            <Button Click="OnFilmstripClick" ToolTip="{Binding FilmstripLabel}" AutomationProperties.Name="{Binding FilmstripLabel}"><Button.Style><Style TargetType="Button" BasedOn="{StaticResource ToolbarButtonStyle}"><Style.Triggers><DataTrigger Binding="{Binding ShowFilmstrip}" Value="True"><Setter Property="Background" Value="{DynamicResource AccentSurfaceBrush}" /></DataTrigger></Style.Triggers></Style></Button.Style><Path Style="{StaticResource IconStyle}" Data="{StaticResource Icon.Filmstrip}" /></Button>
+            <Button Click="OnInformationClick" ToolTip="{Binding InformationLabel}" AutomationProperties.Name="{Binding InformationLabel}"><Button.Style><Style TargetType="Button" BasedOn="{StaticResource ToolbarButtonStyle}"><Style.Triggers><DataTrigger Binding="{Binding ShowInformation}" Value="True"><Setter Property="Background" Value="{DynamicResource AccentSurfaceBrush}" /></DataTrigger></Style.Triggers></Style></Button.Style><Path Style="{StaticResource IconStyle}" Data="{StaticResource Icon.Info}" /></Button>
+            <Button IsEnabled="{Binding CanPlaySlideshow}" Click="OnSlideshowClick" ToolTip="{Binding SlideshowLabel}" AutomationProperties.Name="{Binding SlideshowLabel}">
+              <Button.Style><Style TargetType="Button" BasedOn="{StaticResource ToolbarButtonStyle}"><Style.Triggers><DataTrigger Binding="{Binding IsSlideshowPlaying}" Value="True"><Setter Property="Background" Value="{DynamicResource AccentSurfaceBrush}" /></DataTrigger></Style.Triggers></Style></Button.Style>
+              <Path><Path.Style><Style TargetType="Path" BasedOn="{StaticResource IconStyle}"><Setter Property="Data" Value="{StaticResource Icon.Play}" /><Style.Triggers><DataTrigger Binding="{Binding IsSlideshowPlaying}" Value="True"><Setter Property="Data" Value="{StaticResource Icon.Pause}" /></DataTrigger></Style.Triggers></Style></Path.Style></Path>
+            </Button>
+            <Button Style="{StaticResource ToolbarButtonStyle}" Click="OnFullScreenClick" ToolTip="{Binding FullScreenLabel}" AutomationProperties.Name="{Binding FullScreenLabel}"><Path Style="{StaticResource IconStyle}" Data="{StaticResource Icon.FullScreen}" /></Button>
+          </StackPanel>
+        </Border>
       </Grid>
-    </Border>
-    <Grid>
-      <controls:ImageViewport x:Name="Viewport" Image="{Binding CurrentImage}" />
-      <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="{Binding HasImage, Converter={StaticResource InverseBooleanToVisibilityConverter}}">
-        <Path Width="54" Height="54" Stretch="Uniform" Stroke="{DynamicResource AccentBrush}" StrokeThickness="1.5" Data="{StaticResource Icon.Open}" />
-        <TextBlock Margin="0,18,0,0" HorizontalAlignment="Center" FontSize="22" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}" Text="{Binding EmptyTitle}" />
-        <TextBlock Margin="0,8,0,0" HorizontalAlignment="Center" Foreground="{DynamicResource SecondaryTextBrush}" Text="{Binding EmptyHint}" />
+    </DockPanel>
+    <Border Grid.Row="2" Background="{DynamicResource WindowBackgroundBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,1,0,0" Padding="22,12,22,10" Visibility="{Binding IsFilmstripVisible, Converter={StaticResource BooleanToVisibilityConverter}}">
+      <StackPanel>
+        <Grid Margin="4,0,4,8"><TextBlock Text="{Binding DirectoryName}" Foreground="{DynamicResource SecondaryTextBrush}" FontSize="11" TextTrimming="CharacterEllipsis" Margin="0,0,150,0" /><TextBlock Text="{Binding FolderImagesText}" Foreground="{DynamicResource SecondaryTextBrush}" FontSize="11" HorizontalAlignment="Right" /></Grid>
+        <ScrollViewer HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Disabled">
+          <ItemsControl ItemsSource="{Binding BrowseItems}" HorizontalAlignment="Center">
+            <ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate><DataTemplate><Button Style="{StaticResource ThumbnailButtonStyle}" Click="OnThumbnailClick" Loaded="OnThumbnailLoaded" ToolTip="{Binding FileName}" AutomationProperties.Name="{Binding FileName}"><StackPanel><Grid Width="84" Height="56" Background="{DynamicResource CanvasBrush}"><Path Stroke="{DynamicResource SecondaryTextBrush}" Data="{StaticResource Icon.Image}" Opacity="0.4"><Path.Style><Style TargetType="Path" BasedOn="{StaticResource IconStyle}"><Setter Property="Visibility" Value="Collapsed" /><Style.Triggers><DataTrigger Binding="{Binding Source, ElementName=Thumbnail}" Value="{x:Null}"><Setter Property="Visibility" Value="Visible" /></DataTrigger></Style.Triggers></Style></Path.Style></Path><controls:ThumbnailImage x:Name="Thumbnail" FilePath="{Binding FilePath}" Stretch="Uniform" /></Grid><TextBlock Text="{Binding FileName}" Margin="2,6,2,0" FontSize="10" TextTrimming="CharacterEllipsis" TextAlignment="Center" /></StackPanel></Button></DataTemplate></ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </ScrollViewer>
       </StackPanel>
-      <Border Background="{DynamicResource OverlayBrush}" Visibility="{Binding IsLoading, Converter={StaticResource BooleanToVisibilityConverter}}">
-        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
-          <ProgressBar Width="180" Height="4" IsIndeterminate="True" />
-          <TextBlock Margin="0,14,0,0" HorizontalAlignment="Center" Foreground="White" Text="{Binding StatusText}" />
-        </StackPanel>
-      </Border>
-      <Border HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="20" Padding="14,8" CornerRadius="6" Background="{DynamicResource SurfaceBrush}" Visibility="{Binding StatusText, Converter={StaticResource StringToVisibilityConverter}}">
-        <TextBlock Foreground="{DynamicResource PrimaryTextBrush}" Text="{Binding StatusText}" />
-      </Border>
-    </Grid>
-  </DockPanel>
+    </Border>
+    <Border Grid.Row="3" Background="{DynamicResource WindowBackgroundBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,1,0,0" Padding="20,0">
+      <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+        <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Visibility="{Binding HasImage, Converter={StaticResource BooleanToVisibilityConverter}}"><TextBlock Text="{Binding DimensionsText}" FontSize="11" Foreground="{DynamicResource SecondaryTextBrush}" /><TextBlock Text="{Binding FormatText}" Margin="16,0" FontSize="11" Foreground="{DynamicResource SecondaryTextBrush}" /><TextBlock Text="{Binding FileSizeText}" FontSize="11" Foreground="{DynamicResource SecondaryTextBrush}" /></StackPanel>
+        <TextBlock Grid.Column="1" Text="{Binding PositionText}" VerticalAlignment="Center" FontSize="11" Foreground="{DynamicResource SecondaryTextBrush}" />
+        <TextBlock Grid.Column="2" Text="{Binding KeyboardHint}" HorizontalAlignment="Right" VerticalAlignment="Center" FontSize="11" Foreground="{DynamicResource SecondaryTextBrush}" />
+      </Grid>
+    </Border>
+  </Grid>
 </Window>

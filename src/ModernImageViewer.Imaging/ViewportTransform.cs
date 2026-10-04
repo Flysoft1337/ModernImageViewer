@@ -32,10 +32,10 @@ public sealed class ViewportTransform
         Center(image, viewportWidth, viewportHeight);
     }
 
-    public void ActualSize(PixelSize image, double viewportWidth, double viewportHeight)
+    public void ActualSize(PixelSize image, double viewportWidth, double viewportHeight, double pixelScale = 1)
     {
         Mode = ViewportMode.ActualSize;
-        Scale = 1;
+        Scale = pixelScale;
         Center(image, viewportWidth, viewportHeight);
     }
 
