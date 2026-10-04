@@ -10,6 +10,7 @@
 
 ## 浏览与交互
 
+- Windows 文件关联尚未实现；应用已可接收命令行图片/文件夹路径。安装与默认应用选择方案见 [双击图片打开应用](docs/windows-file-association.md)。
 - `Ctrl+O` 打开图片，`Ctrl+Shift+O` 打开文件夹；支持拖入文件夹或通过命令行指定文件夹。
 - `F6` 开始/暂停循环幻灯片，菜单可选 2/5/10 秒；加载期间和最小化时暂停计时，解码失败时停止播放。`Esc` 停止播放；画布聚焦时也支持空格。
 - `← / →` 切换，`Home / End` 跳到目录首尾。
@@ -68,7 +69,16 @@ dotnet test .\ModernImageViewer.slnx --configuration Release
 dotnet run --project .\benchmarks\ModernImageViewer.Benchmarks\ModernImageViewer.Benchmarks.csproj --configuration Release
 ```
 
-完整范围与架构见 [项目计划](docs/project-plan.md)。
+## 后续开发
+
+下一阶段依次完善：双击图片打开与窗口复用、渐进预览和大图内存预算、紧凑布局与沉浸全屏、预算内相邻预取，再扩展格式、剪贴板和安全编辑/导出。
+
+- [后续迭代路线图](docs/next-iteration-roadmap.md)：当前功能缺口、优先级、UI 和性能优化、完成标准。
+- [Windows 文件关联方案](docs/windows-file-association.md)：安装版/便携版、用户默认应用选择、重复激活和验收步骤。
+- [项目计划](docs/project-plan.md)：完整产品范围、架构、里程碑和性能目标。
+- [进度日志](docs/planning/progress.md)：已完成的迭代记录。
+
+路线图中的待办与目标不代表当前版本已支持或达标。
 
 ## License
 
