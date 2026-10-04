@@ -1,0 +1,59 @@
+<Window x:Class="ModernImageViewer.UI.FileAssociationWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
+        Title="{Binding Title}" Width="620" Height="650" MinWidth="480" MinHeight="520"
+        WindowStyle="None" ResizeMode="CanResize" WindowStartupLocation="CenterOwner"
+        Background="{DynamicResource WindowBackgroundBrush}" Foreground="{DynamicResource PrimaryTextBrush}"
+        FontFamily="Segoe UI Variable, Segoe UI" UseLayoutRounding="True" SnapsToDevicePixels="True"
+        PreviewKeyDown="OnPreviewKeyDown">
+  <shell:WindowChrome.WindowChrome>
+    <shell:WindowChrome CaptionHeight="54" ResizeBorderThickness="6" GlassFrameThickness="0" />
+  </shell:WindowChrome.WindowChrome>
+  <Grid>
+    <Grid.RowDefinitions><RowDefinition Height="54" /><RowDefinition Height="*" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+    <Border Padding="22,0,10,0" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1">
+      <Grid>
+        <TextBlock Text="{Binding Title}" FontSize="14" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,48,0" TextTrimming="CharacterEllipsis" />
+        <Button HorizontalAlignment="Right" Style="{StaticResource CloseWindowButtonStyle}" Click="OnCloseClick"
+                ToolTip="{Binding CloseLabel}" AutomationProperties.Name="{Binding CloseLabel}" shell:WindowChrome.IsHitTestVisibleInChrome="True">
+          <Path Style="{StaticResource IconStyle}" Width="13" Height="13" Data="{StaticResource Icon.Close}" />
+        </Button>
+      </Grid>
+    </Border>
+    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+      <StackPanel Margin="26,24,26,18">
+        <Border Width="48" Height="48" CornerRadius="14" Background="{DynamicResource AccentSurfaceBrush}" HorizontalAlignment="Left" Margin="0,0,0,16">
+          <Path Style="{StaticResource IconStyle}" Width="24" Height="24" Stroke="{DynamicResource AccentBrush}" Data="{StaticResource Icon.Image}" />
+        </Border>
+        <TextBlock Text="{Binding Intro}" TextWrapping="Wrap" FontSize="15" LineHeight="23" />
+        <Border CornerRadius="12" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Padding="18" Margin="0,20,0,0">
+          <StackPanel>
+            <TextBlock Text="{Binding FormatsLabel}" Foreground="{DynamicResource SecondaryTextBrush}" FontSize="12" />
+            <StackPanel Orientation="Horizontal" Margin="0,10,0,16">
+              <Border CornerRadius="6" Padding="10,5" Background="{DynamicResource AccentSurfaceBrush}" Margin="0,0,8,0"><TextBlock Text="JPEG" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource AccentBrush}" /></Border>
+              <Border CornerRadius="6" Padding="10,5" Background="{DynamicResource AccentSurfaceBrush}"><TextBlock Text="PNG" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource AccentBrush}" /></Border>
+            </StackPanel>
+            <TextBlock Text="{Binding StatusLabel}" FontWeight="SemiBold" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" />
+            <TextBlock Text="{Binding LocationLabel}" Foreground="{DynamicResource SecondaryTextBrush}" FontSize="11" Margin="0,14,0,6" />
+            <TextBox Text="{Binding RegisteredPath, Mode=OneWay}" IsReadOnly="True" TextWrapping="Wrap" BorderThickness="0" Background="Transparent" Padding="0" FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}" AutomationProperties.Name="{Binding LocationLabel}" />
+          </StackPanel>
+        </Border>
+        <WrapPanel Margin="-2,16,-2,0">
+          <Button Style="{StaticResource PrimaryButtonStyle}" Content="{Binding RegisterLabel}" IsEnabled="{Binding CanRegister}" Click="OnRegisterClick" />
+          <Button Style="{StaticResource ToolbarButtonStyle}" Content="{Binding UnregisterLabel}" IsEnabled="{Binding CanUnregister}" Click="OnUnregisterClick" Margin="10,2,2,2" />
+        </WrapPanel>
+        <Border Background="{DynamicResource AccentSurfaceBrush}" CornerRadius="8" Padding="12" Margin="0,14,0,0" Visibility="{Binding HasMessage, Converter={StaticResource BooleanToVisibilityConverter}}">
+          <TextBlock Text="{Binding Message}" FontSize="12" TextWrapping="Wrap" LineHeight="19" AutomationProperties.LiveSetting="Polite" />
+        </Border>
+        <TextBlock Text="{Binding PortableHint}" Foreground="{DynamicResource SecondaryTextBrush}" FontSize="12" TextWrapping="Wrap" LineHeight="19" Margin="0,16,0,0" />
+      </StackPanel>
+    </ScrollViewer>
+    <Border Grid.Row="2" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,1,0,0" Padding="26,18">
+      <StackPanel>
+        <TextBlock Text="{Binding DefaultHint}" FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}" TextWrapping="Wrap" LineHeight="19" Margin="0,0,0,12" />
+        <Button Style="{StaticResource ToolbarButtonStyle}" Content="{Binding DefaultAppsLabel}" IsEnabled="{Binding CanOpenSettings}" HorizontalAlignment="Left" Click="OnDefaultAppsClick" BorderBrush="{DynamicResource BorderBrush}" />
+      </StackPanel>
+    </Border>
+  </Grid>
+</Window>

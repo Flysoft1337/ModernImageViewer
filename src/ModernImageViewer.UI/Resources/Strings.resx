@@ -70,4 +70,33 @@
   <data name="Exif_Orientation" xml:space="preserve"><value>Orientation</value></data>
   <data name="Exif_OrientationApplied" xml:space="preserve"><value>Auto oriented</value></data>
   <data name="Status_ScanningFolder" xml:space="preserve"><value>Scanning folder…</value></data>
+  <data name="Association_Title" xml:space="preserve"><value>Open images with this app</value></data>
+  <data name="Association_Intro" xml:space="preserve"><value>Add JPEG and PNG to Windows Open with, then choose this app as your default image viewer.</value></data>
+  <data name="Association_Formats" xml:space="preserve"><value>Supported image types</value></data>
+  <data name="Association_Registered" xml:space="preserve"><value>Ready in Windows Open with</value></data>
+  <data name="Association_NotRegistered" xml:space="preserve"><value>Not registered yet</value></data>
+  <data name="Association_OtherLocation" xml:space="preserve"><value>Registered from another location</value></data>
+  <data name="Association_CurrentLocation" xml:space="preserve"><value>Registered application location</value></data>
+  <data name="Association_Register" xml:space="preserve"><value>Register Open with</value></data>
+  <data name="Association_Reregister" xml:space="preserve"><value>Register this location</value></data>
+  <data name="Association_Unregister" xml:space="preserve"><value>Remove registration</value></data>
+  <data name="Association_DefaultApps" xml:space="preserve"><value>Choose default apps</value></data>
+  <data name="Association_DefaultHint" xml:space="preserve"><value>Windows lets you choose the default app for each image type. Registration keeps your current choices.</value></data>
+  <data name="Association_PortableHint" xml:space="preserve"><value>Moved this app? Register again from the new location. Remove registration before deleting the app folder.</value></data>
+  <data name="Association_DevelopmentHint" xml:space="preserve"><value>Run the published ModernImageViewer.App.exe to register file types.</value></data>
+  <data name="Association_Success" xml:space="preserve"><value>Registration updated. Choose this app in Windows default apps to open images by double-clicking.</value></data>
+  <data name="Association_Removed" xml:space="preserve"><value>Registration removed. Your other Open with choices are preserved.</value></data>
+  <data name="Association_Failed" xml:space="preserve"><value>Could not update file associations. Check access permissions and try again.</value></data>
+  <data name="Association_ReadFailed" xml:space="preserve"><value>Could not read file association status. Please try again.</value></data>
+  <data name="Association_SettingsFailed" xml:space="preserve"><value>Could not open Windows default apps. Open Settings → Apps → Default apps.</value></data>
+  <data name="Association_Working" xml:space="preserve"><value>Updating Windows Open with…</value></data>
+  <data name="Browsing_Selection" xml:space="preserve"><value>Selected images</value></data>
+  <data name="Browsing_SelectionCountFormat" xml:space="preserve"><value>{0} selected images</value></data>
+  <data name="Input_NoSupportedFiles" xml:space="preserve"><value>No supported images could be opened from this selection.</value></data>
+  <data name="Input_PartiallySkipped" xml:space="preserve"><value>Some items could not be opened and were skipped.</value></data>
+  <data name="Input_TooManyFiles" xml:space="preserve"><value>Select up to 128 images at a time.</value></data>
+  <data name="Settings_Title" xml:space="preserve"><value>Settings</value></data>
+  <data name="Activation_Failed" xml:space="preserve"><value>The running app could not receive this request. Try again, or close it if it is not responding.</value></data>
+  <data name="Activation_StartFailed" xml:space="preserve"><value>The application could not start. Close any unresponsive instance and try again.</value></data>
+  <data name="Association_Partial" xml:space="preserve"><value>Registration needs repair</value></data>
 </root>

@@ -15,6 +15,7 @@
     <ProjectReference Include="..\..\src\ModernImageViewer.Application\ModernImageViewer.Application.csproj" />
     <ProjectReference Include="..\..\src\ModernImageViewer.Codecs\ModernImageViewer.Codecs.csproj" />
     <ProjectReference Include="..\..\src\ModernImageViewer.UI\ModernImageViewer.UI.csproj" />
+    <ProjectReference Include="..\..\src\ModernImageViewer.Platform\ModernImageViewer.Platform.csproj" />
   </ItemGroup>
   <ItemGroup>
     <Using Include="Xunit" />

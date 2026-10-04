@@ -70,4 +70,33 @@
   <data name="Exif_Orientation" xml:space="preserve"><value>方向</value></data>
   <data name="Exif_OrientationApplied" xml:space="preserve"><value>已自动纠正</value></data>
   <data name="Status_ScanningFolder" xml:space="preserve"><value>正在扫描文件夹…</value></data>
+  <data name="Association_Title" xml:space="preserve"><value>用此应用打开图片</value></data>
+  <data name="Association_Intro" xml:space="preserve"><value>将 JPEG 和 PNG 加入 Windows“打开方式”，再选择此应用作为默认图片查看器。</value></data>
+  <data name="Association_Formats" xml:space="preserve"><value>支持的图片类型</value></data>
+  <data name="Association_Registered" xml:space="preserve"><value>已加入 Windows 打开方式</value></data>
+  <data name="Association_NotRegistered" xml:space="preserve"><value>尚未注册打开方式</value></data>
+  <data name="Association_OtherLocation" xml:space="preserve"><value>已从其他位置注册</value></data>
+  <data name="Association_CurrentLocation" xml:space="preserve"><value>已注册的应用位置</value></data>
+  <data name="Association_Register" xml:space="preserve"><value>注册打开方式</value></data>
+  <data name="Association_Reregister" xml:space="preserve"><value>改用当前位置</value></data>
+  <data name="Association_Unregister" xml:space="preserve"><value>取消注册</value></data>
+  <data name="Association_DefaultApps" xml:space="preserve"><value>选择默认应用</value></data>
+  <data name="Association_DefaultHint" xml:space="preserve"><value>Windows 由你选择每种图片类型的默认应用。注册后，当前默认选择不会改变。</value></data>
+  <data name="Association_PortableHint" xml:space="preserve"><value>移动应用后，请在新位置重新注册；删除应用文件夹前可取消注册。</value></data>
+  <data name="Association_DevelopmentHint" xml:space="preserve"><value>请运行发布包中的 ModernImageViewer.App.exe 后注册打开方式。</value></data>
+  <data name="Association_Success" xml:space="preserve"><value>注册已更新。在 Windows 默认应用中选择此应用后，即可双击打开图片。</value></data>
+  <data name="Association_Removed" xml:space="preserve"><value>已取消注册，其他应用的打开方式选项已保留。</value></data>
+  <data name="Association_Failed" xml:space="preserve"><value>无法更新文件关联。请检查访问权限后重试。</value></data>
+  <data name="Association_ReadFailed" xml:space="preserve"><value>无法读取文件关联状态，请重试。</value></data>
+  <data name="Association_SettingsFailed" xml:space="preserve"><value>无法打开默认应用设置。请手动进入“设置 → 应用 → 默认应用”。</value></data>
+  <data name="Association_Working" xml:space="preserve"><value>正在更新 Windows 打开方式…</value></data>
+  <data name="Browsing_Selection" xml:space="preserve"><value>已选图片</value></data>
+  <data name="Browsing_SelectionCountFormat" xml:space="preserve"><value>{0} 张已选图片</value></data>
+  <data name="Input_NoSupportedFiles" xml:space="preserve"><value>无法从所选项目中打开支持的图片。</value></data>
+  <data name="Input_PartiallySkipped" xml:space="preserve"><value>已跳过部分无法打开的项目。</value></data>
+  <data name="Input_TooManyFiles" xml:space="preserve"><value>每次最多选择 128 张图片。</value></data>
+  <data name="Settings_Title" xml:space="preserve"><value>设置</value></data>
+  <data name="Activation_Failed" xml:space="preserve"><value>正在运行的应用无法接收此次请求。请重试；若窗口无响应，请关闭后重新打开。</value></data>
+  <data name="Activation_StartFailed" xml:space="preserve"><value>应用无法启动。请关闭无响应的窗口后重试。</value></data>
+  <data name="Association_Partial" xml:space="preserve"><value>注册尚未完整，可重新注册或取消</value></data>
 </root>

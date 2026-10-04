@@ -18,6 +18,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged, IDisposable
     private readonly ImageBrowseSession _browseSession;
     private CancellationTokenSource? _folderCancellation;
     private CancellationTokenSource? _refreshCancellation;
+    private long _inputVersion;
     private bool _disposed;
     private bool _isIndexingFolder;
     private bool _isSlideshowPlaying;
@@ -42,12 +43,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged, IDisposable
         _coordinator = coordinator;
         _browseSession = browseSession;
         _selectedLanguage = FindCurrentLanguage();
-        OpenCommand = new AsyncRelayCommand(async () =>
-        {
-            IsSlideshowPlaying = false;
-            CancelFolderWork();
-            await _coordinator.PickAndOpenAsync();
-        });
+        OpenCommand = new AsyncRelayCommand(PickInputAsync);
         PreviousCommand = new AsyncRelayCommand(MovePreviousAsync, () => CanMovePrevious);
         NextCommand = new AsyncRelayCommand(MoveNextAsync, () => CanMoveNext);
         _localization.CultureChanged += OnCultureChanged;
@@ -60,12 +56,13 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged, IDisposable
         ? Text("MainWindow_Title")
         : $"{CurrentFileName} — {Text("MainWindow_Title")}";
 
-    public string StatusText => _isIndexingFolder ? Text("Status_ScanningFolder") : _coordinator.State.Status switch
-    {
-        ImageOpenStatus.Loading => Text("Status_Loading"),
-        ImageOpenStatus.Error => Text($"Error_{_coordinator.State.Error}"),
-        _ => _messageKey is null ? string.Empty : Text(_messageKey),
-    };
+    public string StatusText => _isIndexingFolder ? Text("Status_ScanningFolder")
+        : _messageKey is not null ? Text(_messageKey) : _coordinator.State.Status switch
+        {
+            ImageOpenStatus.Loading => Text("Status_Loading"),
+            ImageOpenStatus.Error => Text($"Error_{_coordinator.State.Error}"),
+            _ => string.Empty,
+        };
 
     public string CurrentFileName => _coordinator.State.FilePath is null
         ? string.Empty
@@ -131,6 +128,8 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged, IDisposable
         get => _slideshowSeconds;
         set { _slideshowSeconds = Math.Clamp(value, 2, 30); OnPropertyChanged(); }
     }
+    public string FileAssociationLabel => Text("Association_Title");
+    public string SettingsLabel => Text("Settings_Title");
     public string CopyPathLabel => Text("Command_CopyPath");
     public string RefreshLabel => Text("Command_Refresh");
     public string AppearanceLabel => Text("Appearance_Label");
@@ -146,11 +145,12 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged, IDisposable
     public string KeyboardHint => Text("Navigation_Hint");
     public string CurrentFilePath => _coordinator.State.FilePath ?? string.Empty;
     public string DirectoryPath => Path.GetDirectoryName(CurrentFilePath) ?? string.Empty;
-    public string DirectoryName => Path.GetFileName(DirectoryPath) is { Length: > 0 } name ? name : DirectoryPath;
+    public string DirectoryName => _browseSession.IsSelection ? Text("Browsing_Selection")
+        : Path.GetFileName(DirectoryPath) is { Length: > 0 } name ? name : DirectoryPath;
     public string FormatText => HasImage ? Path.GetExtension(CurrentFilePath).TrimStart('.').ToUpperInvariant() : "—";
     public string FileSizeText => _fileLength is { } length ? FormatFileSize(length) : "—";
     public string ModifiedText => _modified?.ToString("g", _localization.CurrentCulture) ?? "—";
-    public string FolderImagesText => string.Format(_localization.CurrentCulture, Text("Browsing_CountFormat"), _browseSession.Count);
+    public string FolderImagesText => string.Format(_localization.CurrentCulture, Text(_browseSession.IsSelection ? "Browsing_SelectionCountFormat" : "Browsing_CountFormat"), _browseSession.Count);
     public IReadOnlyList<BrowseItem> BrowseItems => _browseItems;
     public bool IsFilmstripVisible => HasImage && _showFilmstrip && _browseSession.Count > 1;
 
@@ -205,7 +205,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged, IDisposable
         ObjectDisposedException.ThrowIf(_disposed, this);
         CancelFolderWork();
         _refreshCancellation?.Cancel();
-        return await _coordinator.OpenAsync(path);
+        return await _coordinator.OpenCandidatesAsync([path], _browseSession);
     }
 
     public void UpdateScale(double scale)
@@ -222,39 +222,100 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged, IDisposable
         ? Task.FromResult(false)
         : OpenPathAsync(_browseSession.Items[^1]);
 
-    public async Task<bool> OpenInputAsync(string path)
-    {
-        ObjectDisposedException.ThrowIf(_disposed, this);
-        IsSlideshowPlaying = false;
-        return Directory.Exists(path) ? await OpenFolderAsync(path) : await OpenPathAsync(path);
-    }
+    public Task<bool> OpenInputAsync(string path) => OpenInputsAsync([path]);
 
-    public async Task<bool> OpenFolderAsync(string directory)
+    public async Task<bool> OpenInputsAsync(IReadOnlyList<string> paths)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
+        ArgumentNullException.ThrowIfNull(paths);
+        if (paths.Count == 0)
+        {
+            return false;
+        }
         IsSlideshowPlaying = false;
         CancelFolderWork();
         _refreshCancellation?.Cancel();
+        _coordinator.CancelPendingOpen();
+        long version = _inputVersion;
         CancellationTokenSource cancellation = new();
         _folderCancellation = cancellation;
         CancellationToken token = cancellation.Token;
+        try
+        {
+            OpenRequest request;
+            try
+            {
+                request = OpenRequest.Create(paths);
+            }
+            catch (ArgumentException)
+            {
+                ShowMessage("Input_TooManyFiles");
+                return false;
+            }
+            if (paths.Count == 1 && request.Paths.Count == 1 && await Task.Run(() => Directory.Exists(request.Paths[0]), token))
+            {
+                return await OpenFolderCoreAsync(request.Paths[0], version, token);
+            }
+            // Mixed requests use only explicit image files; directories are never expanded recursively.
+            string[] candidates = await Task.Run(() => request.Paths.Where(path =>
+            {
+                token.ThrowIfCancellationRequested();
+                return ImageBrowseSession.IsSupported(path) && File.Exists(path);
+            }).ToArray(), token);
+            if (version != _inputVersion || token.IsCancellationRequested)
+            {
+                return false;
+            }
+            if (candidates.Length == 0)
+            {
+                ShowMessage("Input_NoSupportedFiles");
+                return false;
+            }
+            bool opened = await _coordinator.OpenCandidatesAsync(candidates, _browseSession,
+                selection: paths.Count > 1, resetSelection: true, cancellationToken: token);
+            if (opened && version == _inputVersion
+                && (request.RejectedCount > 0 || candidates.Length < request.Paths.Count || _coordinator.SkippedCandidateCount > 0))
+            {
+                ShowMessage("Input_PartiallySkipped");
+            }
+            return opened;
+        }
+        catch (OperationCanceledException) { return false; }
+        finally
+        {
+            if (ReferenceEquals(_folderCancellation, cancellation))
+            {
+                _folderCancellation = null;
+            }
+            cancellation.Dispose();
+        }
+    }
+
+    public Task<bool> OpenFolderAsync(string directory) => OpenInputAsync(directory);
+
+    private async Task<bool> OpenFolderCoreAsync(string directory, long version, CancellationToken token)
+    {
         _isIndexingFolder = true;
         NotifyAll();
         try
         {
             string? first = await _browseSession.FindFirstAsync(directory, token);
+            if (version != _inputVersion || token.IsCancellationRequested)
+            {
+                return false;
+            }
             if (first is null)
             {
                 ShowMessage("Status_EmptyFolder");
                 return false;
             }
             _isIndexingFolder = false;
-            return await _coordinator.OpenAsync(first, token);
+            return await _coordinator.OpenCandidatesAsync([first], _browseSession,
+                resetSelection: true, cancellationToken: token);
         }
-        catch (OperationCanceledException) { return false; }
         finally
         {
-            if (ReferenceEquals(_folderCancellation, cancellation))
+            if (version == _inputVersion)
             {
                 _isIndexingFolder = false;
                 NotifyAll();
@@ -300,6 +361,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged, IDisposable
 
     private void CancelFolderWork()
     {
+        _inputVersion++;
         _folderCancellation?.Cancel();
         _folderCancellation?.Dispose();
         _folderCancellation = null;
@@ -318,6 +380,29 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged, IDisposable
         _messageKey = resourceKey;
         OnPropertyChanged(nameof(StatusText));
         OnPropertyChanged(nameof(HasStatusMessage));
+    }
+
+    private async Task PickInputAsync()
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        IsSlideshowPlaying = false;
+        CancelFolderWork();
+        _refreshCancellation?.Cancel();
+        _coordinator.CancelPendingOpen();
+        using CancellationTokenSource cancellation = new();
+        _folderCancellation = cancellation;
+        try
+        {
+            await _coordinator.PickAndOpenAsync(_browseSession, cancellation.Token);
+        }
+        catch (OperationCanceledException) { }
+        finally
+        {
+            if (ReferenceEquals(_folderCancellation, cancellation))
+            {
+                _folderCancellation = null;
+            }
+        }
     }
 
     private async Task MovePreviousAsync()
@@ -349,7 +434,10 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged, IDisposable
     {
         if (_coordinator.State is { Status: ImageOpenStatus.Loaded, FilePath: not null } state)
         {
-            _browseSession.Commit(state.FilePath);
+            if (!StringComparer.OrdinalIgnoreCase.Equals(_browseSession.CurrentPath, state.FilePath))
+            {
+                _browseSession.Commit(state.FilePath);
+            }
             UpdateBrowseItems();
             ReadFileInformation();
             UpdateMetadataItems();

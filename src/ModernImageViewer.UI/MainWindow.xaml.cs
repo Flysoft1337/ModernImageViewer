@@ -12,7 +12,9 @@ using System.Windows.Threading;
 using Microsoft.Win32;
 
 using ModernImageViewer.Application.Browsing;
+using ModernImageViewer.Application.Integration;
 using ModernImageViewer.UI.Controls;
+using ModernImageViewer.UI.Localization;
 using ModernImageViewer.UI.Themes;
 using ModernImageViewer.UI.ViewModels;
 
@@ -22,6 +24,8 @@ public partial class MainWindow : Window
 {
     private readonly MainWindowViewModel _viewModel;
     private readonly ThemeService _themes;
+    private readonly Func<IFileAssociationService>? _fileAssociations;
+    private readonly ILocalizationService? _localization;
     private readonly DispatcherTimer _messageTimer = new() { Interval = TimeSpan.FromSeconds(3) };
     private readonly DispatcherTimer _slideshowTimer = new();
     private Rect _savedBounds;
@@ -29,10 +33,13 @@ public partial class MainWindow : Window
     private double _savedMinWidth;
     private double _savedMinHeight;
 
-    public MainWindow(MainWindowViewModel viewModel, ThemeService themes)
+    public MainWindow(MainWindowViewModel viewModel, ThemeService themes,
+        Func<IFileAssociationService>? fileAssociations = null, ILocalizationService? localization = null)
     {
         _viewModel = viewModel;
         _themes = themes;
+        _fileAssociations = fileAssociations;
+        _localization = localization;
         _themes.Initialize();
         InitializeComponent();
         DataContext = viewModel;
@@ -64,6 +71,44 @@ public partial class MainWindow : Window
     private void OnMinimizeClick(object sender, RoutedEventArgs e) => WindowState = WindowState.Minimized;
     private void OnMaximizeClick(object sender, RoutedEventArgs e) => WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
     private void OnCloseClick(object sender, RoutedEventArgs e) => Close();
+
+    private void OnFileAssociationsClick(object sender, RoutedEventArgs e)
+    {
+        if (_fileAssociations is null || _localization is null)
+        {
+            return;
+        }
+        try
+        {
+            FileAssociationWindow dialog = new(_fileAssociations(), _localization) { Owner = this };
+            dialog.ShowDialog();
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException
+            or System.Security.SecurityException or InvalidOperationException or Win32Exception)
+        {
+            _viewModel.ShowMessage("Association_Failed");
+            _messageTimer.Start();
+        }
+    }
+
+    public void ActivateForExternalOpen()
+    {
+        if (WindowState == WindowState.Minimized)
+        {
+            WindowState = WindowState.Normal;
+        }
+        if (!Activate())
+        {
+            FlashInfo flash = new()
+            {
+                Size = (uint)Marshal.SizeOf<FlashInfo>(),
+                Window = new WindowInteropHelper(this).Handle,
+                Flags = 2,
+                Count = 3,
+            };
+            FlashWindowEx(ref flash);
+        }
+    }
 
     private async void OnOpenFolderClick(object sender, RoutedEventArgs e)
     {
@@ -244,10 +289,9 @@ public partial class MainWindow : Window
 
     private async void OnDrop(object sender, DragEventArgs e)
     {
-        string? path = GetSupportedDroppedPath(e.Data);
-        if (path is not null)
+        if (e.Data.GetData(DataFormats.FileDrop) is string[] paths && GetSupportedDroppedPath(e.Data) is not null)
         {
-            await _viewModel.OpenInputAsync(path);
+            await _viewModel.OpenInputsAsync(paths);
         }
         e.Handled = true;
     }
@@ -338,6 +382,20 @@ public partial class MainWindow : Window
 
     [DllImport("user32.dll", ExactSpelling = true)]
     private static extern IntPtr MonitorFromWindow(IntPtr window, uint flags);
+
+    [DllImport("user32.dll", ExactSpelling = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool FlashWindowEx(ref FlashInfo info);
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct FlashInfo
+    {
+        public uint Size;
+        public IntPtr Window;
+        public uint Flags;
+        public uint Count;
+        public uint Timeout;
+    }
 
     [DllImport("user32.dll", EntryPoint = "GetMonitorInfoW", ExactSpelling = true, CharSet = CharSet.Unicode)]
     [return: MarshalAs(UnmanagedType.Bool)]

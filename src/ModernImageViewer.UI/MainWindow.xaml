@@ -29,11 +29,12 @@
           <Button Style="{StaticResource ToolbarButtonStyle}" Command="{Binding OpenCommand}" ToolTip="Ctrl+O">
             <StackPanel Orientation="Horizontal"><Path Style="{StaticResource IconStyle}" Data="{StaticResource Icon.Open}" /><TextBlock Text="{Binding OpenLabel}" Margin="8,0,0,0" VerticalAlignment="Center" /></StackPanel>
           </Button>
-          <Button Style="{StaticResource ToolbarButtonStyle}" Click="OnSettingsClick" ToolTip="{Binding AppearanceLabel}" AutomationProperties.Name="{Binding AppearanceLabel}">
+          <Button Style="{StaticResource ToolbarButtonStyle}" Click="OnSettingsClick" ToolTip="{Binding SettingsLabel}" AutomationProperties.Name="{Binding SettingsLabel}">
             <Path Style="{StaticResource IconStyle}" Data="{StaticResource Icon.More}" />
             <Button.ContextMenu>
               <ContextMenu DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}" Opened="OnSettingsOpened">
                 <MenuItem Header="{Binding OpenFolderLabel}" InputGestureText="Ctrl+Shift+O" Click="OnOpenFolderClick" />
+                <MenuItem Header="{Binding FileAssociationLabel}" Click="OnFileAssociationsClick" />
                 <Separator />
                 <MenuItem Header="{Binding AppearanceLabel}">
                   <MenuItem x:Name="DarkThemeItem" Header="{Binding DarkThemeLabel}" Tag="Dark" IsCheckable="True" Click="OnThemeClick" />
