@@ -100,6 +100,10 @@ public sealed class LocalizationServiceTests
     {
         public string? Language { get; private set; } = language;
 
+        public string? Theme => null;
+
+        public void SaveTheme(string theme) { }
+
         public void SaveLanguage(string value)
         {
             Language = value;

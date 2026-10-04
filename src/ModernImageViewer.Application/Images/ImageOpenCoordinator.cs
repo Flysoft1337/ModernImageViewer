@@ -1,10 +1,11 @@
 using System.ComponentModel;
 
+using ModernImageViewer.Application.Browsing;
 using ModernImageViewer.Imaging;
 
 namespace ModernImageViewer.Application.Images;
 
-public sealed class ImageOpenCoordinator(IImageFilePicker filePicker, IImageDecoder decoder)
+public sealed class ImageOpenCoordinator(IImageFilePicker filePicker, IImageDecoder decoder, ImageBrowseSession? browseSession = null)
     : INotifyPropertyChanged, IDisposable
 {
     private CancellationTokenSource? _openCancellation;
@@ -53,6 +54,24 @@ public sealed class ImageOpenCoordinator(IImageFilePicker filePicker, IImageDeco
         try
         {
             PixelBuffer decoded = await decoder.DecodeAsync(path, token);
+            if (version != Volatile.Read(ref _requestVersion) || token.IsCancellationRequested)
+            {
+                decoded.Dispose();
+                return false;
+            }
+
+            try
+            {
+                if (browseSession is not null)
+                {
+                    await browseSession.PrepareAsync(path, token);
+                }
+            }
+            catch
+            {
+                decoded.Dispose();
+                throw;
+            }
             if (version != Volatile.Read(ref _requestVersion) || token.IsCancellationRequested)
             {
                 decoded.Dispose();

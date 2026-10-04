@@ -51,4 +51,23 @@
   <data name="Window_Close" xml:space="preserve"><value>关闭</value></data>
   <data name="Status_PathCopied" xml:space="preserve"><value>已复制文件路径</value></data>
   <data name="Error_ClipboardBusy" xml:space="preserve"><value>剪贴板暂时不可用，请稍后重试</value></data>
+  <data name="Command_OpenFolder" xml:space="preserve"><value>打开文件夹</value></data>
+  <data name="Command_Slideshow" xml:space="preserve"><value>开始幻灯片 · F6</value></data>
+  <data name="Command_PauseSlideshow" xml:space="preserve"><value>暂停幻灯片 · F6</value></data>
+  <data name="Slideshow_Speed" xml:space="preserve"><value>幻灯片间隔</value></data>
+  <data name="Slideshow_2Seconds" xml:space="preserve"><value>2 秒</value></data>
+  <data name="Slideshow_5Seconds" xml:space="preserve"><value>5 秒</value></data>
+  <data name="Slideshow_10Seconds" xml:space="preserve"><value>10 秒</value></data>
+  <data name="Status_EmptyFolder" xml:space="preserve"><value>文件夹中未找到可打开的图片</value></data>
+  <data name="Information_Exif" xml:space="preserve"><value>拍摄信息</value></data>
+  <data name="Exif_Camera" xml:space="preserve"><value>相机</value></data>
+  <data name="Exif_Lens" xml:space="preserve"><value>镜头</value></data>
+  <data name="Exif_CapturedAt" xml:space="preserve"><value>拍摄时间</value></data>
+  <data name="Exif_Iso" xml:space="preserve"><value>ISO</value></data>
+  <data name="Exif_Exposure" xml:space="preserve"><value>快门</value></data>
+  <data name="Exif_Aperture" xml:space="preserve"><value>光圈</value></data>
+  <data name="Exif_FocalLength" xml:space="preserve"><value>焦距</value></data>
+  <data name="Exif_Orientation" xml:space="preserve"><value>方向</value></data>
+  <data name="Exif_OrientationApplied" xml:space="preserve"><value>已自动纠正</value></data>
+  <data name="Status_ScanningFolder" xml:space="preserve"><value>正在扫描文件夹…</value></data>
 </root>

@@ -2,6 +2,8 @@ using System.Windows;
 
 using Microsoft.Win32;
 
+using ModernImageViewer.Application.Settings;
+
 namespace ModernImageViewer.UI.Themes;
 
 public enum AppTheme
@@ -13,16 +15,33 @@ public enum AppTheme
 
 public sealed class ThemeService : IDisposable
 {
-    public ThemeService()
+    private readonly IUserSettingsService? _settings;
+
+    public ThemeService(IUserSettingsService? settings = null)
     {
+        _settings = settings;
         SystemEvents.UserPreferenceChanged += OnUserPreferenceChanged;
     }
 
     public AppTheme CurrentTheme { get; private set; } = AppTheme.Dark;
 
-    public void Apply(AppTheme theme)
+    public void Initialize()
+    {
+        if (Enum.TryParse(_settings?.Theme, out AppTheme saved) && Enum.IsDefined(saved))
+        {
+            Apply(saved, save: false);
+        }
+    }
+
+    public void Apply(AppTheme theme, bool save = true)
     {
         CurrentTheme = theme;
+        if (save && _settings is not null)
+        {
+            try { _settings.SaveTheme(theme.ToString()); }
+            catch (System.IO.IOException) { }
+            catch (UnauthorizedAccessException) { }
+        }
         bool light = theme == AppTheme.Light || (theme == AppTheme.System && IsSystemLight());
         string file = light ? "Colors.Light.xaml" : "Colors.xaml";
         ResourceDictionary colors = new()
@@ -49,7 +68,7 @@ public sealed class ThemeService : IDisposable
         var dispatcher = System.Windows.Application.Current?.Dispatcher;
         if (CurrentTheme == AppTheme.System && dispatcher is { HasShutdownStarted: false })
         {
-            dispatcher.InvokeAsync(() => Apply(AppTheme.System));
+            dispatcher.InvokeAsync(() => Apply(AppTheme.System, save: false));
         }
     }
 

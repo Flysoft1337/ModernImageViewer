@@ -1,6 +1,7 @@
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Media;
 using System.Windows.Media.Imaging;
 
 using ModernImageViewer.Imaging;
@@ -10,6 +11,7 @@ namespace ModernImageViewer.UI.Controls;
 public sealed class ThumbnailImage : Image, IDisposable
 {
     private const int CacheCapacity = 24;
+    private static readonly string[] OrientationQueries = ["/app1/ifd/{ushort=274}", "/ifd/{ushort=274}"];
     private static readonly SemaphoreSlim DecodeSlots = new(2);
     private static readonly Dictionary<string, BitmapSource> Cache = new(StringComparer.OrdinalIgnoreCase);
     private static readonly Queue<string> CacheOrder = new();
@@ -108,7 +110,7 @@ public sealed class ThumbnailImage : Image, IDisposable
         }
     }
 
-    private static BitmapImage DecodeThumbnail(string path, CancellationToken token)
+    private static BitmapSource DecodeThumbnail(string path, CancellationToken token)
     {
         token.ThrowIfCancellationRequested();
         using FileStream stream = new(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
@@ -126,23 +128,50 @@ public sealed class ThumbnailImage : Image, IDisposable
         BitmapFrame frame = decoder.Frames[0];
         ImageDecodeLimits.Default.ValidateAndGetStride(new PixelSize(frame.PixelWidth, frame.PixelHeight));
 
+        ushort orientation = 1;
+        try
+        {
+            if (frame.Metadata is BitmapMetadata metadata)
+            {
+                foreach (string query in OrientationQueries)
+                {
+                    try
+                    {
+                        if (metadata.GetQuery(query) is ushort number && number is >= 1 and <= 8)
+                        {
+                            orientation = number;
+                            break;
+                        }
+                    }
+                    catch (Exception exception) when (exception is NotSupportedException or ArgumentException
+                        or InvalidOperationException or IOException or System.Runtime.InteropServices.COMException)
+                    { }
+                }
+            }
+        }
+        catch (Exception exception) when (exception is NotSupportedException or ArgumentException
+            or InvalidOperationException or IOException or System.Runtime.InteropServices.COMException)
+        { }
+
         stream.Position = 0;
         BitmapImage image = new();
         image.BeginInit();
         image.CacheOption = BitmapCacheOption.OnLoad;
         image.StreamSource = stream;
-        // Bound both dimensions without stretching portrait or panoramic images.
-        if ((double)frame.PixelWidth / frame.PixelHeight >= 224.0 / 140)
-        {
-            image.DecodePixelWidth = Math.Min(224, frame.PixelWidth);
-        }
-        else
-        {
-            image.DecodePixelHeight = Math.Min(140, frame.PixelHeight);
-        }
+        double displayWidth = orientation >= 5 ? frame.PixelHeight : frame.PixelWidth;
+        double displayHeight = orientation >= 5 ? frame.PixelWidth : frame.PixelHeight;
+        double scale = Math.Min(1, Math.Min(224 / displayWidth, 140 / displayHeight));
+        image.DecodePixelWidth = Math.Max(1, (int)Math.Floor(frame.PixelWidth * scale));
         image.EndInit();
         image.Freeze();
         token.ThrowIfCancellationRequested();
-        return image;
+        if (orientation == 1)
+        {
+            return image;
+        }
+        var matrix = ImageOrientation.GetMatrix(orientation);
+        TransformedBitmap oriented = new(image, new MatrixTransform(matrix.M11, matrix.M12, matrix.M21, matrix.M22, 0, 0));
+        oriented.Freeze();
+        return oriented;
     }
 }

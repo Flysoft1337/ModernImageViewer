@@ -1,13 +1,14 @@
-using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 
 using ModernImageViewer.Imaging;
+using ModernImageViewer.UI.Rendering;
 
 using SkiaSharp;
 using SkiaSharp.Views.Desktop;
+using SkiaSharp.Views.WPF;
 
 namespace ModernImageViewer.UI.Controls;
 
@@ -23,7 +24,7 @@ public partial class ImageViewport : UserControl, IDisposable
 
     public static readonly DependencyProperty CanvasBackgroundProperty = DependencyProperty.Register(
         nameof(CanvasBackground), typeof(Brush), typeof(ImageViewport),
-        new PropertyMetadata(Brushes.Transparent, (sender, _) => ((ImageViewport)sender).Canvas.InvalidateVisual()));
+        new PropertyMetadata(Brushes.Transparent, (sender, _) => ((ImageViewport)sender)._surface?.InvalidateVisual()));
 
     public Brush CanvasBackground
     {
@@ -31,6 +32,7 @@ public partial class ImageViewport : UserControl, IDisposable
         set => SetValue(CanvasBackgroundProperty, value);
     }
 
+    private SKElement? _surface;
     private SKBitmap? _checkerTile;
     private SKPaint? _checkerPaint;
     private SKColor _checkerDark;
@@ -87,21 +89,17 @@ public partial class ImageViewport : UserControl, IDisposable
         Cursor = image is null ? Cursors.Arrow : Cursors.Hand;
         if (image is null)
         {
-            Canvas.InvalidateVisual();
+            _surface?.InvalidateVisual();
             return;
         }
 
-        SKImageInfo info = new(image.Size.Width, image.Size.Height, SKColorType.Bgra8888, SKAlphaType.Premul);
-        _bitmap = new SKBitmap(info);
-        ArraySegment<byte> segment = MemoryMarshal.TryGetArray(image.Pixels, out ArraySegment<byte> storage)
-            ? storage : new ArraySegment<byte>(image.Pixels.ToArray());
-        byte[] pixels = segment.Array!;
-        int rowLength = checked(image.Size.Width * 4);
-        for (int row = 0; row < image.Size.Height; row++)
+        if (_surface is null)
         {
-            IntPtr destination = IntPtr.Add(_bitmap.GetPixels(), checked(row * _bitmap.RowBytes));
-            Marshal.Copy(pixels, checked(segment.Offset + (row * image.Stride)), destination, rowLength);
+            _surface = new SKElement();
+            _surface.PaintSurface += OnPaintSurface;
+            Canvas.Children.Add(_surface);
         }
+        _bitmap = SharedPixelBitmap.Create(image);
         Fit();
     }
 
@@ -157,6 +155,7 @@ public partial class ImageViewport : UserControl, IDisposable
             return;
         }
 
+        Focus();
         _lastPointer = e.GetPosition(Canvas);
         Canvas.CaptureMouse();
         Cursor = Cursors.SizeAll;
@@ -219,7 +218,7 @@ public partial class ImageViewport : UserControl, IDisposable
 
     private void NotifyTransformChanged()
     {
-        Canvas.InvalidateVisual();
+        _surface?.InvalidateVisual();
         ScaleChanged?.Invoke(this, _transform.Scale * VisualTreeHelper.GetDpi(Canvas).DpiScaleX);
     }
 
@@ -284,12 +283,24 @@ public partial class ImageViewport : UserControl, IDisposable
     {
         DisposeBitmap();
         DisposeChecker();
+        RemoveSurface();
+    }
+
+    private void RemoveSurface()
+    {
+        if (_surface is not null)
+        {
+            _surface.PaintSurface -= OnPaintSurface;
+            Canvas.Children.Remove(_surface);
+            _surface = null;
+        }
     }
 
     public void Dispose()
     {
         DisposeBitmap();
         DisposeChecker();
+        RemoveSurface();
         GC.SuppressFinalize(this);
     }
 

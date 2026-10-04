@@ -14,4 +14,6 @@
   <Geometry x:Key="Icon.Copy">M8,8 L20,8 20,21 8,21 Z M4,16 L4,3 16,3 16,5</Geometry>
   <Geometry x:Key="Icon.Refresh">M20,8 A8,8 0 1 0 21,14 M20,3 L20,8 15,8</Geometry>
   <Geometry x:Key="Icon.More">M5,11 A1,1 0 1 0 5,13 A1,1 0 1 0 5,11 M12,11 A1,1 0 1 0 12,13 A1,1 0 1 0 12,11 M19,11 A1,1 0 1 0 19,13 A1,1 0 1 0 19,11</Geometry>
+  <Geometry x:Key="Icon.Play">M6,3 L21,12 6,21 Z</Geometry>
+  <Geometry x:Key="Icon.Pause">M7,4 L7,20 M17,4 L17,20</Geometry>
 </ResourceDictionary>

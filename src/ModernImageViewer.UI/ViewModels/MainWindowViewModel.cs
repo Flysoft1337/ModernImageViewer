@@ -11,11 +11,18 @@ using ModernImageViewer.UI.Localization;
 
 namespace ModernImageViewer.UI.ViewModels;
 
-public sealed class MainWindowViewModel : INotifyPropertyChanged
+public sealed class MainWindowViewModel : INotifyPropertyChanged, IDisposable
 {
     private readonly ILocalizationService _localization;
     private readonly ImageOpenCoordinator _coordinator;
     private readonly ImageBrowseSession _browseSession;
+    private CancellationTokenSource? _folderCancellation;
+    private CancellationTokenSource? _refreshCancellation;
+    private bool _disposed;
+    private bool _isIndexingFolder;
+    private bool _isSlideshowPlaying;
+    private int _slideshowSeconds = 5;
+    private List<MetadataItem> _metadataItems = [];
     private SupportedLanguage _selectedLanguage;
     private double _scale = 1;
     private bool _showInformation;
@@ -35,7 +42,12 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         _coordinator = coordinator;
         _browseSession = browseSession;
         _selectedLanguage = FindCurrentLanguage();
-        OpenCommand = new AsyncRelayCommand(() => _coordinator.PickAndOpenAsync());
+        OpenCommand = new AsyncRelayCommand(async () =>
+        {
+            IsSlideshowPlaying = false;
+            CancelFolderWork();
+            await _coordinator.PickAndOpenAsync();
+        });
         PreviousCommand = new AsyncRelayCommand(MovePreviousAsync, () => CanMovePrevious);
         NextCommand = new AsyncRelayCommand(MoveNextAsync, () => CanMoveNext);
         _localization.CultureChanged += OnCultureChanged;
@@ -48,7 +60,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         ? Text("MainWindow_Title")
         : $"{CurrentFileName} — {Text("MainWindow_Title")}";
 
-    public string StatusText => _coordinator.State.Status switch
+    public string StatusText => _isIndexingFolder ? Text("Status_ScanningFolder") : _coordinator.State.Status switch
     {
         ImageOpenStatus.Loading => Text("Status_Loading"),
         ImageOpenStatus.Error => Text($"Error_{_coordinator.State.Error}"),
@@ -94,6 +106,31 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     public string FullScreenLabel => Text("Command_FullScreen");
     public string InformationLabel => Text("Command_Information");
     public string FilmstripLabel => Text("Command_Filmstrip");
+    public string OpenFolderLabel => Text("Command_OpenFolder");
+    public string SlideshowLabel => Text(IsSlideshowPlaying ? "Command_PauseSlideshow" : "Command_Slideshow");
+    public string ExifLabel => Text("Information_Exif");
+    public string Slideshow2Label => Text("Slideshow_2Seconds");
+    public string Slideshow5Label => Text("Slideshow_5Seconds");
+    public string Slideshow10Label => Text("Slideshow_10Seconds");
+    public string SlideshowSpeedLabel => Text("Slideshow_Speed");
+    public bool CanPlaySlideshow => HasImage && _browseSession.Count > 1;
+    public IReadOnlyList<MetadataItem> MetadataItems => _metadataItems;
+    public bool HasMetadata => _metadataItems.Count > 0;
+    public bool IsSlideshowPlaying
+    {
+        get => _isSlideshowPlaying;
+        set
+        {
+            _isSlideshowPlaying = value && CanPlaySlideshow;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(SlideshowLabel));
+        }
+    }
+    public int SlideshowSeconds
+    {
+        get => _slideshowSeconds;
+        set { _slideshowSeconds = Math.Clamp(value, 2, 30); OnPropertyChanged(); }
+    }
     public string CopyPathLabel => Text("Command_CopyPath");
     public string RefreshLabel => Text("Command_Refresh");
     public string AppearanceLabel => Text("Appearance_Label");
@@ -140,7 +177,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
 
     public PixelBuffer? CurrentImage => _coordinator.State.Image;
     public bool HasImage => CurrentImage is not null;
-    public bool IsLoading => _coordinator.State.Status == ImageOpenStatus.Loading;
+    public bool IsLoading => _isIndexingFolder || _coordinator.State.Status == ImageOpenStatus.Loading;
     public bool CanMovePrevious => _browseSession.CanMovePrevious;
     public bool CanMoveNext => _browseSession.CanMoveNext;
 
@@ -165,8 +202,10 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
 
     public async Task<bool> OpenPathAsync(string path)
     {
-        bool opened = await _coordinator.OpenAsync(path);
-        return opened;
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        CancelFolderWork();
+        _refreshCancellation?.Cancel();
+        return await _coordinator.OpenAsync(path);
     }
 
     public void UpdateScale(double scale)
@@ -183,17 +222,95 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         ? Task.FromResult(false)
         : OpenPathAsync(_browseSession.Items[^1]);
 
-    public void RefreshFolder()
+    public async Task<bool> OpenInputAsync(string path)
     {
-        if (!HasImage)
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        IsSlideshowPlaying = false;
+        return Directory.Exists(path) ? await OpenFolderAsync(path) : await OpenPathAsync(path);
+    }
+
+    public async Task<bool> OpenFolderAsync(string directory)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        IsSlideshowPlaying = false;
+        CancelFolderWork();
+        _refreshCancellation?.Cancel();
+        CancellationTokenSource cancellation = new();
+        _folderCancellation = cancellation;
+        CancellationToken token = cancellation.Token;
+        _isIndexingFolder = true;
+        NotifyAll();
+        try
+        {
+            string? first = await _browseSession.FindFirstAsync(directory, token);
+            if (first is null)
+            {
+                ShowMessage("Status_EmptyFolder");
+                return false;
+            }
+            _isIndexingFolder = false;
+            return await _coordinator.OpenAsync(first, token);
+        }
+        catch (OperationCanceledException) { return false; }
+        finally
+        {
+            if (ReferenceEquals(_folderCancellation, cancellation))
+            {
+                _isIndexingFolder = false;
+                NotifyAll();
+            }
+        }
+    }
+
+    public async Task RefreshFolderAsync()
+    {
+        if (!HasImage || _disposed)
         {
             return;
         }
+        _refreshCancellation?.Cancel();
+        _refreshCancellation?.Dispose();
+        _refreshCancellation = new CancellationTokenSource();
+        try
+        {
+            await _browseSession.RefreshAsync(_refreshCancellation.Token);
+            ReadFileInformation();
+            UpdateBrowseItems();
+            _isSlideshowPlaying = _isSlideshowPlaying && CanPlaySlideshow;
+            NotifyAll();
+        }
+        catch (OperationCanceledException) { }
+    }
 
-        _browseSession.Commit(CurrentFilePath, refresh: true);
-        ReadFileInformation();
-        UpdateBrowseItems();
-        NotifyAll();
+    public Task<bool> AdvanceSlideshowAsync() => !_isSlideshowPlaying || !CanPlaySlideshow || IsLoading
+        ? Task.FromResult(false)
+        : OpenPathAsync(_browseSession.GetNextPath() ?? _browseSession.Items[0]);
+
+    public void Dispose()
+    {
+        _disposed = true;
+        CancelFolderWork();
+        _refreshCancellation?.Cancel();
+        _refreshCancellation?.Dispose();
+        _refreshCancellation = null;
+        _localization.CultureChanged -= OnCultureChanged;
+        _coordinator.PropertyChanged -= OnCoordinatorPropertyChanged;
+        GC.SuppressFinalize(this);
+    }
+
+    private void CancelFolderWork()
+    {
+        _folderCancellation?.Cancel();
+        _folderCancellation?.Dispose();
+        _folderCancellation = null;
+        if (_isIndexingFolder)
+        {
+            _isIndexingFolder = false;
+            if (!_disposed)
+            {
+                NotifyAll();
+            }
+        }
     }
 
     public void ShowMessage(string? resourceKey)
@@ -224,6 +341,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     private void OnCultureChanged(object? sender, EventArgs e)
     {
         _selectedLanguage = FindCurrentLanguage();
+        UpdateMetadataItems();
         NotifyAll();
     }
 
@@ -234,6 +352,11 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
             _browseSession.Commit(state.FilePath);
             UpdateBrowseItems();
             ReadFileInformation();
+            UpdateMetadataItems();
+        }
+        if (_coordinator.State.Status == ImageOpenStatus.Error)
+        {
+            _isSlideshowPlaying = false;
         }
 
         _messageKey = null;
@@ -266,6 +389,40 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         }
         catch (IOException) { }
         catch (UnauthorizedAccessException) { }
+    }
+
+    private void UpdateMetadataItems()
+    {
+        ImageMetadata metadata = CurrentImage?.Metadata ?? ImageMetadata.Empty;
+        List<MetadataItem> items = [];
+        void Add(string key, string? value)
+        {
+            if (!string.IsNullOrWhiteSpace(value))
+            {
+                items.Add(new MetadataItem(Text(key), value));
+            }
+        }
+        Add("Exif_Camera", metadata.Camera);
+        Add("Exif_Lens", metadata.Lens);
+        string? captured = metadata.CapturedAt;
+        if (DateTime.TryParseExact(captured, "yyyy:MM:dd HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture,
+            System.Globalization.DateTimeStyles.None, out DateTime date))
+        {
+            captured = date.ToString("g", _localization.CurrentCulture);
+        }
+        Add("Exif_CapturedAt", captured);
+        Add("Exif_Iso", metadata.Iso?.ToString(_localization.CurrentCulture));
+        if (metadata.ExposureSeconds is double exposure && exposure > 0)
+        {
+            Add("Exif_Exposure", exposure < 1 ? $"1/{Math.Round(1 / exposure):0} s" : $"{exposure:0.###} s");
+        }
+        Add("Exif_Aperture", metadata.Aperture is double aperture && aperture > 0 ? $"f/{aperture:0.#}" : null);
+        Add("Exif_FocalLength", metadata.FocalLength is double focal && focal > 0 ? $"{focal:0.#} mm" : null);
+        if (metadata.Orientation != 1)
+        {
+            Add("Exif_Orientation", Text("Exif_OrientationApplied"));
+        }
+        _metadataItems = items;
     }
 
     private string FormatFileSize(long length)

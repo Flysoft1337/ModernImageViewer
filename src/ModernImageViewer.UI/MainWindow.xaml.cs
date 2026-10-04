@@ -1,3 +1,5 @@
+using System.ComponentModel;
+using System.IO;
 using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
@@ -6,6 +8,8 @@ using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Shell;
 using System.Windows.Threading;
+
+using Microsoft.Win32;
 
 using ModernImageViewer.Application.Browsing;
 using ModernImageViewer.UI.Controls;
@@ -19,6 +23,7 @@ public partial class MainWindow : Window
     private readonly MainWindowViewModel _viewModel;
     private readonly ThemeService _themes;
     private readonly DispatcherTimer _messageTimer = new() { Interval = TimeSpan.FromSeconds(3) };
+    private readonly DispatcherTimer _slideshowTimer = new();
     private Rect _savedBounds;
     private WindowState _savedState;
     private double _savedMinWidth;
@@ -28,12 +33,26 @@ public partial class MainWindow : Window
     {
         _viewModel = viewModel;
         _themes = themes;
+        _themes.Initialize();
         InitializeComponent();
         DataContext = viewModel;
         Viewport.ScaleChanged += (_, scale) => _viewModel.UpdateScale(scale);
         _messageTimer.Tick += (_, _) => { _messageTimer.Stop(); _viewModel.ShowMessage(null); };
-        StateChanged += (_, _) => WindowLayout.Margin = WindowState == WindowState.Maximized ? new Thickness(6) : new Thickness(0);
-        Closed += (_, _) => { _messageTimer.Stop(); Viewport.Dispose(); };
+        StateChanged += (_, _) =>
+        {
+            WindowLayout.Margin = WindowState == WindowState.Maximized ? new Thickness(6) : new Thickness(0);
+            UpdateSlideshowTimer();
+        };
+        _slideshowTimer.Tick += OnSlideshowTick;
+        _viewModel.PropertyChanged += OnViewModelChanged;
+        Closed += (_, _) =>
+        {
+            _viewModel.IsSlideshowPlaying = false;
+            _viewModel.PropertyChanged -= OnViewModelChanged;
+            _messageTimer.Stop();
+            _slideshowTimer.Stop();
+            Viewport.Dispose();
+        };
     }
 
     private void OnFitClick(object sender, RoutedEventArgs e) => Viewport.Fit();
@@ -46,6 +65,48 @@ public partial class MainWindow : Window
     private void OnMaximizeClick(object sender, RoutedEventArgs e) => WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
     private void OnCloseClick(object sender, RoutedEventArgs e) => Close();
 
+    private async void OnOpenFolderClick(object sender, RoutedEventArgs e)
+    {
+        _viewModel.IsSlideshowPlaying = false;
+        OpenFolderDialog dialog = new() { Title = _viewModel.OpenFolderLabel, Multiselect = false };
+        if (dialog.ShowDialog(this) == true)
+        {
+            await _viewModel.OpenFolderAsync(dialog.FolderName);
+        }
+    }
+
+    private void OnSlideshowClick(object sender, RoutedEventArgs e) => _viewModel.IsSlideshowPlaying = !_viewModel.IsSlideshowPlaying;
+
+    private void OnSlideshowSpeedClick(object sender, RoutedEventArgs e)
+    {
+        if (sender is MenuItem { Tag: string value } && int.TryParse(value, out int seconds))
+        {
+            _viewModel.SlideshowSeconds = seconds;
+        }
+    }
+
+    private void OnViewModelChanged(object? sender, PropertyChangedEventArgs e) => UpdateSlideshowTimer();
+
+    private void UpdateSlideshowTimer()
+    {
+        _slideshowTimer.Stop();
+        if (_viewModel.IsSlideshowPlaying && _viewModel.CanPlaySlideshow && !_viewModel.IsLoading && IsLoaded && WindowState != WindowState.Minimized)
+        {
+            _slideshowTimer.Interval = TimeSpan.FromSeconds(_viewModel.SlideshowSeconds);
+            _slideshowTimer.Start();
+        }
+    }
+
+    private async void OnSlideshowTick(object? sender, EventArgs e)
+    {
+        _slideshowTimer.Stop();
+        if (_viewModel.IsSlideshowPlaying && !_viewModel.IsLoading)
+        {
+            await _viewModel.AdvanceSlideshowAsync();
+        }
+        UpdateSlideshowTimer();
+    }
+
     private void OnSettingsClick(object sender, RoutedEventArgs e)
     {
         if (sender is Button { ContextMenu: { } menu } button)
@@ -57,6 +118,9 @@ public partial class MainWindow : Window
 
     private void OnSettingsOpened(object sender, RoutedEventArgs e)
     {
+        Slideshow2Item.IsChecked = _viewModel.SlideshowSeconds == 2;
+        Slideshow5Item.IsChecked = _viewModel.SlideshowSeconds == 5;
+        Slideshow10Item.IsChecked = _viewModel.SlideshowSeconds == 10;
         DarkThemeItem.IsChecked = _themes.CurrentTheme == AppTheme.Dark;
         LightThemeItem.IsChecked = _themes.CurrentTheme == AppTheme.Light;
         SystemThemeItem.IsChecked = _themes.CurrentTheme == AppTheme.System;
@@ -82,6 +146,7 @@ public partial class MainWindow : Window
     {
         if (sender is Button { DataContext: BrowseItem item })
         {
+            _viewModel.IsSlideshowPlaying = false;
             await _viewModel.OpenPathAsync(item.FilePath);
         }
     }
@@ -95,10 +160,10 @@ public partial class MainWindow : Window
         }
     }
 
-    private void OnRefreshClick(object sender, RoutedEventArgs e)
+    private async void OnRefreshClick(object sender, RoutedEventArgs e)
     {
         ThumbnailImage.ClearCache();
-        _viewModel.RefreshFolder();
+        await _viewModel.RefreshFolderAsync();
     }
 
     private void OnCopyPathClick(object sender, RoutedEventArgs e)
@@ -182,7 +247,7 @@ public partial class MainWindow : Window
         string? path = GetSupportedDroppedPath(e.Data);
         if (path is not null)
         {
-            await _viewModel.OpenPathAsync(path);
+            await _viewModel.OpenInputAsync(path);
         }
         e.Handled = true;
     }
@@ -194,7 +259,7 @@ public partial class MainWindow : Window
             return null;
         }
 
-        return paths.FirstOrDefault(ImageBrowseSession.IsSupported);
+        return paths.FirstOrDefault(path => Directory.Exists(path) || ImageBrowseSession.IsSupported(path));
     }
 
     private async void OnPreviewKeyDown(object sender, KeyEventArgs e)
@@ -206,15 +271,26 @@ public partial class MainWindow : Window
             return;
         }
 
-        if (e.Key == Key.Escape && _viewModel.IsFullScreen)
+        if (e.Key == Key.Escape && (_viewModel.IsFullScreen || _viewModel.IsSlideshowPlaying))
         {
-            ToggleFullScreen();
+            _viewModel.IsSlideshowPlaying = false;
+            if (_viewModel.IsFullScreen)
+            {
+                ToggleFullScreen();
+            }
             e.Handled = true;
             return;
         }
 
         if (Keyboard.FocusedElement is TextBoxBase or ComboBox or MenuItem)
         {
+            return;
+        }
+
+        if (Keyboard.Modifiers == (ModifierKeys.Control | ModifierKeys.Shift) && e.Key == Key.O)
+        {
+            OnOpenFolderClick(this, e);
+            e.Handled = true;
             return;
         }
 
@@ -252,6 +328,9 @@ public partial class MainWindow : Window
             case Key.OemPlus: Viewport.ZoomIn(); e.Handled = true; break;
             case Key.Subtract:
             case Key.OemMinus: Viewport.ZoomOut(); e.Handled = true; break;
+            case Key.F6: OnSlideshowClick(this, e); e.Handled = true; break;
+            case Key.Space when Keyboard.FocusedElement is not ButtonBase:
+                OnSlideshowClick(this, e); e.Handled = true; break;
             case Key.F5: OnRefreshClick(this, e); e.Handled = true; break;
             case Key.Escape: _viewModel.ShowInformation = false; e.Handled = true; break;
         }

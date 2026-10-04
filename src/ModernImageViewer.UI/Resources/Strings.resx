@@ -51,4 +51,23 @@
   <data name="Window_Close" xml:space="preserve"><value>Close</value></data>
   <data name="Status_PathCopied" xml:space="preserve"><value>File path copied</value></data>
   <data name="Error_ClipboardBusy" xml:space="preserve"><value>The clipboard is busy. Try again.</value></data>
+  <data name="Command_OpenFolder" xml:space="preserve"><value>Open folder</value></data>
+  <data name="Command_Slideshow" xml:space="preserve"><value>Start slideshow · F6</value></data>
+  <data name="Command_PauseSlideshow" xml:space="preserve"><value>Pause slideshow · F6</value></data>
+  <data name="Slideshow_Speed" xml:space="preserve"><value>Slideshow interval</value></data>
+  <data name="Slideshow_2Seconds" xml:space="preserve"><value>2 seconds</value></data>
+  <data name="Slideshow_5Seconds" xml:space="preserve"><value>5 seconds</value></data>
+  <data name="Slideshow_10Seconds" xml:space="preserve"><value>10 seconds</value></data>
+  <data name="Status_EmptyFolder" xml:space="preserve"><value>No supported images were found in this folder.</value></data>
+  <data name="Information_Exif" xml:space="preserve"><value>Photo details</value></data>
+  <data name="Exif_Camera" xml:space="preserve"><value>Camera</value></data>
+  <data name="Exif_Lens" xml:space="preserve"><value>Lens</value></data>
+  <data name="Exif_CapturedAt" xml:space="preserve"><value>Captured</value></data>
+  <data name="Exif_Iso" xml:space="preserve"><value>ISO</value></data>
+  <data name="Exif_Exposure" xml:space="preserve"><value>Shutter</value></data>
+  <data name="Exif_Aperture" xml:space="preserve"><value>Aperture</value></data>
+  <data name="Exif_FocalLength" xml:space="preserve"><value>Focal length</value></data>
+  <data name="Exif_Orientation" xml:space="preserve"><value>Orientation</value></data>
+  <data name="Exif_OrientationApplied" xml:space="preserve"><value>Auto oriented</value></data>
+  <data name="Status_ScanningFolder" xml:space="preserve"><value>Scanning folder…</value></data>
 </root>

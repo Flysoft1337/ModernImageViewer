@@ -33,12 +33,19 @@
             <Path Style="{StaticResource IconStyle}" Data="{StaticResource Icon.More}" />
             <Button.ContextMenu>
               <ContextMenu DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}" Opened="OnSettingsOpened">
+                <MenuItem Header="{Binding OpenFolderLabel}" InputGestureText="Ctrl+Shift+O" Click="OnOpenFolderClick" />
+                <Separator />
                 <MenuItem Header="{Binding AppearanceLabel}">
                   <MenuItem x:Name="DarkThemeItem" Header="{Binding DarkThemeLabel}" Tag="Dark" IsCheckable="True" Click="OnThemeClick" />
                   <MenuItem x:Name="LightThemeItem" Header="{Binding LightThemeLabel}" Tag="Light" IsCheckable="True" Click="OnThemeClick" />
                   <MenuItem x:Name="SystemThemeItem" Header="{Binding SystemThemeLabel}" Tag="System" IsCheckable="True" Click="OnThemeClick" />
                 </MenuItem>
                 <MenuItem Header="{Binding LanguageLabel}"><MenuItem Header="简体中文" Tag="zh-CN" Click="OnLanguageClick" /><MenuItem Header="English" Tag="en-US" Click="OnLanguageClick" /></MenuItem>
+                <MenuItem Header="{Binding SlideshowSpeedLabel}">
+                  <MenuItem x:Name="Slideshow2Item" Header="{Binding Slideshow2Label}" Tag="2" IsCheckable="True" Click="OnSlideshowSpeedClick" />
+                  <MenuItem x:Name="Slideshow5Item" Header="{Binding Slideshow5Label}" Tag="5" IsCheckable="True" Click="OnSlideshowSpeedClick" />
+                  <MenuItem x:Name="Slideshow10Item" Header="{Binding Slideshow10Label}" Tag="10" IsCheckable="True" Click="OnSlideshowSpeedClick" />
+                </MenuItem>
                 <Separator /><MenuItem Header="{Binding RefreshLabel}" InputGestureText="F5" Click="OnRefreshClick" IsEnabled="{Binding HasImage}" />
               </ContextMenu>
             </Button.ContextMenu>
@@ -61,6 +68,12 @@
             <TextBlock Style="{StaticResource PanelLabelStyle}" Text="{Binding FormatLabel}" /><TextBlock Style="{StaticResource PanelValueStyle}" Text="{Binding FormatText}" />
             <TextBlock Style="{StaticResource PanelLabelStyle}" Text="{Binding FileSizeLabel}" /><TextBlock Style="{StaticResource PanelValueStyle}" Text="{Binding FileSizeText}" />
             <TextBlock Style="{StaticResource PanelLabelStyle}" Text="{Binding ModifiedLabel}" /><TextBlock Style="{StaticResource PanelValueStyle}" Text="{Binding ModifiedText}" />
+            <StackPanel Margin="0,26,0,0" Visibility="{Binding HasMetadata, Converter={StaticResource BooleanToVisibilityConverter}}">
+              <Border BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,1,0,0" Padding="0,20,0,0"><TextBlock Text="{Binding ExifLabel}" FontSize="14" FontWeight="SemiBold" /></Border>
+              <ItemsControl ItemsSource="{Binding MetadataItems}" Margin="0,12,0,0">
+                <ItemsControl.ItemTemplate><DataTemplate><Grid Margin="0,6"><Grid.ColumnDefinitions><ColumnDefinition Width="80" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions><TextBlock Text="{Binding Label}" Foreground="{DynamicResource SecondaryTextBrush}" FontSize="12" /><TextBlock Grid.Column="1" Text="{Binding Value}" TextWrapping="Wrap" FontSize="12" /></Grid></DataTemplate></ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </StackPanel>
             <Button Margin="0,28,0,0" HorizontalAlignment="Left" Style="{StaticResource ToolbarButtonStyle}" Click="OnCopyPathClick" IsEnabled="{Binding HasImage}"><StackPanel Orientation="Horizontal"><Path Style="{StaticResource IconStyle}" Data="{StaticResource Icon.Copy}" /><TextBlock Text="{Binding CopyPathLabel}" Margin="8,0,0,0" /></StackPanel></Button>
           </StackPanel>
         </ScrollViewer>
@@ -76,6 +89,7 @@
           <TextBlock Text="{Binding WelcomeTitle}" FontSize="30" FontWeight="SemiBold" HorizontalAlignment="Center" />
           <TextBlock Text="{Binding WelcomeHint}" Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,12,0,28" HorizontalAlignment="Center" />
           <Button Style="{StaticResource PrimaryButtonStyle}" Command="{Binding OpenCommand}" HorizontalAlignment="Center"><StackPanel Orientation="Horizontal"><Path Style="{StaticResource IconStyle}" Stroke="{DynamicResource AccentTextBrush}" Data="{StaticResource Icon.Open}" /><TextBlock Text="{Binding OpenLabel}" Margin="10,0,16,0" VerticalAlignment="Center" /><TextBlock Text="Ctrl + O" Opacity="0.7" FontSize="12" VerticalAlignment="Center" /></StackPanel></Button>
+          <Button Style="{StaticResource ToolbarButtonStyle}" Click="OnOpenFolderClick" HorizontalAlignment="Center" Margin="0,12,0,0" Foreground="{DynamicResource AccentBrush}" Content="{Binding OpenFolderLabel}" ToolTip="Ctrl+Shift+O" />
           <TextBlock Text="JPEG  ·  PNG" Foreground="{DynamicResource SecondaryTextBrush}" Opacity="0.7" Margin="0,18,0,0" FontSize="11" HorizontalAlignment="Center" />
         </StackPanel>
         <Border HorizontalAlignment="Center" VerticalAlignment="Top" Margin="20" Padding="16,10" CornerRadius="10" Background="{DynamicResource SurfaceBrush}" Visibility="{Binding IsLoading, Converter={StaticResource BooleanToVisibilityConverter}}"><StackPanel Orientation="Horizontal"><ProgressBar Width="56" Height="3" IsIndeterminate="True" VerticalAlignment="Center" /><TextBlock Text="{Binding StatusText}" Margin="12,0,0,0" Foreground="{DynamicResource PrimaryTextBrush}" /></StackPanel></Border>
@@ -95,6 +109,10 @@
             <Border Style="{StaticResource ToolDividerStyle}" />
             <Button Click="OnFilmstripClick" ToolTip="{Binding FilmstripLabel}" AutomationProperties.Name="{Binding FilmstripLabel}"><Button.Style><Style TargetType="Button" BasedOn="{StaticResource ToolbarButtonStyle}"><Style.Triggers><DataTrigger Binding="{Binding ShowFilmstrip}" Value="True"><Setter Property="Background" Value="{DynamicResource AccentSurfaceBrush}" /></DataTrigger></Style.Triggers></Style></Button.Style><Path Style="{StaticResource IconStyle}" Data="{StaticResource Icon.Filmstrip}" /></Button>
             <Button Click="OnInformationClick" ToolTip="{Binding InformationLabel}" AutomationProperties.Name="{Binding InformationLabel}"><Button.Style><Style TargetType="Button" BasedOn="{StaticResource ToolbarButtonStyle}"><Style.Triggers><DataTrigger Binding="{Binding ShowInformation}" Value="True"><Setter Property="Background" Value="{DynamicResource AccentSurfaceBrush}" /></DataTrigger></Style.Triggers></Style></Button.Style><Path Style="{StaticResource IconStyle}" Data="{StaticResource Icon.Info}" /></Button>
+            <Button IsEnabled="{Binding CanPlaySlideshow}" Click="OnSlideshowClick" ToolTip="{Binding SlideshowLabel}" AutomationProperties.Name="{Binding SlideshowLabel}">
+              <Button.Style><Style TargetType="Button" BasedOn="{StaticResource ToolbarButtonStyle}"><Style.Triggers><DataTrigger Binding="{Binding IsSlideshowPlaying}" Value="True"><Setter Property="Background" Value="{DynamicResource AccentSurfaceBrush}" /></DataTrigger></Style.Triggers></Style></Button.Style>
+              <Path><Path.Style><Style TargetType="Path" BasedOn="{StaticResource IconStyle}"><Setter Property="Data" Value="{StaticResource Icon.Play}" /><Style.Triggers><DataTrigger Binding="{Binding IsSlideshowPlaying}" Value="True"><Setter Property="Data" Value="{StaticResource Icon.Pause}" /></DataTrigger></Style.Triggers></Style></Path.Style></Path>
+            </Button>
             <Button Style="{StaticResource ToolbarButtonStyle}" Click="OnFullScreenClick" ToolTip="{Binding FullScreenLabel}" AutomationProperties.Name="{Binding FullScreenLabel}"><Path Style="{StaticResource IconStyle}" Data="{StaticResource Icon.FullScreen}" /></Button>
           </StackPanel>
         </Border>

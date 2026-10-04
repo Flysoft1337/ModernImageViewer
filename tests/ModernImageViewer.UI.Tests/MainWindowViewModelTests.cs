@@ -88,6 +88,31 @@ public sealed class MainWindowViewModelTests
     }
 
     [Fact]
+    public async Task FolderOpenNaturallySortsAndSlideshowLoopsWithoutLosingImageOnEmptyFolder()
+    {
+        using ImageDirectory directory = new();
+        File.WriteAllBytes(System.IO.Path.Combine(directory.Path, "2.png"), []);
+        string last = System.IO.Path.Combine(directory.Path, "10.png");
+        File.WriteAllBytes(last, []);
+        using ImageOpenCoordinator coordinator = new(new FixedFilePicker(null), new SuccessfulDecoder());
+        using MainWindowViewModel viewModel = new(new TestLocalization(), coordinator, new ImageBrowseSession());
+        Assert.True(await viewModel.OpenFolderAsync(directory.Path));
+        Assert.Equal(directory.First, viewModel.CurrentFilePath);
+        Assert.True(await viewModel.OpenLastAsync());
+        Assert.Equal(last, viewModel.CurrentFilePath);
+        viewModel.IsSlideshowPlaying = true;
+        Assert.True(await viewModel.AdvanceSlideshowAsync());
+        Assert.Equal(directory.First, viewModel.CurrentFilePath);
+
+        string empty = System.IO.Path.Combine(directory.Path, "empty");
+        Directory.CreateDirectory(empty);
+        PixelBuffer? image = viewModel.CurrentImage;
+        Assert.False(await viewModel.OpenFolderAsync(empty));
+        Assert.Same(image, viewModel.CurrentImage);
+        Assert.False(viewModel.IsSlideshowPlaying);
+    }
+
+    [Fact]
     public void WindowResourcesLoadAndThemesSwitch()
     {
         Exception? failure = null;
@@ -111,6 +136,8 @@ public sealed class MainWindowViewModelTests
                 MainWindow window = new(viewModel, themes);
                 window.Measure(new System.Windows.Size(1280, 820));
                 window.Arrange(new System.Windows.Rect(0, 0, 1280, 820));
+                Controls.ImageViewport viewport = (Controls.ImageViewport)window.FindName("Viewport");
+                Assert.Empty(((System.Windows.Controls.Grid)viewport.FindName("Canvas")).Children.Cast<object>());
                 foreach (Themes.AppTheme theme in Enum.GetValues<Themes.AppTheme>())
                 {
                     themes.Apply(theme);
