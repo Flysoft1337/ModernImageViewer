@@ -101,12 +101,6 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     public async Task<bool> OpenPathAsync(string path)
     {
         bool opened = await _coordinator.OpenAsync(path);
-        if (opened)
-        {
-            _browseSession.Commit(path);
-        }
-
-        NotifyAll();
         return opened;
     }
 
@@ -140,7 +134,15 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         NotifyAll();
     }
 
-    private void OnCoordinatorPropertyChanged(object? sender, PropertyChangedEventArgs e) => NotifyAll();
+    private void OnCoordinatorPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (_coordinator.State is { Status: ImageOpenStatus.Loaded, FilePath: not null } state)
+        {
+            _browseSession.Commit(state.FilePath);
+        }
+
+        NotifyAll();
+    }
 
     private void NotifyAll()
     {
