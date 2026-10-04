@@ -81,8 +81,18 @@ $compilerSha256 = "0362a383ed217d4c4239b5933866dd96d3eb2102737da92f80f6057a4b40d
 $compilerUrl = "https://github.com/jrsoftware/issrc/releases/download/is-7_1_0/innosetup-7.1.0-x64.exe"
 function Test-CompilerVersion([string]$Path) {
     if (-not $Path -or -not (Test-Path $Path -PathType Leaf)) { return $false }
-    $fileVersion = [Diagnostics.FileVersionInfo]::GetVersionInfo($Path)
-    return $fileVersion.FileMajorPart -eq 7 -and $fileVersion.FileMinorPart -eq 1 -and $fileVersion.FileBuildPart -eq 0
+    # ISCC's PE version resource does not identify the loaded compiler engine.
+    # Inno Setup 7 exposes the authoritative engine version through --version.
+    try {
+        $reportedVersion = (& $Path --version 2>&1) -join "`n"
+        $succeeded = $LASTEXITCODE -eq 0 -and $reportedVersion.Trim() -eq $compilerVersion
+        if (-not $succeeded) { Write-Host "Compiler version check failed at ${Path}: $reportedVersion" }
+        return $succeeded
+    }
+    catch {
+        Write-Host "Compiler could not report its engine version at ${Path}: $($_.Exception.Message)"
+        return $false
+    }
 }
 
 if ($CompilerPath) {
@@ -113,7 +123,12 @@ else {
             if ($process.ExitCode -ne 0) { throw "Inno Setup compiler installation failed: $($process.ExitCode)" }
         }
         finally { $process.Dispose() }
-        if (-not (Test-CompilerVersion $CompilerPath)) { throw "The pinned Inno Setup compiler was not installed successfully." }
+        if (-not (Test-CompilerVersion $CompilerPath)) {
+            if (Test-Path $compilerDirectory) {
+                Write-Host "Compiler installation directory entries: $((Get-ChildItem $compilerDirectory -Name) -join ', ')"
+            }
+            throw "The pinned Inno Setup $compilerVersion engine was not installed successfully at $CompilerPath."
+        }
     }
 }
 
