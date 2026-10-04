@@ -18,4 +18,13 @@
   <data name="Error_CorruptFile" xml:space="preserve"><value>The image file is damaged or incomplete.</value></data>
   <data name="Error_ImageTooLarge" xml:space="preserve"><value>The image is too large to open safely.</value></data>
   <data name="Error_DecodeFailed" xml:space="preserve"><value>The image could not be opened.</value></data>
+  <data name="Command_Previous" xml:space="preserve"><value>Previous</value></data>
+  <data name="Command_Next" xml:space="preserve"><value>Next</value></data>
+  <data name="Command_ZoomIn" xml:space="preserve"><value>Zoom in</value></data>
+  <data name="Command_ZoomOut" xml:space="preserve"><value>Zoom out</value></data>
+  <data name="Empty_Title" xml:space="preserve"><value>Open an image</value></data>
+  <data name="Empty_Hint" xml:space="preserve"><value>Drop a JPEG or PNG here, or press Ctrl+O</value></data>
+  <data name="Status_DimensionsFormat" xml:space="preserve"><value>{0} × {1}</value></data>
+  <data name="Status_ZoomFormat" xml:space="preserve"><value>{0:P0}</value></data>
+  <data name="Status_PositionFormat" xml:space="preserve"><value>{0} / {1}</value></data>
 </root>

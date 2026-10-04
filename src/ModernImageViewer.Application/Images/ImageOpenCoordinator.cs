@@ -1,5 +1,4 @@
 using System.ComponentModel;
-using System.Runtime.CompilerServices;
 
 using ModernImageViewer.Imaging;
 
@@ -10,6 +9,7 @@ public sealed class ImageOpenCoordinator(IImageFilePicker filePicker, IImageDeco
 {
     private CancellationTokenSource? _openCancellation;
     private long _requestVersion;
+    private bool _disposed;
     private ImageOpenState _state = new(ImageOpenStatus.Empty);
 
     public event PropertyChangedEventHandler? PropertyChanged;
@@ -26,6 +26,7 @@ public sealed class ImageOpenCoordinator(IImageFilePicker filePicker, IImageDeco
 
     public async Task PickAndOpenAsync(CancellationToken cancellationToken = default)
     {
+        ObjectDisposedException.ThrowIf(_disposed, this);
         string? path = await filePicker.PickImageAsync(cancellationToken);
         if (path is not null)
         {
@@ -33,8 +34,9 @@ public sealed class ImageOpenCoordinator(IImageFilePicker filePicker, IImageDeco
         }
     }
 
-    public async Task OpenAsync(string path, CancellationToken cancellationToken = default)
+    public async Task<bool> OpenAsync(string path, CancellationToken cancellationToken = default)
     {
+        ObjectDisposedException.ThrowIf(_disposed, this);
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
 
         long version = Interlocked.Increment(ref _requestVersion);
@@ -42,9 +44,11 @@ public sealed class ImageOpenCoordinator(IImageFilePicker filePicker, IImageDeco
         _openCancellation?.Dispose();
         _openCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         CancellationToken token = _openCancellation.Token;
-        PixelBuffer? previousImage = State.Image;
+        ImageOpenState previous = State.Status == ImageOpenStatus.Loading
+            ? new(State.Image is null ? ImageOpenStatus.Empty : ImageOpenStatus.Loaded, State.Image, State.FilePath)
+            : State;
 
-        State = new(ImageOpenStatus.Loading, previousImage, Path.GetFileName(path));
+        State = new(ImageOpenStatus.Loading, previous.Image, previous.FilePath, path);
 
         try
         {
@@ -52,23 +56,42 @@ public sealed class ImageOpenCoordinator(IImageFilePicker filePicker, IImageDeco
             if (version != Volatile.Read(ref _requestVersion) || token.IsCancellationRequested)
             {
                 decoded.Dispose();
-                return;
+                return false;
             }
 
-            previousImage?.Dispose();
-            State = new(ImageOpenStatus.Loaded, decoded, Path.GetFileName(path));
+            previous.Image?.Dispose();
+            State = new(ImageOpenStatus.Loaded, decoded, Path.GetFullPath(path));
+            return true;
         }
         catch (OperationCanceledException) when (token.IsCancellationRequested)
         {
+            if (version == Volatile.Read(ref _requestVersion))
+            {
+                State = previous;
+            }
+
+            return false;
         }
-        catch (Exception exception) when (version == Volatile.Read(ref _requestVersion))
+        catch (Exception exception)
         {
-            State = new(ImageOpenStatus.Error, previousImage, Path.GetFileName(path), MapError(exception));
+            if (version == Volatile.Read(ref _requestVersion))
+            {
+                State = new(ImageOpenStatus.Error, previous.Image, previous.FilePath, path, MapError(exception));
+            }
+
+            return false;
         }
     }
 
     public void Dispose()
     {
+        if (_disposed)
+        {
+            return;
+        }
+
+        _disposed = true;
+        Interlocked.Increment(ref _requestVersion);
         _openCancellation?.Cancel();
         _openCancellation?.Dispose();
         State.Image?.Dispose();
