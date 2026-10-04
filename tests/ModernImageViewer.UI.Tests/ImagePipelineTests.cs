@@ -24,10 +24,12 @@ public sealed class ImagePipelineTests
                 new byte[] { 0, 0, 255, 128 }, 4);
             source.Freeze();
             WicImageDecoder decoder = new();
-            BitmapEncoder[] encoders = [new JpegBitmapEncoder(), new PngBitmapEncoder(),
-                new BmpBitmapEncoder(), new GifBitmapEncoder(), new TiffBitmapEncoder()];
-            foreach (BitmapEncoder encoder in encoders)
+            Func<BitmapEncoder>[] encoders = [() => new JpegBitmapEncoder(), () => new PngBitmapEncoder(),
+                () => new BmpBitmapEncoder(), () => new GifBitmapEncoder(), () => new TiffBitmapEncoder()];
+            foreach (Func<BitmapEncoder> createEncoder in encoders)
             {
+                // WPF encoders belong to their creating thread, which may change after await.
+                BitmapEncoder encoder = createEncoder();
                 // Unsupported containers disguised with a supported extension must be rejected.
                 string path = Path.Combine(directory, encoder.GetType().Name + ".jpg");
                 encoder.Frames.Add(BitmapFrame.Create(source));

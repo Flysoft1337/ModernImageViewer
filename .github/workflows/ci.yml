@@ -98,6 +98,7 @@ jobs:
         run: .\scripts\check-file-activation.ps1 -AppPath .\artifacts\publish\win-x64\ModernImageViewer.App.exe
 
       - name: Build win-x64 installer
+        id: installer_build
         shell: pwsh
         run: .\scripts\build-installer.ps1 -SkipPublish
 
@@ -109,7 +110,7 @@ jobs:
           .\scripts\check-installer.ps1 -InstallerPath $installers[0].FullName
 
       - name: Upload win-x64 installer
-        if: always()
+        if: always() && steps.installer_build.outcome == 'success'
         uses: actions/upload-artifact@v7
         with:
           name: ModernImageViewer-Setup-win-x64
