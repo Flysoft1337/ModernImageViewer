@@ -22,3 +22,14 @@
 - libvips 为 LGPL-2.1-or-later，其依赖的 HEIF/HEVC、AVIF、JXL 编解码器还有独立许可证与专利风险，发布前必须形成依赖清单。
 - 色彩管理不能只写“支持 ICC”；需定义嵌入 profile、显示器 profile、无 profile 图片及导出转换行为。
 - RAW 首屏速度取决于优先读取内嵌预览，完整 demosaic 应异步进行。
+
+## 2026-10-04：实现核对与近期优先级
+
+- `App.xaml.cs` 接收首个命令行路径；仓库未实现文件关联、安装包与单实例 IPC。资源管理器双击路径应前移 M1，默认应用仍由用户在 Windows 界面选择。
+- `WicImageDecoder`、选择器、目录过滤与缩略图目前只支持 JPEG/PNG，不能以 WIC 系统能力或计划列表宣传其他格式。
+- 已有共享像素、Skia 控件延迟创建和单个全尺寸解码槽；`ImageDecodeLimits` 是单图限制，不是管线预算。100MP 图仍可能分配完整 RGBA，降采样主图/分块未实现。
+- `ImageOpenCoordinator` 在提交新图前等待目录 `PrepareAsync`，后台索引仍可能拖慢首屏；后续应将预览、目录与完整图分开提交并核对请求版本。
+- `ThumbnailImage` 为按路径与数量限制的 FIFO 缓存，F5 可清理；主图预取、基于修改时间的自动失效与字节预算未实现。
+- 当前固定侧栏和单行工具条需验证紧凑布局；全屏仍保留画布留白与底部控件。已有主题、焦点框、按钮自动化名称，下一步是收敛与实际无障碍验收。
+- 启动脚本记录窗口/输入空闲与工作集观察；BenchmarkDotNet 仅覆盖像素数计算。后续需要首帧、冷/热启动、私有/native 内存与长期浏览趋势，现有 CI 单样本不代表性能门槛达标。
+- 具体实施依据见 [后续迭代路线图](../next-iteration-roadmap.md)与 [Windows 文件关联方案](../windows-file-association.md)。
