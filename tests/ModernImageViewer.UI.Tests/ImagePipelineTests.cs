@@ -2,6 +2,7 @@ using System.IO;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 
+using ModernImageViewer.Application.Images;
 using ModernImageViewer.Codecs.Wic;
 using ModernImageViewer.Imaging;
 using ModernImageViewer.UI.Rendering;
@@ -12,6 +13,52 @@ namespace ModernImageViewer.UI.Tests;
 
 public sealed class ImagePipelineTests
 {
+    [Fact]
+    public async Task DecoderAcceptsOnlyJpegAndPngContainersEvenWhenExtensionsMatch()
+    {
+        string directory = Path.Combine(Path.GetTempPath(), $"viewer-formats-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(directory);
+        try
+        {
+            BitmapSource source = BitmapSource.Create(1, 1, 96, 96, PixelFormats.Bgra32, null,
+                new byte[] { 0, 0, 255, 128 }, 4);
+            source.Freeze();
+            WicImageDecoder decoder = new();
+            BitmapEncoder[] encoders = [new JpegBitmapEncoder(), new PngBitmapEncoder(),
+                new BmpBitmapEncoder(), new GifBitmapEncoder(), new TiffBitmapEncoder()];
+            foreach (BitmapEncoder encoder in encoders)
+            {
+                // Unsupported containers disguised with a supported extension must be rejected.
+                string path = Path.Combine(directory, encoder.GetType().Name + ".jpg");
+                encoder.Frames.Add(BitmapFrame.Create(source));
+                using (FileStream file = File.Create(path))
+                {
+                    encoder.Save(file);
+                }
+
+                if (encoder is JpegBitmapEncoder or PngBitmapEncoder)
+                {
+                    using PixelBuffer image = await decoder.DecodeAsync(path, TestContext.Current.CancellationToken);
+                    Assert.Equal(new PixelSize(1, 1), image.Size);
+                    if (encoder is PngBitmapEncoder)
+                    {
+                        Assert.Equal(new byte[] { 0, 0, 128, 128 }, image.Pixels.ToArray());
+                    }
+                }
+                else
+                {
+                    ImageDecodeException exception = await Assert.ThrowsAsync<ImageDecodeException>(
+                        () => decoder.DecodeAsync(path, TestContext.Current.CancellationToken));
+                    Assert.Equal(ImageOpenError.UnsupportedFormat, exception.Error);
+                }
+            }
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
     [Fact]
     public void RendererSharesPixelsAndKeepsThemAliveUntilBitmapRelease()
     {

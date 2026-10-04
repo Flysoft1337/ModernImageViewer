@@ -4,7 +4,8 @@ public sealed record FileAssociationStatus(
     bool IsRegistered,
     bool IsOwnedByCurrentExecutable,
     string? ExecutablePath,
-    bool CanRegister);
+    bool CanRegister,
+    bool IsInstalled = false);
 
 public interface IFileAssociationService
 {

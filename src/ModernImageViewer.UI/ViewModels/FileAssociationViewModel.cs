@@ -34,7 +34,7 @@ public sealed class FileAssociationViewModel : INotifyPropertyChanged
     public string UnregisterLabel => Text("Association_Unregister");
     public string DefaultAppsLabel => Text("Association_DefaultApps");
     public string DefaultHint => Text("Association_DefaultHint");
-    public string PortableHint => Text("Association_PortableHint");
+    public string PortableHint => Text(_status.IsInstalled ? "Association_InstalledHint" : "Association_PortableHint");
     public string CloseLabel => Text("Window_Close");
     public bool CanRegister => !_isBusy && _status.CanRegister;
     public bool CanUnregister => !_isBusy && _status.IsOwnedByCurrentExecutable;

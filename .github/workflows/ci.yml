@@ -97,6 +97,35 @@ jobs:
         shell: pwsh
         run: .\scripts\check-file-activation.ps1 -AppPath .\artifacts\publish\win-x64\ModernImageViewer.App.exe
 
+      - name: Build win-x64 installer
+        shell: pwsh
+        run: .\scripts\build-installer.ps1 -SkipPublish
+
+      - name: Check installer lifecycle and installed file activation
+        shell: pwsh
+        run: |
+          $installers = @(Get-ChildItem .\artifacts\installer\*-Setup.exe)
+          if ($installers.Count -ne 1) { throw 'Expected exactly one installer.' }
+          .\scripts\check-installer.ps1 -InstallerPath $installers[0].FullName
+
+      - name: Upload win-x64 installer
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: ModernImageViewer-Setup-win-x64
+          path: artifacts/installer/**
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload installer verification logs
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: installer-verification
+          path: artifacts/installer-smoke/**
+          if-no-files-found: warn
+          retention-days: 14
+
       - name: Upload win-x64 application
         uses: actions/upload-artifact@v7
         with:

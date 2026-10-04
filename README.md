@@ -4,13 +4,34 @@
 
 当前正在推进 **M1 图片浏览体验**，M0 的扩展解码器与性能验证仍待完成。已接入 WIC 解码和 SkiaSharp 画布，支持 JPEG/PNG 打开、拖放、同目录自然排序浏览、文件夹打开、循环幻灯片、邻近图片缩略图、适应窗口、实际像素大小、缩放、平移和全屏。采用深色画廊界面，支持浅色与跟随系统主题，文件信息面板默认收起，支持常见 JPEG EXIF 信息和拍摄方向自动纠正。libvips、LibRaw、编辑和完整相邻图片预取尚未实现。
 
+**当前格式：JPEG（`.jpg`、`.jpeg`）和 PNG（`.png`），仅静态首帧。** WIC 是解码器，SkiaSharp 用于绘制；BMP/GIF/TIFF/WebP/ICO、HEIF/AVIF、RAW 和 SVG 尚未启用。详细像素、尺寸和色彩边界见 [解码器与格式支持](docs/decoder-support.md)。
+
+## 安装与分发
+
+0.2.0 提供 Windows x64 EXE 安装器与便携 ZIP，面向 Windows 10 22H2 或 Windows 11。两种分发均包含 .NET 10 和实际 native 运行依赖，用户无需另装 .NET。
+
+- 安装器：`ModernImageViewer-0.2.0-win-x64-Setup.exe`。默认安装到当前用户的 `%LOCALAPPDATA%\Programs\ModernImageViewer`，无需管理员权限；提供开始菜单入口、可选桌面快捷方式、升级和卸载。
+- 安装时可选注册 JPEG/PNG 打开方式；安装后在 Windows 默认应用中选择 `Modern Image Viewer`，分别设置 `.jpg`、`.jpeg`、`.png`，随后资源管理器双击即可打开。安装器不会自动修改默认应用。
+- 便携 ZIP 解压后运行 `ModernImageViewer.App.exe`，需要时在应用设置里注册 `Modern Image Viewer (Portable)`。安装版与便携版使用独立关联身份，可共存；卸载安装版不撤销便携版候选。
+- 当前 EXE **未签名**；可信签名发布与 MSIX 继续规划。构建产物和校验清单由 Windows CI 上传，实际安装/卸载验证结果以对应运行记录为准；系统默认选择和 Shell 双击仍需人工验收。
+
+从 Windows 开发环境打包（PowerShell 7）：
+
+```powershell
+pwsh .\scripts\build-installer.ps1
+# 已完成 win-x64 self-contained publish 时复用发布输出
+pwsh .\scripts\build-installer.ps1 -SkipPublish
+```
+
+脚本使用固定版本、校验 SHA-256 的 Inno Setup 编译器。发布输入位于 `artifacts/publish/win-x64`，安装器输出位于 `artifacts/installer/ModernImageViewer-0.2.0-win-x64-Setup.exe`。安装、修复、升级与卸载说明见 [Windows 文件关联方案](docs/windows-file-association.md)。
+
 ## 语言
 
 目前支持简体中文和英文。首次启动跟随系统显示语言，未支持的语言回退到英文；也可在应用内即时切换，选择会保存在当前用户的本地设置中。
 
 ## 浏览与交互
 
-- 便携版可在右上角“设置 → 用此应用打开图片”中注册 JPEG/PNG 打开方式，再进入 Windows 默认应用选择此应用；随后双击图片即可打开。注册可撤销，移动应用后需重新注册。请使用 self-contained 发布包，开发运行不注册。详见 [双击图片打开应用](docs/windows-file-association.md)。
+- 安装版与便携版均可在右上角“设置 → 用此应用打开图片”中注册或修复 JPEG/PNG 打开方式，再进入 Windows 默认应用选择此应用；随后双击图片即可打开。注册可撤销，便携版移动后需重新注册。请使用 self-contained 发布包，开发运行不注册。详见 [双击图片打开应用](docs/windows-file-association.md)。
 - 重复启动会把图片交给同一用户、同一会话的已有窗口；无参数启动恢复窗口。请求受理后后续进程退出，不等待图片完整解码。
 - 命令行和拖放支持多张图片，按选择顺序浏览、缩略图与播放；去重并略过无效项，每次最多 128 项。混合选择中的文件夹不会递归展开；单个文件夹仍按自然名称排序打开。
 - `Ctrl+O` 打开图片，`Ctrl+Shift+O` 打开文件夹；支持拖入文件夹或通过命令行指定文件夹。
@@ -43,8 +64,8 @@ pwsh .\scripts\measure-startup.ps1 -AppPath .\artifacts\publish\win-x64\ModernIm
 
 ## 环境要求
 
-- Windows 10 22H2 或 Windows 11
-- .NET 10 SDK
+- 运行安装器/便携版：Windows 10 22H2 或 Windows 11，x64；无需另装 .NET。
+- 开发构建：.NET 10 SDK；安装器编译需要 Windows 与 PowerShell 7。
 
 ## 构建
 
@@ -73,10 +94,11 @@ dotnet run --project .\benchmarks\ModernImageViewer.Benchmarks\ModernImageViewer
 
 ## 后续开发
 
-应用端外部打开、窗口复用和便携关联已实现；MSIX 打包、签名和 Windows Shell 人工验收继续推进。随后依次完善：渐进预览和大图内存预算、紧凑布局与沉浸全屏、预算内相邻预取，再扩展格式、剪贴板和安全编辑/导出。
+应用端外部打开、窗口复用和便携关联已实现，新增当前用户 EXE 安装路径；可信签名、MSIX 和 Windows Shell 人工验收继续推进。随后依次完善：渐进预览和大图内存预算、紧凑布局与沉浸全屏、预算内相邻预取，再扩展格式、剪贴板和安全编辑/导出。
 
 - [后续迭代路线图](docs/next-iteration-roadmap.md)：当前功能缺口、优先级、UI 和性能优化、完成标准。
 - [Windows 文件关联方案](docs/windows-file-association.md)：安装版/便携版、用户默认应用选择、重复激活和验收步骤。
+- [解码器与格式支持](docs/decoder-support.md)：实际启用的 codec、扩展名、像素与尺寸限制、未支持能力。
 - [项目计划](docs/project-plan.md)：完整产品范围、架构、里程碑和性能目标。
 - [进度日志](docs/planning/progress.md)：已完成的迭代记录。
 

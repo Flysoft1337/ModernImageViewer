@@ -111,6 +111,51 @@ public sealed class FileAssociationTests
         Assert.Throws<InvalidOperationException>(portable.Register);
     }
 
+    [Fact]
+    public void InstalledAndPortableRegistrationsRemainIndependent()
+    {
+        using IsolatedRegistry registry = new();
+        const string installedPath = @"C:\Users\Viewer\Programs\ModernImageViewer\ModernImageViewer.App.exe";
+        const string portablePath = @"D:\便携相册\ModernImageViewer.App.exe";
+        WindowsFileAssociationService portable = new(registry.Root, portablePath, canRegister: true);
+        WindowsFileAssociationService installed = new(registry.Root, installedPath, canRegister: true, isInstalled: true);
+        portable.Register();
+        installed.Register();
+
+        Assert.Equal(new FileAssociationStatus(true, true, installedPath, true, true), installed.ReadStatus());
+        Assert.Equal(new FileAssociationStatus(true, true, portablePath, true), portable.ReadStatus());
+        using (RegistryKey? command = registry.Root.OpenSubKey(@"Software\Classes\ModernImageViewer.Installed.Image\shell\open\command"))
+        {
+            Assert.Equal($"\"{installedPath}\" \"%1\"", command?.GetValue(""));
+        }
+        using (RegistryKey? capabilities = registry.Root.OpenSubKey(@"Software\ModernImageViewer\Installed\Capabilities"))
+        {
+            Assert.Equal("Modern Image Viewer", capabilities?.GetValue("ApplicationName"));
+        }
+        using (RegistryKey? applications = registry.Root.OpenSubKey(@"Software\RegisteredApplications"))
+        {
+            Assert.Equal(@"Software\ModernImageViewer\Installed\Capabilities", applications?.GetValue("ModernImageViewer.Installed"));
+            Assert.Equal(@"Software\ModernImageViewer\Portable\Capabilities", applications?.GetValue("ModernImageViewer.Portable"));
+        }
+
+        installed.Unregister();
+        Assert.False(installed.ReadStatus().IsRegistered);
+        Assert.True(installed.ReadStatus().IsInstalled);
+        Assert.True(portable.ReadStatus().IsRegistered);
+        foreach (string extension in new[] { ".jpg", ".jpeg", ".png" })
+        {
+            using RegistryKey? candidates = registry.Root.OpenSubKey(@"Software\Classes\" + extension + @"\OpenWithProgids");
+            Assert.Null(candidates?.GetValue("ModernImageViewer.Installed.Image"));
+            Assert.NotNull(candidates?.GetValue("ModernImageViewer.Portable.Image"));
+        }
+
+        installed.Register();
+        portable.Unregister();
+        Assert.True(installed.ReadStatus().IsRegistered);
+        Assert.False(portable.ReadStatus().IsRegistered);
+        installed.Unregister();
+    }
+
     private sealed class IsolatedRegistry : IDisposable
     {
         private readonly string _path = @"Software\ModernImageViewer.Tests\" + Guid.NewGuid().ToString("N");
