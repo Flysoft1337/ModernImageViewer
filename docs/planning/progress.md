@@ -185,3 +185,7 @@
 - 最终本地标准Release构建0警告/0错误；核心65/65、UI/codec相关52/52通过（剪贴板、内存来源、方向、导出、多输入、浏览工具、双语资源和STA主题窗口），TRX见artifacts/n3-bitmap-copy/test-results。早期代理子集不累加为总数。
 - 修复新增文件换行及两处空白后，完整dotnet format --verify-no-changes --no-restore退出0，git diff --check通过；已查看深中文浏览/浅英文内存编辑720×480截图。无变换1:1复制复用已有数组；缩小采用预乘BGRA双线性，PNG流长度和容量均限32MiB。
 - 测试均注入reader/writer，未改用户真实剪贴板；外部应用Alpha/持久系统剪贴板及native峰值仍待人工验收。准备PR复用既有Windows CI，不新增矩阵、不触发Release。
+
+- PR #28已创建。复核发现Gray16/Gray32Float/Bgr101010总位宽≤32仍可能包含高位深通道，补齐显式拒绝与现有高位深case，避免支持说明与实现不一致；完整CI以修订后的提交为准。
+
+- 高位深修订后标准Release构建再次0警告/0错误，剪贴板17/17回归通过，完整format再次退出0。提升环境的no-restore曾因另一个用户NuGet路径缺包失败，回到原有默认构建环境后通过；不把该环境错误计为源代码失败。

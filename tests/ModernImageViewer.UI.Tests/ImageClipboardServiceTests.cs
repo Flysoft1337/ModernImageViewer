@@ -331,11 +331,16 @@ public sealed class ImageClipboardServiceTests
             png.SetData("PNG", header, autoConvert: false);
             Assert.Equal(ImageOpenError.UnsupportedFormat, Assert.Throws<ImageDecodeException>(() =>
                 new WindowsImageClipboardService(() => png, _ => Assert.Fail()).ReadInput()).Error);
-            BitmapSource highDepth = BitmapSource.Create(1, 1, 96, 96, PixelFormats.Rgb48, null, new byte[6], 6);
-            DataObject bitmap = new();
-            bitmap.SetData(DataFormats.Bitmap, highDepth, autoConvert: false);
-            Assert.Equal(ImageOpenError.UnsupportedFormat, Assert.Throws<ImageDecodeException>(() =>
-                new WindowsImageClipboardService(() => bitmap, _ => Assert.Fail()).ReadInput()).Error);
+            foreach (PixelFormat format in new[] { PixelFormats.Rgb48, PixelFormats.Gray16,
+                PixelFormats.Gray32Float, PixelFormats.Bgr101010 })
+            {
+                int stride = (format.BitsPerPixel + 7) / 8;
+                BitmapSource highDepth = BitmapSource.Create(1, 1, 96, 96, format, null, new byte[stride], stride);
+                DataObject bitmap = new();
+                bitmap.SetData(DataFormats.Bitmap, highDepth, autoConvert: false);
+                Assert.Equal(ImageOpenError.UnsupportedFormat, Assert.Throws<ImageDecodeException>(() =>
+                    new WindowsImageClipboardService(() => bitmap, _ => Assert.Fail()).ReadInput()).Error);
+            }
             return Task.CompletedTask;
         });
     }

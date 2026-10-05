@@ -158,7 +158,8 @@ public sealed class WindowsImageClipboardService : IImageClipboardService
     {
         if (source.Format.BitsPerPixel <= 0) { throw Corrupt(); }
         // Restrict accepted source formats; this bounds pixel payload, not native/process overhead.
-        if (source.Format.BitsPerPixel > 32) { throw Unsupported(); }
+        if (source.Format.BitsPerPixel > 32 || source.Format == PixelFormats.Gray16
+            || source.Format == PixelFormats.Gray32Float || source.Format == PixelFormats.Bgr101010) { throw Unsupported(); }
     }
 
     private static PixelBuffer ReadPixels(BitmapSource source, PixelSize sourceSize, PixelSize maximum,
