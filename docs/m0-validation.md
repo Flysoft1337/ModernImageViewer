@@ -44,7 +44,7 @@ pwsh ./scripts/measure-codec.ps1
 # 已完成Release解决方案构建时复用输出
 pwsh ./scripts/measure-codec.ps1 -NoBuild
 # 同一机器/样本比较多个格式；每模式单独新进程
-pwsh ./scripts/measure-codec.ps1 -NoBuild -ImagePaths ./sample.jpg,./sample.webp -OutputPath ./artifacts/codec-observation/custom.json
+& ./scripts/measure-codec.ps1 -NoBuild -ImagePaths @('./sample.jpg','./sample.webp') -OutputPath ./artifacts/codec-observation/custom.json
 ```
 
 工具在独立进程逐行生成 RGB PNG，仅30,001字节行缓冲与64KiB IDAT缓冲，压缩数据临时文件；测量进程不会继承400MB的样本数组。每输入/模式分别启动框架依赖 Release进程，记录来源/输出尺寸、输出字节、elapsed、当前/峰值进程内存、OS/运行时/CPU、源文件哈希、提交与工作区状态。CPU型号/RAM读取失败保留null和原因，不编造条件。

@@ -143,7 +143,7 @@ end;
 function PrepareToInstall(var NeedsRestart: Boolean): String;
 begin
   Result := '';
-  if IsTaskSelected('fileassoc') and not AssociationIdentityAvailable() then
+  if WizardIsTaskSelected('fileassoc') and not AssociationIdentityAvailable() then
     Result := CustomMessage('AssociationCollision');
 end;
 
@@ -318,7 +318,7 @@ end;
 
 procedure CurStepChanged(CurStep: TSetupStep);
 begin
-  if (CurStep = ssPostInstall) and IsTaskSelected('fileassoc') then RegisterAssociations();
+  if (CurStep = ssPostInstall) and WizardIsTaskSelected('fileassoc') then RegisterAssociations();
 end;
 
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);

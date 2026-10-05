@@ -53,3 +53,21 @@ dotnet build ./ModernImageViewer.slnx --configuration Release --no-restore
 沿用现有Windows CI，仅增加固定RAW源码构建一步；复用格式/构建/测试、100MP观察、便携/安装激活与安装生命周期，不发布Release。打包校验实际native、完整许可、固定源码ZIP哈希，dependencies.json记录解析包/native/源码manifest，不是完整OS/.NET SBOM。
 
 本地Release全方案0警告0错误；核心61项、UI/codec146项通过（含真实RAW），另3项旧文件关联因沙箱拒绝隔离HKCU写入，提升权限仅补跑这3项全部通过，合计210项验证通过。210个中英文资源键一致，已查看720×480深中文/浅英文编辑截图。正式CI/真实包/安装结果补在进度及PR，不用本地测试代替分发验收，不宣称整个M0/M2退出。
+
+
+## 正式 Windows CI 与实际分发核对
+
+功能提交 `2af705e` 的[Windows CI 37320482281](https://github.com/Flysoft1337/ModernImageViewer/actions/runs/37320482281)成功：Release构建0警告0错误；核心61+UI/codec148=209项通过，另1项真实摄影样本仅本机运行而在CI明确跳过，自有DNG JPEG/RGB8/RGB16均执行。固定native构建、格式、依赖审计、100MP观察、便携/安装版全部12类格式单窗口激活、安装/重装旧关联迁移/卸载主要断言成功；Release步骤跳过。正常卸载后重复清理warning已消除。仍有dotnet format workspace加载warning；Inno旧函数名hint在本批最终文档/小修提交改用WizardIsTaskSelected，最终检查见PR #26，不称零告警验收。
+
+取回实际Windows包核对完整许可、Magick Notice、LibRaw源码ZIP及dependencies.json全部native哈希。CI的RAW桥接以MSVC19.51.36260.0构建，1,178,624B，SHA256 `0F8F296A678B026D070239115E95B40363F7B6D1924B37DCB4C807F637739809`，imports仅KERNEL32/WS2_32。Magick/Skia/HarfBuzz实际SHA与记录匹配；31个解析包、1条固定原生源码manifest。源码ZIP哈希与固定官方归档一致，深中文/浅英文编辑截图已查看。
+
+额外RAW一次新进程观察（Release框架依赖、提交2af705e/工作区干净，Windows10.0.19045/.NET10.0.11/16逻辑CPU，CIM拒绝故CPU型号/RAM未知）：
+
+| 来源 / 模式 | 输出 / BGRA字节 | 单次耗时 | 进程峰值WS |
+|---|---|---:|---:|
+| Canon CR2 / preview | 1936×1288 / 9,974,272B | 105.10ms | 57,282,560B |
+| Canon CR2 / thumbnail | 210×140 / 117,600B | 98.42ms | 40,275,968B |
+| Nikon NEF / preview | 2404×1600 / 15,385,600B | 157.63ms | 68,476,928B |
+| Nikon NEF / thumbnail | 210×140 / 117,600B | 105.66ms | 41,451,520B |
+
+这是现有codec probe的四个独立进程观察，不含WPF首帧、长期回收/固定机P95，不推导native专用分配或速度提升。原图hash不变。修正M0文档多文件调用示例：PowerShell内用脚本调用操作符与string数组，避免将逗号路径作为原生pwsh单个参数。

@@ -160,3 +160,7 @@
 - 全量本地验证核心61+UI/codec146通过；3项旧文件关联仅因沙箱隔离HKCU拒绝，提升权限只补跑该3项全部通过。合计210项验证通过；最终微调后核心编辑3与导出/RAW关键12项再通过，Release全方案0警告0错误。正式分发/安装验收以本PR Windows CI为准，不预写结果。
 - 210个双语资源键一致；25扩展名与安装/撤销声明一致，文档链接与git diff检查通过。文档长命令审批超时，改短脚本完成；脚本定位N6两条相同前缀时停下，改唯一定位仅完成未执行部分，未重复修改已完成文档。
 - 最终独立RAW ABI/字节序/行边界/方向/取消释放审阅未发现解码阻断问题；修复native缓存复用分支也补齐许可/源码归档，复用构建检查通过。
+
+- [PR #26](https://github.com/Flysoft1337/ModernImageViewer/pull/26)功能提交2af705e的[Windows CI 37320482281](https://github.com/Flysoft1337/ModernImageViewer/actions/runs/37320482281)成功：Release0警告0错误，核心61+UI148=209通过，1个真实样本本机专用case明确skip；自有DNG均执行。12类格式便携/安装激活、安装/重装迁移/卸载成功，Release跳过。正常卸载后的二次清理warning消除；仍有format workspace warning，Inno旧名hint改WizardIsTaskSelected于最终小修。
+- 已取回实际win-x64包核对4个image native hash、31包/1源码manifest、完整Magick/SVG/HarfBuzz/LibRaw许可、固定源码ZIP哈希和深中文/浅英文编辑截图。RAW桥接实际MSVC19.51.36260.0、1,178,624B、SHA2560F8F296A678B026D070239115E95B40363F7B6D1924B37DCB4C807F637739809，仅KERNEL32/WS2_32；不同编译器hash以各包manifest为准。
+- RAW新增四个新进程单样本观察、环境与原hash见专项记录；CIM硬件信息拒绝保留未知，不作P95/提升/nativecap声明。多路径原生pwsh参数误作为逗号单字符串已改脚本数组调用，修正文档示例。本批最终文档/小修提交仍复用同一CI，不触发Release。
