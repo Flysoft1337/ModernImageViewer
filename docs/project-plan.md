@@ -1,6 +1,6 @@
 # Modern Image Viewer 项目计划
 
-> 文档版本：1.5（PR #21 完成，准备下一批功能）
+> 文档版本：1.6（N1 日常浏览开发迭代）
 > 更新日期：2026-10-05
 
 ## 0. 当前进度与文档分工
@@ -9,7 +9,7 @@
 
 当前 0.5.0 是未发布开发基线：WIC 最多 2048×2048 的中心视区细化、单张 1280×800/4MiB 邻图预览预取、720×480 最小窗口的紧凑布局和全屏 2.5 秒闲置隐藏。本轮仅开发、验证和合并，不触发新 Release；GitHub 最新公开下载仍为 v0.4.0，不包含本轮能力。完整细化预算预留预览交接、预取与区域临时像素，但不包含 native、surface、缩略图或所有进程资源。WIC 区域输出避免完整托管 BGRA，codec 内部仍可能解码整图；单个中心区域不等同于完整分块缓存，WebP 区域细化未实现。PR #21 的 Windows CI 已通过 78 项测试及启动/激活/安装检查，见[验证记录](https://github.com/Flysoft1337/ModernImageViewer/actions/runs/37267427502)。MSIX、真实 Shell 人工验收、全管线内存预算、ICC、RAW、完整分块与可信签名仍待完成；邻图全尺寸预取、编辑和导出尚未实现。
 
-本文的格式、指标和架构接口是目标范围，不是当前支持清单。近期基础按 [后续迭代路线图](next-iteration-roadmap.md) 已推进 A/B/C/D 首批，下一批按 [功能实施方案](feature-expansion-plan.md) 的 N1–N6 扩展，先补排序、文件定位和快捷键帮助；[Windows 文件关联方案](windows-file-association.md)将资源管理器双击图片打开列入 M1。实际完成记录见 [进度日志](planning/progress.md)。
+本文的格式、指标和架构接口是目标范围，不是当前支持清单。近期基础按 [后续迭代路线图](next-iteration-roadmap.md) 已推进 A/B/C/D 首批，下一批按 [功能实施方案](feature-expansion-plan.md) 的 N1–N6 扩展，N1 排序、文件定位和快捷键帮助已接入开发代码，随后推进 N2 会话方向/偏好；[Windows 文件关联方案](windows-file-association.md)将资源管理器双击图片打开列入 M1。实际完成记录见 [进度日志](planning/progress.md)。
 
 ## 1. 项目定义
 

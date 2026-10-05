@@ -15,6 +15,8 @@ public static class DependencyInjection
     {
         services.AddSingleton<IUserSettingsService, UserSettingsService>();
         services.AddSingleton<IImageFilePicker, WindowsImageFilePicker>();
+        services.AddSingleton<IFileRevealService, WindowsFileRevealService>();
+        services.AddSingleton<Func<IFileRevealService>>(provider => provider.GetRequiredService<IFileRevealService>);
         services.AddSingleton<IFileAssociationService, WindowsFileAssociationService>();
         services.AddSingleton<Func<IFileAssociationService>>(provider => provider.GetRequiredService<IFileAssociationService>);
         return services;

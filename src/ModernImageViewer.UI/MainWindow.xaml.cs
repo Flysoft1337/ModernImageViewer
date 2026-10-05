@@ -345,13 +345,25 @@ public partial class MainWindow : Window
     private async void OnPreviewKeyDown(object sender, KeyEventArgs e)
     {
         RevealImmersiveControls();
-        if (e.Key == Key.F11 && Keyboard.Modifiers == ModifierKeys.None)
+        ViewerAction? action = ShortcutCatalog.Match(e.Key, Keyboard.Modifiers);
+        if (action == ViewerAction.ToggleFullScreen)
         {
             ToggleFullScreen();
             e.Handled = true;
             return;
         }
-
+        if (action == ViewerAction.ShowShortcutHelp)
+        {
+            e.Handled = true;
+            ShowShortcutHelp();
+            return;
+        }
+        if (action == ViewerAction.OpenImage)
+        {
+            e.Handled = true;
+            await ((Commands.AsyncRelayCommand)_viewModel.OpenCommand).ExecuteAsync();
+            return;
+        }
         if (e.Key == Key.Escape && (_viewModel.IsFullScreen || _viewModel.IsSlideshowPlaying))
         {
             _viewModel.IsSlideshowPlaying = false;
@@ -362,58 +374,29 @@ public partial class MainWindow : Window
             e.Handled = true;
             return;
         }
-
-        if (Keyboard.FocusedElement is TextBoxBase or ComboBox or MenuItem)
+        if (Keyboard.FocusedElement is TextBoxBase or ComboBox or MenuItem || action is null
+            || (e.Key == Key.Space && Keyboard.FocusedElement is ButtonBase))
         {
             return;
         }
-
-        if (Keyboard.Modifiers == (ModifierKeys.Control | ModifierKeys.Shift) && e.Key == Key.O)
+        e.Handled = true;
+        switch (action)
         {
-            OnOpenFolderClick(this, e);
-            e.Handled = true;
-            return;
-        }
-
-        if (Keyboard.Modifiers == ModifierKeys.Control)
-        {
-            if (e.Key == Key.I)
-            {
-                _viewModel.ShowInformation = !_viewModel.ShowInformation;
-                e.Handled = true;
-            }
-            else if (e.Key == Key.T)
-            {
-                _viewModel.ShowFilmstrip = !_viewModel.ShowFilmstrip;
-                e.Handled = true;
-            }
-            return;
-        }
-
-        if (Keyboard.Modifiers != ModifierKeys.None && !(Keyboard.Modifiers == ModifierKeys.Shift && e.Key == Key.OemPlus))
-        {
-            return;
-        }
-
-        switch (e.Key)
-        {
-            case Key.Left: e.Handled = true; await _viewModel.PreviousCommand.ExecuteAsync(); break;
-            case Key.Right: e.Handled = true; await _viewModel.NextCommand.ExecuteAsync(); break;
-            case Key.Home: e.Handled = true; await _viewModel.OpenFirstAsync(); break;
-            case Key.End: e.Handled = true; await _viewModel.OpenLastAsync(); break;
-            case Key.D0:
-            case Key.NumPad0: Viewport.Fit(); e.Handled = true; break;
-            case Key.D1:
-            case Key.NumPad1: Viewport.ActualSize(); e.Handled = true; break;
-            case Key.Add:
-            case Key.OemPlus: Viewport.ZoomIn(); e.Handled = true; break;
-            case Key.Subtract:
-            case Key.OemMinus: Viewport.ZoomOut(); e.Handled = true; break;
-            case Key.F6: OnSlideshowClick(this, e); e.Handled = true; break;
-            case Key.Space when Keyboard.FocusedElement is not ButtonBase:
-                OnSlideshowClick(this, e); e.Handled = true; break;
-            case Key.F5: OnRefreshClick(this, e); e.Handled = true; break;
-            case Key.Escape: _viewModel.ShowInformation = false; e.Handled = true; break;
+            case ViewerAction.OpenFolder: OnOpenFolderClick(this, e); break;
+            case ViewerAction.PreviousImage: await _viewModel.PreviousCommand.ExecuteAsync(); break;
+            case ViewerAction.NextImage: await _viewModel.NextCommand.ExecuteAsync(); break;
+            case ViewerAction.FirstImage: await _viewModel.OpenFirstAsync(); break;
+            case ViewerAction.LastImage: await _viewModel.OpenLastAsync(); break;
+            case ViewerAction.FitImage: Viewport.Fit(); break;
+            case ViewerAction.ActualSize: Viewport.ActualSize(); break;
+            case ViewerAction.ZoomIn: Viewport.ZoomIn(); break;
+            case ViewerAction.ZoomOut: Viewport.ZoomOut(); break;
+            case ViewerAction.ToggleSlideshow: OnSlideshowClick(this, e); break;
+            case ViewerAction.ToggleInformation: OnInformationClick(this, e); break;
+            case ViewerAction.ToggleFilmstrip: OnFilmstripClick(this, e); break;
+            case ViewerAction.RefreshFolder: OnRefreshClick(this, e); break;
+            case ViewerAction.RevealInExplorer: OnRevealClick(this, e); break;
+            case ViewerAction.DismissOverlay: _viewModel.ShowInformation = false; break;
         }
     }
 

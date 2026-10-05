@@ -192,6 +192,7 @@ public sealed class MainWindowViewModelTests
                 Assert.True(viewModel.Presentation.IsPreview);
                 Assert.NotNull(viewModel.Presentation.Region);
                 VerifyCompactAndImmersiveLayouts(window, viewport, viewModel, themes, localization);
+                VerifyShortcutHelp(window, themes, localization);
                 window.Close();
                 associations.Close();
             }
@@ -283,14 +284,49 @@ public sealed class MainWindowViewModelTests
                     | System.Reflection.BindingFlags.NonPublic)!.Invoke(window, [false]);
             }
             DrainBindings(window);
-            System.Windows.Media.Imaging.RenderTargetBitmap bitmap = new((int)Math.Ceiling(window.ActualWidth), (int)Math.Ceiling(window.ActualHeight), 96, 96,
-                System.Windows.Media.PixelFormats.Pbgra32);
-            bitmap.Render(window);
-            System.Windows.Media.Imaging.PngBitmapEncoder encoder = new();
-            encoder.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(bitmap));
-            using FileStream file = File.Create(Path.Combine(output, $"{prefix}-{theme}-{language}.png"));
-            encoder.Save(file);
+            SaveScreenshot(window, Path.Combine(output, $"{prefix}-{theme}-{language}.png"));
         }
+    }
+
+    private static void VerifyShortcutHelp(MainWindow owner, Themes.ThemeService themes, LocalizationService localization)
+    {
+        foreach ((Themes.AppTheme theme, string language) in new[]
+            { (Themes.AppTheme.Dark, "zh-CN"), (Themes.AppTheme.Light, "en-US") })
+        {
+            themes.Apply(theme);
+            localization.SetCulture(language);
+            using ShortcutHelpWindow help = new(localization) { Owner = owner, Width = 400, Height = 640 };
+            help.Show();
+            help.Dispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.ContextIdle);
+            help.UpdateLayout();
+            ShortcutHelpViewModel model = Assert.IsType<ShortcutHelpViewModel>(help.DataContext);
+            Assert.Equal(6, model.Groups.Count);
+            Assert.Equal(18, model.Groups.Sum(group => group.Rows.Count));
+            Assert.DoesNotContain(model.Groups.SelectMany(group => group.Rows), row => row.Description.StartsWith("Shortcut_", StringComparison.Ordinal));
+            Assert.Equal(localization.GetString("Shortcut_Title"), help.Title);
+            string? output = Environment.GetEnvironmentVariable("MIV_UI_SCREENSHOT_DIRECTORY");
+            if (!string.IsNullOrEmpty(output))
+            {
+                Directory.CreateDirectory(output);
+                SaveScreenshot(help, Path.Combine(output, $"help-{theme}-{language}.png"));
+            }
+            // Culture changes rebuild the same catalog without creating another window.
+            localization.SetCulture(language == "zh-CN" ? "en-US" : "zh-CN");
+            help.Dispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.ContextIdle);
+            Assert.Equal(localization.GetString("Shortcut_Title"), help.Title);
+            help.Close();
+        }
+    }
+
+    private static void SaveScreenshot(System.Windows.Window window, string path)
+    {
+        System.Windows.Media.Imaging.RenderTargetBitmap bitmap = new((int)Math.Ceiling(window.ActualWidth),
+            (int)Math.Ceiling(window.ActualHeight), 96, 96, System.Windows.Media.PixelFormats.Pbgra32);
+        bitmap.Render(window);
+        System.Windows.Media.Imaging.PngBitmapEncoder encoder = new();
+        encoder.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(bitmap));
+        using FileStream file = File.Create(path);
+        encoder.Save(file);
     }
 
     private sealed class PreviewDecoder : IPreviewImageDecoder, IRegionImageDecoder

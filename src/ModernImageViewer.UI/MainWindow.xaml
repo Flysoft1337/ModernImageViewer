@@ -12,9 +12,6 @@
   <shell:WindowChrome.WindowChrome>
     <shell:WindowChrome CaptionHeight="54" ResizeBorderThickness="6" GlassFrameThickness="0" CornerRadius="0" />
   </shell:WindowChrome.WindowChrome>
-  <Window.InputBindings>
-    <KeyBinding Key="O" Modifiers="Control" Command="{Binding OpenCommand}" />
-  </Window.InputBindings>
   <Grid x:Name="WindowLayout">
     <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
     <Border x:Name="TitleBar" Height="54" Padding="18,0,6,0" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1" Visibility="{Binding IsFullScreen, Converter={StaticResource InverseBooleanToVisibilityConverter}}">
@@ -37,6 +34,18 @@
               <ContextMenu DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}" Opened="OnSettingsOpened">
                 <MenuItem Header="{Binding OpenFolderLabel}" InputGestureText="Ctrl+Shift+O" Click="OnOpenFolderClick" />
                 <MenuItem Header="{Binding FileAssociationLabel}" Click="OnFileAssociationsClick" />
+                <MenuItem Header="{Binding FileActionsLabel}">
+                  <MenuItem Header="{Binding RevealLabel}" InputGestureText="Ctrl+Shift+E" Click="OnRevealClick" IsEnabled="{Binding CanReveal}" />
+                  <MenuItem Header="{Binding CopyPathLabel}" Click="OnCopyPathClick" IsEnabled="{Binding HasImage}" />
+                </MenuItem>
+                <MenuItem Header="{Binding SortLabel}" IsEnabled="{Binding CanSort}" ToolTip="{Binding SortHint}" ToolTipService.ShowOnDisabled="True">
+                  <MenuItem Header="{Binding SortNameLabel}" Tag="Name" IsCheckable="True" IsChecked="{Binding IsSortByName, Mode=OneWay}" Click="OnSortModeClick" />
+                  <MenuItem Header="{Binding SortModifiedLabel}" Tag="ModifiedTime" IsCheckable="True" IsChecked="{Binding IsSortByModifiedTime, Mode=OneWay}" Click="OnSortModeClick" />
+                  <MenuItem Header="{Binding SortSizeLabel}" Tag="Size" IsCheckable="True" IsChecked="{Binding IsSortBySize, Mode=OneWay}" Click="OnSortModeClick" />
+                  <Separator />
+                  <MenuItem Header="{Binding SortAscendingLabel}" Tag="Ascending" IsCheckable="True" IsChecked="{Binding IsSortAscending, Mode=OneWay}" Click="OnSortDirectionClick" />
+                  <MenuItem Header="{Binding SortDescendingLabel}" Tag="Descending" IsCheckable="True" IsChecked="{Binding SortDescending, Mode=OneWay}" Click="OnSortDirectionClick" />
+                </MenuItem>
                 <Separator />
                 <MenuItem Header="{Binding InformationLabel}" InputGestureText="Ctrl+I" IsCheckable="True" IsChecked="{Binding ShowInformation, Mode=OneWay}" Click="OnInformationClick" />
                 <MenuItem Header="{Binding FilmstripLabel}" InputGestureText="Ctrl+T" IsCheckable="True" IsChecked="{Binding ShowFilmstrip, Mode=OneWay}" Click="OnFilmstripClick" />
@@ -55,6 +64,7 @@
                   <MenuItem x:Name="Slideshow10Item" Header="{Binding Slideshow10Label}" Tag="10" IsCheckable="True" Click="OnSlideshowSpeedClick" />
                 </MenuItem>
                 <Separator /><MenuItem Header="{Binding RefreshLabel}" InputGestureText="F5" Click="OnRefreshClick" IsEnabled="{Binding HasImage}" />
+                <MenuItem Header="{Binding HelpLabel}" InputGestureText="F1" Click="OnShortcutHelpClick" />
               </ContextMenu>
             </Button.ContextMenu>
           </Button>
@@ -101,7 +111,7 @@
           </StackPanel>
         </Border>
         <Border x:Name="LoadingOverlay" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="20" Padding="16,10" CornerRadius="10" Background="{DynamicResource SurfaceBrush}" ><Border.Style><Style TargetType="Border"><Setter Property="Visibility" Value="Collapsed" /><Style.Triggers><MultiDataTrigger><MultiDataTrigger.Conditions><Condition Binding="{Binding IsLoading}" Value="True" /><Condition Binding="{Binding IsChromeVisible, RelativeSource={RelativeSource AncestorType=Window}}" Value="True" /></MultiDataTrigger.Conditions><Setter Property="Visibility" Value="Visible" /></MultiDataTrigger></Style.Triggers></Style></Border.Style><StackPanel Orientation="Horizontal"><ProgressBar Width="56" Height="3" IsIndeterminate="True" VerticalAlignment="Center" /><TextBlock Text="{Binding StatusText}" Margin="12,0,0,0" Foreground="{DynamicResource PrimaryTextBrush}" /></StackPanel></Border>
-        <Border x:Name="MessageOverlay" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="20" Padding="14,9" CornerRadius="10" Background="{DynamicResource SurfaceBrush}" ><Border.Style><Style TargetType="Border"><Setter Property="Visibility" Value="Collapsed" /><Style.Triggers><MultiDataTrigger><MultiDataTrigger.Conditions><Condition Binding="{Binding HasStatusMessage}" Value="True" /><Condition Binding="{Binding IsChromeVisible, RelativeSource={RelativeSource AncestorType=Window}}" Value="True" /></MultiDataTrigger.Conditions><Setter Property="Visibility" Value="Visible" /></MultiDataTrigger></Style.Triggers></Style></Border.Style><TextBlock Text="{Binding StatusText}" TextWrapping="Wrap" MaxWidth="450" Foreground="{DynamicResource PrimaryTextBrush}" AutomationProperties.LiveSetting="Polite" /></Border>
+        <Border x:Name="MessageOverlay" HorizontalAlignment="Left" VerticalAlignment="Top" Padding="14,9" CornerRadius="10" Background="{DynamicResource SurfaceBrush}" ><Border.Style><Style TargetType="Border"><Setter Property="Margin" Value="20" /><Setter Property="Visibility" Value="Collapsed" /><Style.Triggers><DataTrigger Binding="{Binding ShowPreviewStatus}" Value="True"><Setter Property="Margin" Value="20,90,20,20" /></DataTrigger><MultiDataTrigger><MultiDataTrigger.Conditions><Condition Binding="{Binding HasStatusMessage}" Value="True" /><Condition Binding="{Binding IsChromeVisible, RelativeSource={RelativeSource AncestorType=Window}}" Value="True" /></MultiDataTrigger.Conditions><Setter Property="Visibility" Value="Visible" /></MultiDataTrigger></Style.Triggers></Style></Border.Style><TextBlock Text="{Binding StatusText}" TextWrapping="Wrap" MaxWidth="300" Foreground="{DynamicResource PrimaryTextBrush}" AutomationProperties.LiveSetting="Polite" /></Border>
         <Border x:Name="Toolbar" HorizontalAlignment="Center" VerticalAlignment="Bottom" Padding="8,5" CornerRadius="14" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1">
           <Border.Style><Style TargetType="Border"><Setter Property="Margin" Value="12,0,12,20" /><Setter Property="Visibility" Value="Collapsed" /><Style.Triggers>
             <MultiDataTrigger><MultiDataTrigger.Conditions><Condition Binding="{Binding HasImage}" Value="True" /><Condition Binding="{Binding IsChromeVisible, RelativeSource={RelativeSource AncestorType=Window}}" Value="True" /></MultiDataTrigger.Conditions><Setter Property="Visibility" Value="Visible" /></MultiDataTrigger>
@@ -125,47 +135,7 @@
       <Border x:Name="InformationPanel" Panel.ZIndex="30" HorizontalAlignment="Right" Width="272" CornerRadius="12" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1">
         <Border.Style><Style TargetType="Border"><Setter Property="Margin" Value="12,12,12,92" /><Setter Property="Visibility" Value="Collapsed" /><Style.Triggers><MultiDataTrigger><MultiDataTrigger.Conditions><Condition Binding="{Binding ShowInformation}" Value="True" /><Condition Binding="{Binding IsChromeVisible, RelativeSource={RelativeSource AncestorType=Window}}" Value="True" /></MultiDataTrigger.Conditions><Setter Property="Visibility" Value="Visible" /></MultiDataTrigger><MultiDataTrigger><MultiDataTrigger.Conditions><Condition Binding="{Binding IsFullScreen}" Value="True" /><Condition Binding="{Binding IsFilmstripVisible}" Value="True" /></MultiDataTrigger.Conditions><Setter Property="Margin" Value="12,12,12,238" /></MultiDataTrigger></Style.Triggers></Style></Border.Style>
         <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-          <ScrollViewer.Resources>
-            <Style TargetType="ScrollBar">
-              <Setter Property="Width" Value="8" />
-              <Setter Property="Background" Value="Transparent" />
-              <Setter Property="Template">
-                <Setter.Value>
-                  <ControlTemplate TargetType="ScrollBar">
-                    <Grid Margin="0,4,3,4" Background="Transparent">
-                      <Track x:Name="PART_Track" Orientation="Vertical" IsDirectionReversed="True"
-                             Minimum="{TemplateBinding Minimum}" Maximum="{TemplateBinding Maximum}"
-                             Value="{TemplateBinding Value}" ViewportSize="{TemplateBinding ViewportSize}">
-                        <Track.DecreaseRepeatButton>
-                          <RepeatButton Command="ScrollBar.PageUpCommand" Focusable="False">
-                            <RepeatButton.Template><ControlTemplate TargetType="RepeatButton"><Border Background="Transparent" /></ControlTemplate></RepeatButton.Template>
-                          </RepeatButton>
-                        </Track.DecreaseRepeatButton>
-                        <Track.Thumb>
-                          <Thumb MinHeight="18">
-                            <Thumb.Template>
-                              <ControlTemplate TargetType="Thumb">
-                                <Border x:Name="Grip" Background="{DynamicResource SecondaryTextBrush}" CornerRadius="3" Opacity="0.35" />
-                                <ControlTemplate.Triggers>
-                                  <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Grip" Property="Opacity" Value="0.65" /></Trigger>
-                                  <Trigger Property="IsDragging" Value="True"><Setter TargetName="Grip" Property="Opacity" Value="0.85" /></Trigger>
-                                </ControlTemplate.Triggers>
-                              </ControlTemplate>
-                            </Thumb.Template>
-                          </Thumb>
-                        </Track.Thumb>
-                        <Track.IncreaseRepeatButton>
-                          <RepeatButton Command="ScrollBar.PageDownCommand" Focusable="False">
-                            <RepeatButton.Template><ControlTemplate TargetType="RepeatButton"><Border Background="Transparent" /></ControlTemplate></RepeatButton.Template>
-                          </RepeatButton>
-                        </Track.IncreaseRepeatButton>
-                      </Track>
-                    </Grid>
-                  </ControlTemplate>
-                </Setter.Value>
-              </Setter>
-            </Style>
-          </ScrollViewer.Resources>
+          <ScrollViewer.Resources><Style TargetType="ScrollBar" BasedOn="{StaticResource PanelScrollBarStyle}" /></ScrollViewer.Resources>
           <StackPanel Margin="22,18">
             <Grid><TextBlock Text="{Binding InformationLabel}" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center" /><Button HorizontalAlignment="Right" Style="{StaticResource ToolbarButtonStyle}" Click="OnInformationClick" ToolTip="{Binding CloseLabel}" AutomationProperties.Name="{Binding CloseLabel}"><Path Style="{StaticResource IconStyle}" Width="14" Height="14" Data="{StaticResource Icon.Close}" /></Button></Grid>
             <TextBlock Style="{StaticResource PanelLabelStyle}" Text="{Binding FileNameLabel}" /><TextBlock Style="{StaticResource PanelValueStyle}" Text="{Binding CurrentFileName}" FontWeight="SemiBold" />

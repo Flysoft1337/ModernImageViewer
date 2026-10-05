@@ -108,4 +108,55 @@
   <data name="Preview_DetailFailed" xml:space="preserve"><value>Detail could not be loaded · preview retained</value></data>
   <data name="Preview_RegionReady" xml:space="preserve"><value>Preview · visible detail loaded</value></data>
   <data name="Preview_RegionUnsupported" xml:space="preserve"><value>Preview retained · region detail unavailable for this format</value></data>
+  <data name="Shortcut_Title" xml:space="preserve"><value>Keyboard shortcuts</value></data>
+  <data name="Shortcut_Heading" xml:space="preserve"><value>Make browsing feel effortless</value></data>
+  <data name="Shortcut_Intro" xml:space="preserve"><value>Keep the image in focus. Use these shortcuts while browsing.</value></data>
+  <data name="Shortcut_FooterHint" xml:space="preserve"><value>Canvas shortcuts pause while typing or using a menu. Esc closes this guide.</value></data>
+  <data name="Shortcut_Group_Open" xml:space="preserve"><value>Open</value></data>
+  <data name="Shortcut_Group_Navigation" xml:space="preserve"><value>Navigation</value></data>
+  <data name="Shortcut_Group_Canvas" xml:space="preserve"><value>Canvas</value></data>
+  <data name="Shortcut_Group_Playback" xml:space="preserve"><value>Playback</value></data>
+  <data name="Shortcut_Group_Window" xml:space="preserve"><value>Window</value></data>
+  <data name="Shortcut_Group_File" xml:space="preserve"><value>File</value></data>
+  <data name="Shortcut_Action_OpenImage" xml:space="preserve"><value>Open image</value></data>
+  <data name="Shortcut_Action_OpenFolder" xml:space="preserve"><value>Open folder</value></data>
+  <data name="Shortcut_Action_PreviousImage" xml:space="preserve"><value>Previous image</value></data>
+  <data name="Shortcut_Action_NextImage" xml:space="preserve"><value>Next image</value></data>
+  <data name="Shortcut_Action_FirstImage" xml:space="preserve"><value>First image</value></data>
+  <data name="Shortcut_Action_LastImage" xml:space="preserve"><value>Last image</value></data>
+  <data name="Shortcut_Action_FitImage" xml:space="preserve"><value>Fit image to window</value></data>
+  <data name="Shortcut_Action_ActualSize" xml:space="preserve"><value>Actual size · 1:1</value></data>
+  <data name="Shortcut_Action_ZoomIn" xml:space="preserve"><value>Zoom in</value></data>
+  <data name="Shortcut_Action_ZoomOut" xml:space="preserve"><value>Zoom out</value></data>
+  <data name="Shortcut_Action_RefreshFolder" xml:space="preserve"><value>Refresh folder and current image</value></data>
+  <data name="Shortcut_Action_ToggleSlideshow" xml:space="preserve"><value>Start or pause slideshow</value></data>
+  <data name="Shortcut_Action_ToggleInformation" xml:space="preserve"><value>Show or hide file information</value></data>
+  <data name="Shortcut_Action_ToggleFilmstrip" xml:space="preserve"><value>Show or hide thumbnail strip</value></data>
+  <data name="Shortcut_Action_ToggleFullScreen" xml:space="preserve"><value>Enter or leave full screen</value></data>
+  <data name="Shortcut_Action_DismissOverlay" xml:space="preserve"><value>Stop playback / exit full screen / hide information</value></data>
+  <data name="Shortcut_Action_RevealInExplorer" xml:space="preserve"><value>Show image in File Explorer</value></data>
+  <data name="Shortcut_Action_ShowShortcutHelp" xml:space="preserve"><value>Keyboard shortcut help</value></data>
+  <data name="Shortcut_Key_NumPad0" xml:space="preserve"><value>Num 0</value></data>
+  <data name="Shortcut_Key_NumPad1" xml:space="preserve"><value>Num 1</value></data>
+  <data name="Shortcut_Key_NumPadPlus" xml:space="preserve"><value>Num +</value></data>
+  <data name="Shortcut_Key_NumPadMinus" xml:space="preserve"><value>Num −</value></data>
+  <data name="Shortcut_Key_Space" xml:space="preserve"><value>Space</value></data>
+  <data name="Shortcut_Key_Shift" xml:space="preserve"><value>Shift</value></data>
+  <data name="Shortcut_Key_Control" xml:space="preserve"><value>Ctrl</value></data>
+  <data name="Sort_Title" xml:space="preserve"><value>Sort</value></data>
+  <data name="Sort_Name" xml:space="preserve"><value>Name</value></data>
+  <data name="Sort_ModifiedTime" xml:space="preserve"><value>Modified time</value></data>
+  <data name="Sort_Size" xml:space="preserve"><value>File size</value></data>
+  <data name="Sort_Ascending" xml:space="preserve"><value>Ascending</value></data>
+  <data name="Sort_Descending" xml:space="preserve"><value>Descending</value></data>
+  <data name="Sort_SelectionHint" xml:space="preserve"><value>Selected images keep their input order. Open a folder to choose sorting.</value></data>
+  <data name="Sort_Description" xml:space="preserve"><value>Sort the folder while keeping the current image.</value></data>
+  <data name="Sort_Working" xml:space="preserve"><value>Sorting folder…</value></data>
+  <data name="Sort_Failed" xml:space="preserve"><value>The folder could not be sorted. Current order was kept.</value></data>
+  <data name="File_Actions" xml:space="preserve"><value>File</value></data>
+  <data name="Command_RevealInExplorer" xml:space="preserve"><value>Show in File Explorer</value></data>
+  <data name="Command_ShortcutHelp" xml:space="preserve"><value>Keyboard shortcuts</value></data>
+  <data name="File_Revealed" xml:space="preserve"><value>File selected in Explorer</value></data>
+  <data name="File_RevealMissing" xml:space="preserve"><value>The file is no longer available. The displayed image was kept.</value></data>
+  <data name="File_RevealFailed" xml:space="preserve"><value>File Explorer could not be opened.</value></data>
 </root>

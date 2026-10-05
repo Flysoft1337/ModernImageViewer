@@ -108,4 +108,55 @@
   <data name="Preview_DetailFailed" xml:space="preserve"><value>细节加载失败 · 已保留预览</value></data>
   <data name="Preview_RegionReady" xml:space="preserve"><value>预览 · 当前区域细节已加载</value></data>
   <data name="Preview_RegionUnsupported" xml:space="preserve"><value>已保留预览 · 此格式暂不支持区域细节</value></data>
+  <data name="Shortcut_Title" xml:space="preserve"><value>快捷键帮助</value></data>
+  <data name="Shortcut_Heading" xml:space="preserve"><value>轻松浏览，触手可及</value></data>
+  <data name="Shortcut_Intro" xml:space="preserve"><value>让注意力留在图片上，使用这些快捷键快速浏览。</value></data>
+  <data name="Shortcut_FooterHint" xml:space="preserve"><value>输入文字或操作菜单时，画布快捷键暂停响应。按 Esc 关闭帮助。</value></data>
+  <data name="Shortcut_Group_Open" xml:space="preserve"><value>打开</value></data>
+  <data name="Shortcut_Group_Navigation" xml:space="preserve"><value>导航</value></data>
+  <data name="Shortcut_Group_Canvas" xml:space="preserve"><value>画布</value></data>
+  <data name="Shortcut_Group_Playback" xml:space="preserve"><value>播放</value></data>
+  <data name="Shortcut_Group_Window" xml:space="preserve"><value>窗口</value></data>
+  <data name="Shortcut_Group_File" xml:space="preserve"><value>文件</value></data>
+  <data name="Shortcut_Action_OpenImage" xml:space="preserve"><value>打开图片</value></data>
+  <data name="Shortcut_Action_OpenFolder" xml:space="preserve"><value>打开文件夹</value></data>
+  <data name="Shortcut_Action_PreviousImage" xml:space="preserve"><value>上一张图片</value></data>
+  <data name="Shortcut_Action_NextImage" xml:space="preserve"><value>下一张图片</value></data>
+  <data name="Shortcut_Action_FirstImage" xml:space="preserve"><value>第一张图片</value></data>
+  <data name="Shortcut_Action_LastImage" xml:space="preserve"><value>最后一张图片</value></data>
+  <data name="Shortcut_Action_FitImage" xml:space="preserve"><value>适应窗口</value></data>
+  <data name="Shortcut_Action_ActualSize" xml:space="preserve"><value>实际大小 · 1:1</value></data>
+  <data name="Shortcut_Action_ZoomIn" xml:space="preserve"><value>放大图片</value></data>
+  <data name="Shortcut_Action_ZoomOut" xml:space="preserve"><value>缩小图片</value></data>
+  <data name="Shortcut_Action_RefreshFolder" xml:space="preserve"><value>刷新文件夹与当前图片</value></data>
+  <data name="Shortcut_Action_ToggleSlideshow" xml:space="preserve"><value>播放或暂停幻灯片</value></data>
+  <data name="Shortcut_Action_ToggleInformation" xml:space="preserve"><value>显示或隐藏文件信息</value></data>
+  <data name="Shortcut_Action_ToggleFilmstrip" xml:space="preserve"><value>显示或隐藏缩略图条</value></data>
+  <data name="Shortcut_Action_ToggleFullScreen" xml:space="preserve"><value>进入或退出全屏</value></data>
+  <data name="Shortcut_Action_DismissOverlay" xml:space="preserve"><value>停止播放 / 退出全屏 / 隐藏信息</value></data>
+  <data name="Shortcut_Action_RevealInExplorer" xml:space="preserve"><value>在资源管理器中定位图片</value></data>
+  <data name="Shortcut_Action_ShowShortcutHelp" xml:space="preserve"><value>快捷键帮助</value></data>
+  <data name="Shortcut_Key_NumPad0" xml:space="preserve"><value>小键盘 0</value></data>
+  <data name="Shortcut_Key_NumPad1" xml:space="preserve"><value>小键盘 1</value></data>
+  <data name="Shortcut_Key_NumPadPlus" xml:space="preserve"><value>小键盘 +</value></data>
+  <data name="Shortcut_Key_NumPadMinus" xml:space="preserve"><value>小键盘 −</value></data>
+  <data name="Shortcut_Key_Space" xml:space="preserve"><value>空格</value></data>
+  <data name="Shortcut_Key_Shift" xml:space="preserve"><value>Shift</value></data>
+  <data name="Shortcut_Key_Control" xml:space="preserve"><value>Ctrl</value></data>
+  <data name="Sort_Title" xml:space="preserve"><value>排序</value></data>
+  <data name="Sort_Name" xml:space="preserve"><value>名称</value></data>
+  <data name="Sort_ModifiedTime" xml:space="preserve"><value>修改时间</value></data>
+  <data name="Sort_Size" xml:space="preserve"><value>文件大小</value></data>
+  <data name="Sort_Ascending" xml:space="preserve"><value>升序</value></data>
+  <data name="Sort_Descending" xml:space="preserve"><value>降序</value></data>
+  <data name="Sort_SelectionHint" xml:space="preserve"><value>多选图片保持选择顺序，打开文件夹后可选择排序。</value></data>
+  <data name="Sort_Description" xml:space="preserve"><value>重排目录，保留当前图片和视口。</value></data>
+  <data name="Sort_Working" xml:space="preserve"><value>正在排序…</value></data>
+  <data name="Sort_Failed" xml:space="preserve"><value>目录排序失败，已保留原顺序。</value></data>
+  <data name="File_Actions" xml:space="preserve"><value>文件</value></data>
+  <data name="Command_RevealInExplorer" xml:space="preserve"><value>在资源管理器中定位</value></data>
+  <data name="Command_ShortcutHelp" xml:space="preserve"><value>快捷键帮助</value></data>
+  <data name="File_Revealed" xml:space="preserve"><value>已在资源管理器中定位</value></data>
+  <data name="File_RevealMissing" xml:space="preserve"><value>文件已不存在，当前图片仍可查看。</value></data>
+  <data name="File_RevealFailed" xml:space="preserve"><value>无法打开资源管理器。</value></data>
 </root>
