@@ -214,7 +214,19 @@
   <data name="Edit_EmbeddedPreviewNotice" xml:space="preserve"><value>正在编辑 RAW 内嵌预览，尺寸以该预览为准；不使用传感器像素，不进行完整 RAW 显影。</value></data>
   <data name="Error_RawNoPreview" xml:space="preserve"><value>该 RAW 文件没有可读取的内嵌预览。</value></data>
   <data name="Raw_EmbeddedPreview" xml:space="preserve"><value>内嵌预览</value></data>
-  <data name="Command_PasteFiles" xml:space="preserve"><value>打开剪贴板文件</value></data>
-  <data name="Clipboard_NoFiles" xml:space="preserve"><value>请先在资源管理器中复制图片文件，再重试；暂不支持粘贴位图</value></data>
-  <data name="Shortcut_Action_PasteFiles" xml:space="preserve"><value>打开剪贴板文件</value></data>
+  <data name="Command_PasteFiles" xml:space="preserve"><value>从剪贴板打开</value></data>
+  <data name="Clipboard_NoFiles" xml:space="preserve"><value>剪贴板中没有图片或图片文件，请复制后重试</value></data>
+  <data name="Shortcut_Action_PasteFiles" xml:space="preserve"><value>从剪贴板打开图片或文件</value></data>
+  <data name="Shortcut_Action_CopyPreview" xml:space="preserve"><value>复制当前图片预览（含查看方向）</value></data>
+  <data name="Clipboard_Image" xml:space="preserve"><value>剪贴板图片</value></data>
+  <data name="Clipboard_Bitmap" xml:space="preserve"><value>位图</value></data>
+  <data name="Clipboard_CopyPreview" xml:space="preserve"><value>复制预览</value></data>
+  <data name="Clipboard_CopyPreviewHint" xml:space="preserve"><value>复制整张图片的预览，最大2560×1600，包含旋转/翻转并保留PNG透明；不包含界面或局部细化区域</value></data>
+  <data name="Clipboard_CopyOriginal" xml:space="preserve"><value>复制原尺寸图片</value></data>
+  <data name="Clipboard_CopyOriginalHint" xml:space="preserve"><value>仅在已加载完整像素且输出不超过64MiB时可用；包含旋转/翻转</value></data>
+  <data name="Clipboard_Source" xml:space="preserve"><value>内存图片，可编辑并另存为</value></data>
+  <data name="Information_Source" xml:space="preserve"><value>来源</value></data>
+  <data name="Clipboard_PreviewCopied" xml:space="preserve"><value>已复制图片预览（含查看方向）</value></data>
+  <data name="Clipboard_OriginalCopied" xml:space="preserve"><value>已复制原尺寸图片（含查看方向）</value></data>
+  <data name="Edit_ClipboardNotice" xml:space="preserve"><value>正在编辑剪贴板图片，保存会创建新文件</value></data>
 </root>

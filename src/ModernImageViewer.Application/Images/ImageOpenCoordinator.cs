@@ -129,7 +129,8 @@ public sealed partial class ImageOpenCoordinator(IImageFilePicker filePicker, II
                 }
                 previous.Region?.Dispose();
                 previous.Image?.Dispose();
-                State = new(ImageOpenStatus.Loaded, decoded, Path.GetFullPath(path), IsPreview: decoded.Size != decoded.SourceSize);
+                State = new(ImageOpenStatus.Loaded, decoded, Path.GetFullPath(path), IsPreview: decoded.Size != decoded.SourceSize,
+                    Source: new ImageSource(Guid.NewGuid(), ImageSourceKind.File));
                 if (session is not null && indexingRevision is { } revision
                     && !_disposed && version == Volatile.Read(ref _requestVersion))
                 {
@@ -173,7 +174,8 @@ public sealed partial class ImageOpenCoordinator(IImageFilePicker filePicker, II
         ObjectDisposedException.ThrowIf(_disposed, this);
         ImageOpenState current = State;
         if (current.Status != ImageOpenStatus.Loaded || !current.IsPreview || current.IsRefining
-            || current.Image is null || current.FilePath is null || decoder is not IPreviewImageDecoder previewDecoder)
+            || current.Image is null || (current.IsMemorySource ? current.Source?.Memory is null
+                : current.FilePath is null || decoder is not IPreviewImageDecoder))
         {
             return false;
         }
@@ -199,7 +201,13 @@ public sealed partial class ImageOpenCoordinator(IImageFilePicker filePicker, II
         PixelBuffer? detail = null;
         try
         {
-            detail = await previewDecoder.DecodeDetailAsync(current.FilePath, maximumDecodedBytes, token);
+            detail = current.Source?.Memory is { } memory
+                ? await memory.ReadPixelsAsync(memory.SourceSize, maximumDecodedBytes, token)
+                : await ((IPreviewImageDecoder)decoder).DecodeDetailAsync(current.FilePath!, maximumDecodedBytes, token);
+            if (current.IsMemorySource)
+            {
+                ValidateMemoryPixels(detail, current.Source!.Memory!, current.Image.SourceSize, maximumDecodedBytes);
+            }
             if (!IsCurrentRefinement(openVersion, refinementVersion, preview) || token.IsCancellationRequested)
             {
                 return false;

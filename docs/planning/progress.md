@@ -175,3 +175,20 @@
 - dotnet format --verify-no-changes --no-restore退出0，git diff --check通过；不增加CI矩阵。默认沙箱gh无法读取有效keyring，提升环境认证成功。
 - [PR #27](https://github.com/Flysoft1337/ModernImageViewer/pull/27)功能提交54af7b9的[Windows CI 37334574016](https://github.com/Flysoft1337/ModernImageViewer/actions/runs/37334574016)成功：Release构建0警告/0错误，核心61+UI/codec150=211通过、1项本机真实RAW样本跳过；格式、依赖审计、100MP观察、便携启动/12类格式激活、安装版激活及安装/重装迁移/卸载检查通过。Release job跳过，公开版仍v0.4.0。
 - dotnet format仍有workspace加载warning，不能称所有工具零告警；GitHub直连超时后以现有代理取得结果。最后仅更新Markdown验收记录，功能源/测试/CI流程保持与已通过54af7b9一致；最终合并状态见PR。N3位图/复制图片留后续小批，未操作用户剪贴板，Shell复制端人工交互仍未验收。
+
+## 2026-10-06：N3 位图与复制图片
+
+- 从master d226260建立codex/n3-bitmap-copy；STA剪贴板和内存编辑/导出并行，主任务整合独立来源身份、预览/细化/取消、导航清理与命令。
+- 已接入内存Source身份和有界读取回调；无伪路径，复制快照持有同一readonly数组，新打开/关闭取消晚写。预算/实际验收尚待完整实现收敛。
+- 新核心测试补传xUnit测试取消令牌；选择序列测试改用真实完整路径，避免把相对路径快照与绝对当前路径比较。新Viewport回归明确Application.ImageSource以消除WPF同名歧义。内存编辑代理完成新增身份/完整像素导出与11项定向回归，最终标准分析器与整合验证由主任务运行。
+
+- 最终本地标准Release构建0警告/0错误；核心65/65、UI/codec相关52/52通过（剪贴板、内存来源、方向、导出、多输入、浏览工具、双语资源和STA主题窗口），TRX见artifacts/n3-bitmap-copy/test-results。早期代理子集不累加为总数。
+- 修复新增文件换行及两处空白后，完整dotnet format --verify-no-changes --no-restore退出0，git diff --check通过；已查看深中文浏览/浅英文内存编辑720×480截图。无变换1:1复制复用已有数组；缩小采用预乘BGRA双线性，PNG流长度和容量均限32MiB。
+- 测试均注入reader/writer，未改用户真实剪贴板；外部应用Alpha/持久系统剪贴板及native峰值仍待人工验收。准备PR复用既有Windows CI，不新增矩阵、不触发Release。
+
+- PR #28已创建。复核发现Gray16/Gray32Float/Bgr101010总位宽≤32仍可能包含高位深通道，补齐显式拒绝与现有高位深case，避免支持说明与实现不一致；完整CI以修订后的提交为准。
+
+- 高位深修订后标准Release构建再次0警告/0错误，剪贴板17/17回归通过，完整format再次退出0。提升环境的no-restore曾因另一个用户NuGet路径缺包失败，回到原有默认构建环境后通过；不把该环境错误计为源代码失败。
+
+- [PR #28](https://github.com/Flysoft1337/ModernImageViewer/pull/28)功能提交d501ac2的[Windows CI 37341778600](https://github.com/Flysoft1337/ModernImageViewer/actions/runs/37341778600)成功：完整恢复/格式、Release构建0警告0错误，核心65+UI/codec174=239通过、1项本机真实RAW样本跳过；依赖审计、100MP观察、便携启动/12类格式激活、安装版激活及当前用户安装/同版本重装迁移/卸载检查通过。Release job明确跳过，公开版仍v0.4.0。
+- CI format仍有workspace加载warning，不宣称全部工具零告警。最终只补Markdown验收记录，功能源/测试/流程与已通过d501ac2保持一致；最终合并状态见PR。外部应用剪贴板互通/Alpha、持久剪贴板与native峰值仍未人工验收，不将N3代码交付标成所有设备验收完成。

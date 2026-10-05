@@ -3,6 +3,7 @@ using System.Globalization;
 using System.IO;
 
 using ModernImageViewer.Application.Browsing;
+using ModernImageViewer.Application.Editing;
 using ModernImageViewer.Application.Images;
 using ModernImageViewer.Application.Integration;
 using ModernImageViewer.Imaging;
@@ -144,8 +145,9 @@ public sealed class MainWindowViewModelTests
                 MemorySettings preferences = new();
                 preferences.SaveWindowPlacement(new(100000, -100000, 1280, 820));
                 LocalizationService localization = new(preferences);
+                PreviewClipboard clipboard = new();
                 using MainWindowViewModel viewModel = new(localization, coordinator, new ImageBrowseSession(), settings: preferences,
-                    clipboardFiles: new Platform.Integration.WindowsClipboardFileService(() => null));
+                    clipboardFiles: new Platform.Integration.WindowsClipboardFileService(() => null), imageClipboard: clipboard);
                 MainWindow window = new(viewModel, themes);
                 FileAssociationWindow associations = new(new NoopFileAssociations(), new TestLocalization());
                 associations.Measure(new System.Windows.Size(620, 650));
@@ -215,6 +217,7 @@ public sealed class MainWindowViewModelTests
                 VerifyOrientationMenus(window, themes, localization);
                 VerifyShortcutHelp(window, themes, localization);
                 VerifyEditor(window, viewModel, themes, localization);
+                VerifyMemoryClipboard(window, viewModel, clipboard, themes, localization);
                 ModernImageViewer.Application.Settings.WindowPlacementData normalPlacement = preferences.Current.WindowPlacement!;
                 typeof(MainWindow).GetMethod("ToggleFullScreen", System.Reflection.BindingFlags.Instance
                     | System.Reflection.BindingFlags.NonPublic)!.Invoke(window, null);
@@ -400,6 +403,56 @@ public sealed class MainWindowViewModelTests
         encoder.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(bitmap));
         using FileStream file = File.Create(path);
         encoder.Save(file);
+    }
+
+    private static void VerifyMemoryClipboard(MainWindow window, MainWindowViewModel model, PreviewClipboard clipboard,
+        Themes.ThemeService themes, LocalizationService localization)
+    {
+        PixelSize size = new(4, 3);
+        byte[] pixels = Enumerable.Range(0, 12).SelectMany(index => new byte[]
+            { (byte)(index % 3 * 100), (byte)(index % 2 * 100), (byte)(index % 4 * 70), 255 }).ToArray();
+        clipboard.Input = new([], new(size, (_, _, _) => Task.FromResult(new PixelBuffer(size, 16, pixels))));
+        model.PasteFilesCommand.ExecuteAsync().GetAwaiter().GetResult();
+        DrainBindings(window);
+        Assert.True(model.Presentation.IsMemorySource);
+        Assert.Empty(model.CurrentFilePath);
+        Assert.Empty(model.BrowseItems);
+        Assert.False(model.CanCopyPath);
+        Assert.False(model.CanReveal);
+        Assert.False(model.CanSort);
+        Assert.Equal("—", model.FileSizeText);
+        Assert.Equal("—", model.ModifiedText);
+        Assert.True(model.CopyOriginalCommand.CanExecute(null));
+        CapturePreviewScreenshots(window, themes, localization, "clipboard-image");
+        foreach ((Themes.AppTheme theme, string language) in new[]
+            { (Themes.AppTheme.Dark, "zh-CN"), (Themes.AppTheme.Light, "en-US") })
+        {
+            themes.Apply(theme);
+            localization.SetCulture(language);
+            ImageExportPixels source = new(size, 16, model.CurrentImage!.Pixels);
+            EditWindow editor = new(model.Presentation, default, localization, new NoopExporter(), sourcePixels: source)
+            { Owner = window, Width = 720, Height = 480 };
+            editor.Show();
+            DrainBindings(window);
+            editor.UpdateLayout();
+            Assert.Equal(localization.GetString("Edit_ClipboardNotice"),
+                ((System.Windows.Controls.TextBlock)editor.FindName("PreviewNotice")).Text);
+            Assert.Equal(size, editor.Recipe.SourceSize);
+            string? output = Environment.GetEnvironmentVariable("MIV_UI_SCREENSHOT_DIRECTORY");
+            if (!string.IsNullOrEmpty(output))
+            {
+                SaveScreenshot(editor, Path.Combine(output, $"clipboard-editor-{theme}-{language}.png"));
+            }
+            editor.Close();
+            Assert.Equal(pixels, model.CurrentImage.Pixels.ToArray());
+        }
+    }
+
+    private sealed class PreviewClipboard : IImageClipboardService
+    {
+        public ImageClipboardInput Input { get; set; } = new([]);
+        public ImageClipboardInput ReadInput() => Input;
+        public Task WriteAsync(ImageClipboardPixels image, CancellationToken cancellationToken = default) => Task.CompletedTask;
     }
 
     private static void VerifyEditor(MainWindow window, MainWindowViewModel viewModel, Themes.ThemeService themes, LocalizationService localization)

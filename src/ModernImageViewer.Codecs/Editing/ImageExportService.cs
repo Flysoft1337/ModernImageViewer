@@ -27,24 +27,25 @@ public sealed class ImageExportService(IImageDecoder decoder) : IImageExportServ
 
     private async Task ExportCoreAsync(ImageExportRequest request, CancellationToken token)
     {
-        string source = Path.GetFullPath(request.SourcePath);
+        string? source = request.SourcePath is null ? null : Path.GetFullPath(request.SourcePath);
         string destination = Path.GetFullPath(request.DestinationPath);
         string? temporary = null;
         try
         {
             // Keep this handle through commit: Windows denies writes/deletes through hard links,
             // junctions and alternative spellings too, rather than trusting a string comparison.
-            using FileStream sourceLock = new(source, FileMode.Open, FileAccess.Read, FileShare.Read);
-            if ((request.ExpectedSourceLength is long length && sourceLock.Length != length)
-                || (request.ExpectedSourceModifiedUtc is DateTime modified && File.GetLastWriteTimeUtc(source) != modified))
+            using FileStream? sourceLock = source is null ? null : new(source, FileMode.Open, FileAccess.Read, FileShare.Read);
+            if (sourceLock is not null && ((request.ExpectedSourceLength is long length && sourceLock.Length != length)
+                || (request.ExpectedSourceModifiedUtc is DateTime modified && File.GetLastWriteTimeUtc(source!) != modified)))
             {
                 throw new ImageExportException(ImageExportError.SourceChanged);
             }
             if (File.Exists(destination)) { throw new ImageExportException(ImageExportError.DestinationExists); }
             token.ThrowIfCancellationRequested();
-            using PixelBuffer? wholeSource = TryReuseSourcePixels(request)
+            ImageExportPixels? memorySource = request.MemorySourceIdentity is not null ? request.SourcePixels : null;
+            using PixelBuffer? wholeSource = source is null ? null : TryReuseSourcePixels(request)
                 ?? await DecodeWholeWithinBudgetAsync(source, request.Recipe, token).ConfigureAwait(false);
-            if (wholeSource is null && decoder is not IRegionImageDecoder)
+            if (memorySource is null && wholeSource is null && decoder is not IRegionImageDecoder)
             {
                 throw new ImageExportException(ImageExportError.BudgetExceeded);
             }
@@ -59,10 +60,11 @@ public sealed class ImageExportService(IImageDecoder decoder) : IImageExportServ
                 canvas.Concat(new SKMatrix((float)m.M11, (float)m.M21, (float)m.OffsetX,
                     (float)m.M12, (float)m.M22, (float)m.OffsetY, 0, 0, 1));
                 canvas.ClipRect(ToRect(request.Recipe.Crop));
-                if (wholeSource is not null)
+                if (memorySource is not null || wholeSource is not null)
                 {
-                    using SKBitmap pixels = AttachPixels(wholeSource);
-                    if (wholeSource.Size == wholeSource.SourceSize)
+                    using SKBitmap pixels = memorySource is not null
+                        ? AttachPixels(memorySource.Size, memorySource.Stride, memorySource.Pixels) : AttachPixels(wholeSource!);
+                    if (memorySource is not null || wholeSource!.Size == wholeSource.SourceSize)
                     {
                         using SKBitmap cropped = new();
                         PixelRect crop = request.Recipe.Crop;
@@ -98,7 +100,7 @@ public sealed class ImageExportService(IImageDecoder decoder) : IImageExportServ
                             int top = Math.Max(crop.Y, y - 1);
                             PixelRect padded = new(left, top, Math.Min(crop.Right, core.Right + 1) - left,
                                 Math.Min(crop.Bottom, core.Bottom + 1) - top);
-                            using DecodedRegionOwner owner = new(await regions.DecodeRegionAsync(source, padded,
+                            using DecodedRegionOwner owner = new(await regions.DecodeRegionAsync(source!, padded,
                                 request.Recipe.SourceSize, RegionByteLimit, token).ConfigureAwait(false));
                             if (owner.Region.Bounds != padded || owner.Region.Image.SourceSize != request.Recipe.SourceSize
                                 || owner.Region.Image.Size != padded.Size)
@@ -210,8 +212,11 @@ public sealed class ImageExportService(IImageDecoder decoder) : IImageExportServ
     private static void Validate(ImageExportRequest request)
     {
         ArgumentNullException.ThrowIfNull(request.Recipe);
-        if (string.IsNullOrWhiteSpace(request.SourcePath) || string.IsNullOrWhiteSpace(request.DestinationPath)
-            || string.Equals(Path.GetFullPath(request.SourcePath), Path.GetFullPath(request.DestinationPath), StringComparison.OrdinalIgnoreCase))
+        bool memory = request.MemorySourceIdentity is { } identity && identity != Guid.Empty;
+        if (string.IsNullOrWhiteSpace(request.DestinationPath)
+            || (memory ? request.SourcePath is not null
+                : request.MemorySourceIdentity is not null || string.IsNullOrWhiteSpace(request.SourcePath))
+            || (!memory && string.Equals(Path.GetFullPath(request.SourcePath!), Path.GetFullPath(request.DestinationPath), StringComparison.OrdinalIgnoreCase)))
         {
             throw new ImageExportException(ImageExportError.InvalidDestination);
         }
@@ -230,13 +235,34 @@ public sealed class ImageExportService(IImageDecoder decoder) : IImageExportServ
         {
             throw new ImageExportException(ImageExportError.BudgetExceeded);
         }
+        if (memory)
+        {
+            if (source.PixelCount * 4 > SourceByteLimit)
+            {
+                throw new ImageExportException(ImageExportError.BudgetExceeded);
+            }
+            if (request.SourcePixels is not { } pixels || pixels.Size != source
+                || request.ExpectedSourceLength is not null || request.ExpectedSourceModifiedUtc is not null
+                || pixels.SourceFileStamp is not null || pixels.Stride < (long)source.Width * 4
+                || pixels.Pixels.Length < (long)pixels.Stride * source.Height
+                || !MemoryMarshal.TryGetArray(pixels.Pixels, out ArraySegment<byte> array) || array.Array is null)
+            {
+                throw new ImageExportException(ImageExportError.SourceChanged);
+            }
+            if ((long)pixels.Stride * source.Height > SourceByteLimit || pixels.Pixels.Length > SourceByteLimit)
+            {
+                throw new ImageExportException(ImageExportError.BudgetExceeded);
+            }
+        }
     }
 
     private static SKRect ToRect(PixelRect rect) => new(rect.X, rect.Y, rect.Right, rect.Bottom);
 
-    private static SKBitmap AttachPixels(PixelBuffer image)
+    private static SKBitmap AttachPixels(PixelBuffer image) => AttachPixels(image.Size, image.Stride, image.Pixels);
+
+    private static SKBitmap AttachPixels(PixelSize size, int stride, ReadOnlyMemory<byte> memory)
     {
-        if (!MemoryMarshal.TryGetArray(image.Pixels, out ArraySegment<byte> pixels) || pixels.Array is null)
+        if (!MemoryMarshal.TryGetArray(memory, out ArraySegment<byte> pixels) || pixels.Array is null)
         {
             throw new InvalidOperationException("An array-backed pixel buffer is required.");
         }
@@ -244,8 +270,8 @@ public sealed class ImageExportService(IImageDecoder decoder) : IImageExportServ
         SKBitmap bitmap = new();
         try
         {
-            if (!bitmap.InstallPixels(new(image.Size.Width, image.Size.Height, SKColorType.Bgra8888, SKAlphaType.Premul),
-                pin.Address, image.Stride, (_, context) => ((PinnedPixels)context).Dispose(), pin))
+            if (!bitmap.InstallPixels(new(size.Width, size.Height, SKColorType.Bgra8888, SKAlphaType.Premul),
+                pin.Address, stride, (_, context) => ((PinnedPixels)context).Dispose(), pin))
             {
                 throw new InvalidOperationException("Unable to attach decoded pixels.");
             }

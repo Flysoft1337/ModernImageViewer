@@ -14,6 +14,134 @@ namespace ModernImageViewer.UI.Tests;
 public sealed class ImageExportServiceTests
 {
     [Fact]
+    public async Task MemoryCropRotateAndFlipKeepsCoordinatesAndSharedPixelsWithoutDecoder()
+    {
+        using Files files = new();
+        byte[] bytes = new byte[4 * 3 * 4];
+        static void Set(byte[] data, int x, int y, SKColor color)
+        {
+            int offset = ((y * 4) + x) * 4;
+            data[offset] = color.Blue;
+            data[offset + 1] = color.Green;
+            data[offset + 2] = color.Red;
+            data[offset + 3] = color.Alpha;
+        }
+        Set(bytes, 1, 1, SKColors.Red);
+        Set(bytes, 2, 1, SKColors.Lime);
+        Set(bytes, 1, 2, SKColors.Blue);
+        Set(bytes, 2, 2, SKColors.Yellow);
+        byte[] hash = SHA256.HashData(bytes);
+        using PixelBuffer source = new(new(4, 3), 16, bytes);
+        ImageExportPixels pixels = new(source.Size, source.Stride, source.Pixels);
+        source.Dispose();
+        ImageEditRecipe recipe = ImageEditRecipe.Create(new(4, 3)).WithCrop(new(1, 1, 2, 2)).RotateRight().FlipHorizontal();
+        await new ImageExportService(new ForbiddenDecoder()).ExportAsync(new(null, files.Output, recipe,
+            SourcePixels: pixels, MemorySourceIdentity: Guid.NewGuid()), TestContext.Current.CancellationToken);
+        using SKBitmap output = SKBitmap.Decode(files.Output);
+        Assert.Equal(2, output.Width);
+        Assert.Equal(2, output.Height);
+        Assert.Equal(SKColors.Red, output.GetPixel(0, 0));
+        Assert.Equal(SKColors.Blue, output.GetPixel(1, 0));
+        Assert.Equal(SKColors.Lime, output.GetPixel(0, 1));
+        Assert.Equal(SKColors.Yellow, output.GetPixel(1, 1));
+        Assert.Equal(hash, SHA256.HashData(bytes));
+        Assert.False(File.Exists(files.Source));
+        Assert.Empty(Directory.GetFiles(files.Directory, ".miv-export-*.tmp"));
+    }
+
+    [Fact]
+    public async Task MemoryPngKeepsAlphaAndJpegCompositesWhite()
+    {
+        using Files files = new();
+        ImageExportPixels pixels = new(new(1, 1), 4, new byte[] { 0, 0, 128, 128 });
+        ImageExportRequest request = new(null, files.Output, ImageEditRecipe.Create(new(1, 1)),
+            SourcePixels: pixels, MemorySourceIdentity: Guid.NewGuid());
+        ImageExportService exporter = new(new ForbiddenDecoder());
+        await exporter.ExportAsync(request, TestContext.Current.CancellationToken);
+        using SKBitmap png = SKBitmap.Decode(files.Output);
+        Assert.Equal((byte)128, png.GetPixel(0, 0).Alpha);
+        Assert.Equal((byte)255, png.GetPixel(0, 0).Red);
+        string jpegPath = Path.Combine(files.Directory, "output.jpg");
+        await exporter.ExportAsync(request with { DestinationPath = jpegPath, Format = ImageExportFormat.Jpeg, JpegQuality = 100 },
+            TestContext.Current.CancellationToken);
+        using SKBitmap jpeg = SKBitmap.Decode(jpegPath);
+        SKColor color = jpeg.GetPixel(0, 0);
+        Assert.Equal((byte)255, color.Alpha);
+        Assert.InRange(color.Red, 250, 255);
+        Assert.InRange(color.Green, 122, 132);
+        Assert.InRange(color.Blue, 122, 132);
+    }
+
+    [Fact]
+    public async Task MissingMemoryIdentityOrIncompletePixelsCannotBypassFileSafety()
+    {
+        using Files files = new();
+        ImageExportService exporter = new(new ForbiddenDecoder());
+        ImageExportPixels pixels = new(new(1, 1), 4, new byte[] { 0, 0, 255, 255 });
+        ImageExportRequest request = new(null, files.Output, ImageEditRecipe.Create(new(1, 1)), SourcePixels: pixels);
+        foreach (ImageExportRequest invalid in new[]
+        {
+            request, request with { MemorySourceIdentity = Guid.Empty },
+            request with { SourcePath = files.Source, MemorySourceIdentity = Guid.NewGuid() },
+        })
+        {
+            ImageExportException error = await Assert.ThrowsAsync<ImageExportException>(() => exporter.ExportAsync(invalid,
+                TestContext.Current.CancellationToken));
+            Assert.Equal(ImageExportError.InvalidDestination, error.Error);
+        }
+        request = request with { MemorySourceIdentity = Guid.NewGuid() };
+        foreach (ImageExportRequest invalid in new[]
+        {
+            request with { SourcePixels = null },
+            request with { Recipe = ImageEditRecipe.Create(new(2, 2)) },
+            request with { SourcePixels = pixels with { Pixels = new byte[3] } },
+            request with { ExpectedSourceLength = 1 },
+            request with { SourcePixels = pixels with { SourceFileStamp = new(1, DateTime.UtcNow) } },
+        })
+        {
+            ImageExportException error = await Assert.ThrowsAsync<ImageExportException>(() => exporter.ExportAsync(invalid,
+                TestContext.Current.CancellationToken));
+            Assert.Equal(ImageExportError.SourceChanged, error.Error);
+        }
+        // A tiny crop still requires complete in-budget memory pixels; no ROI/preview fallback.
+        PixelSize large = new(5000, 5000);
+        ImageExportException budget = await Assert.ThrowsAsync<ImageExportException>(() => exporter.ExportAsync(request with
+        {
+            Recipe = ImageEditRecipe.Create(large).WithCrop(new(0, 0, 1, 1)),
+            SourcePixels = new(large, 20000, ReadOnlyMemory<byte>.Empty),
+        }, TestContext.Current.CancellationToken));
+        Assert.Equal(ImageExportError.BudgetExceeded, budget.Error);
+        Assert.False(File.Exists(files.Output));
+        Assert.Empty(Directory.GetFiles(files.Directory, ".miv-export-*.tmp"));
+    }
+
+    [Fact]
+    public async Task MemoryExistingTargetAndCancellationNeverOverwriteOrLeaveTemporary()
+    {
+        using Files files = new();
+        ImageExportService exporter = new(new ForbiddenDecoder());
+        ImageExportRequest request = new(null, files.Output, ImageEditRecipe.Create(new(1, 1)),
+            SourcePixels: new(new(1, 1), 4, new byte[] { 0, 0, 255, 255 }), MemorySourceIdentity: Guid.NewGuid());
+        File.WriteAllBytes(files.Output, [9, 8, 7]);
+        ImageExportException existing = await Assert.ThrowsAsync<ImageExportException>(() => exporter.ExportAsync(request,
+            TestContext.Current.CancellationToken));
+        Assert.Equal(ImageExportError.DestinationExists, existing.Error);
+        Assert.Equal(new byte[] { 9, 8, 7 }, File.ReadAllBytes(files.Output));
+        File.Delete(files.Output);
+        using CancellationTokenSource cancellation = new();
+        await cancellation.CancelAsync();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => exporter.ExportAsync(request, cancellation.Token));
+        Assert.False(File.Exists(files.Output));
+        // Failure opening a temporary file must not create a partial destination.
+        string missing = Path.Combine(files.Directory, "missing", "output.png");
+        ImageExportException failed = await Assert.ThrowsAsync<ImageExportException>(() => exporter.ExportAsync(
+            request with { DestinationPath = missing }, TestContext.Current.CancellationToken));
+        Assert.Equal(ImageExportError.WriteFailed, failed.Error);
+        Assert.False(File.Exists(missing));
+        Assert.Empty(Directory.GetFiles(files.Directory, ".miv-export-*.tmp"));
+    }
+
+    [Fact]
     public async Task CropThenRotateAndResizeClampsHighContrastEdgesAndKeepsOriginalHash()
     {
         using Files files = new();

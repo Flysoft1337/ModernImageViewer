@@ -256,7 +256,7 @@ public partial class MainWindow : Window
 
     private void OnCopyPathClick(object sender, RoutedEventArgs e)
     {
-        if (!_viewModel.HasImage)
+        if (!_viewModel.CanCopyPath)
         {
             return;
         }
@@ -398,6 +398,7 @@ public partial class MainWindow : Window
         {
             case ViewerAction.OpenFolder: OnOpenFolderClick(this, e); break;
             case ViewerAction.PasteFiles: await _viewModel.PasteFilesCommand.ExecuteAsync(); break;
+            case ViewerAction.CopyPreview: await _viewModel.CopyPreviewCommand.ExecuteAsync(); break;
             case ViewerAction.PreviousImage: await _viewModel.PreviousCommand.ExecuteAsync(); break;
             case ViewerAction.NextImage: await _viewModel.NextCommand.ExecuteAsync(); break;
             case ViewerAction.FirstImage: await _viewModel.OpenFirstAsync(); break;

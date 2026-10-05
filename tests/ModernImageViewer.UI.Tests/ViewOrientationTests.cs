@@ -97,6 +97,32 @@ public sealed class ViewOrientationTests
         });
     }
 
+    [Fact]
+    public async Task MemoryIdentityKeepsRefinementButResetsOnAnotherClipboardImage()
+    {
+        await OnStaThread(() =>
+        {
+            PixelSize source = new(4, 2);
+            using PixelBuffer first = new(new PixelSize(2, 1), 8, new byte[8], sourceSize: source);
+            using PixelBuffer detail = new(source, 16, new byte[32]);
+            using PixelBuffer second = new(source, 16, new byte[32]);
+            using ImageViewport viewport = new();
+            viewport.Measure(new Size(300, 200));
+            viewport.Arrange(new Rect(0, 0, 300, 200));
+            ModernImageViewer.Application.Images.ImageSource identity = new(Guid.NewGuid(), ImageSourceKind.Memory);
+            viewport.Presentation = new(ImageOpenStatus.Loaded, first, IsPreview: true, Source: identity);
+            viewport.RotateRight();
+            viewport.ZoomIn();
+            ViewOrientation orientation = viewport.Orientation;
+            viewport.Presentation = new(ImageOpenStatus.Loaded, detail, Source: identity);
+            Assert.Equal(orientation, viewport.Orientation);
+            viewport.Presentation = new(ImageOpenStatus.Loaded, second,
+                Source: new ModernImageViewer.Application.Images.ImageSource(Guid.NewGuid(), ImageSourceKind.Memory));
+            Assert.True(viewport.Orientation.IsIdentity);
+            Assert.Equal(ViewportMode.Fit, ReadField<ViewportTransform>(viewport, "_transform").Mode);
+        });
+    }
+
     private static T ReadField<T>(ImageViewport viewport, string name) =>
         (T)typeof(ImageViewport).GetField(name, BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(viewport)!;
 

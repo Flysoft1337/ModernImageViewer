@@ -38,7 +38,10 @@
                 <MenuItem Header="{Binding FileActionsLabel}">
                   <MenuItem Header="{Binding EditLabel}" InputGestureText="Ctrl+E" Click="OnEditClick" IsEnabled="{Binding HasImage}" />
                   <MenuItem Header="{Binding RevealLabel}" InputGestureText="Ctrl+Shift+E" Click="OnRevealClick" IsEnabled="{Binding CanReveal}" />
-                  <MenuItem Header="{Binding CopyPathLabel}" Click="OnCopyPathClick" IsEnabled="{Binding HasImage}" />
+                  <MenuItem Header="{Binding CopyPathLabel}" Click="OnCopyPathClick" IsEnabled="{Binding CanCopyPath}" />
+                  <Separator />
+                  <MenuItem Header="{Binding CopyPreviewLabel}" InputGestureText="Ctrl+C" Command="{Binding CopyPreviewCommand}" ToolTip="{Binding CopyPreviewHint}" />
+                  <MenuItem Header="{Binding CopyOriginalLabel}" Command="{Binding CopyOriginalCommand}" ToolTip="{Binding CopyOriginalHint}" ToolTipService.ShowOnDisabled="True" />
                 </MenuItem>
                 <MenuItem Header="{Binding SortLabel}" IsEnabled="{Binding CanSort}" ToolTip="{Binding SortHint}" ToolTipService.ShowOnDisabled="True">
                   <MenuItem Header="{Binding SortNameLabel}" Tag="Name" IsCheckable="True" IsChecked="{Binding IsSortByName, Mode=OneWay}" Click="OnSortModeClick" />
@@ -155,7 +158,7 @@
           <StackPanel Margin="22,18">
             <Grid><TextBlock Text="{Binding InformationLabel}" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center" /><Button HorizontalAlignment="Right" Style="{StaticResource ToolbarButtonStyle}" Click="OnInformationClick" ToolTip="{Binding CloseLabel}" AutomationProperties.Name="{Binding CloseLabel}"><Path Style="{StaticResource IconStyle}" Width="14" Height="14" Data="{StaticResource Icon.Close}" /></Button></Grid>
             <TextBlock Style="{StaticResource PanelLabelStyle}" Text="{Binding FileNameLabel}" /><TextBlock Style="{StaticResource PanelValueStyle}" Text="{Binding CurrentFileName}" FontWeight="SemiBold" />
-            <TextBlock Style="{StaticResource PanelLabelStyle}" Text="{Binding FolderLabel}" /><TextBox Text="{Binding DirectoryPath, Mode=OneWay}" IsReadOnly="True" TextWrapping="Wrap" Background="Transparent" BorderThickness="0" Padding="0" Foreground="{DynamicResource SecondaryTextBrush}" />
+            <TextBlock Style="{StaticResource PanelLabelStyle}" Text="{Binding InformationLocationLabel}" /><TextBox Text="{Binding InformationLocation, Mode=OneWay}" IsReadOnly="True" TextWrapping="Wrap" Background="Transparent" BorderThickness="0" Padding="0" Foreground="{DynamicResource SecondaryTextBrush}" />
             <TextBlock Style="{StaticResource PanelLabelStyle}" Text="{Binding DimensionsLabel}" /><TextBlock Style="{StaticResource PanelValueStyle}" Text="{Binding DimensionsText}" />
             <TextBlock Style="{StaticResource PanelLabelStyle}" Text="{Binding FormatLabel}" /><TextBlock Style="{StaticResource PanelValueStyle}" Text="{Binding FormatText}" />
             <TextBlock Style="{StaticResource PanelLabelStyle}" Text="{Binding FileSizeLabel}" /><TextBlock Style="{StaticResource PanelValueStyle}" Text="{Binding FileSizeText}" />
