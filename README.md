@@ -106,13 +106,14 @@ dotnet run --project .\benchmarks\ModernImageViewer.Benchmarks\ModernImageViewer
 
 ## 后续开发
 
-应用端外部打开、窗口复用和便携关联已实现，新增当前用户 EXE 安装路径；可信签名、MSIX 和 Windows Shell 人工验收继续推进。0.3.0 增加静态格式与缩略图字节缓存、单图先显示后索引；0.4.0 增加主图预览、按需细化和手动 Release 发布流程。仍需补齐以下能力：
+应用端外部打开、窗口复用和便携关联已实现，新增当前用户 EXE 安装路径；可信签名、MSIX 和 Windows Shell 人工验收继续推进。0.3.0 增加静态格式与缩略图字节缓存、单图先显示后索引；0.4.0 增加主图预览、按需细化和手动 Release 发布流程。PR #21 已合并区域细节、邻图预取与紧凑/全屏交互。下一批先补排序、文件定位和快捷键帮助，随后接会话旋转、偏好保存、剪贴板及帧/格式能力，详细接入点与完成条件见 [下一批功能实施方案](docs/feature-expansion-plan.md)。仍需补齐以下能力：
 
 - **近期 P1：** 窗口/DPI 自适应解码、完整分块缓存、WebP 区域与全管线字节预算；排序、剪贴板打开/复制图片、资源管理器定位、会话旋转/翻转；高 DPI 人工验收及窗口/布局持久化。
 - **随后 P2：** GIF/WebP 动画与 TIFF 多页；HEIF/AVIF、RAW、SVG；非破坏性裁剪/尺寸调整、撤销/重做与另存为；ICC 色彩管理、高位深与签名发布。
 
 性能目标仍需固定 Windows 机器实测，当前不承诺整进程内存上限或速度提升百分比。
 
+- [下一批功能实施方案](docs/feature-expansion-plan.md)：N1–N6 的交付顺序、代码接入点、UI 与资源边界。
 - [后续迭代路线图](docs/next-iteration-roadmap.md)：当前功能缺口、优先级、UI 和性能优化、完成标准。
 - [Windows 文件关联方案](docs/windows-file-association.md)：安装版/便携版、用户默认应用选择、重复激活和验收步骤。
 - [解码器与格式支持](docs/decoder-support.md)：实际启用的 codec、扩展名、像素与尺寸限制、未支持能力。
