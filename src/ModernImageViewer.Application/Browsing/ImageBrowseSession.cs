@@ -2,18 +2,25 @@ using ModernImageViewer.Application.Images;
 
 namespace ModernImageViewer.Application.Browsing;
 
-public sealed class ImageBrowseSession
+public sealed partial class ImageBrowseSession
 {
     private readonly Func<string?, string?, CancellationToken, string[]> _enumerate;
+    private readonly Func<string, FileSortProperties?> _readProperties;
     private string[] _items = [];
     private string? _directory;
     private BrowseSnapshot? _prepared;
     private long _revision;
+    private long _prepareGeneration;
     private bool _hasCompleteIndex;
 
     public ImageBrowseSession() : this(Enumerate) { }
 
-    internal ImageBrowseSession(Func<string?, string?, CancellationToken, string[]> enumerate) => _enumerate = enumerate;
+    internal ImageBrowseSession(Func<string?, string?, CancellationToken, string[]> enumerate,
+        Func<string, FileSortProperties?>? readProperties = null)
+    {
+        _enumerate = enumerate;
+        _readProperties = readProperties ?? ReadProperties;
+    }
 
     public string? CurrentPath { get; private set; }
     public int CurrentIndex { get; private set; } = -1;
@@ -29,7 +36,14 @@ public sealed class ImageBrowseSession
 
     public async Task PrepareAsync(string path, CancellationToken cancellationToken)
     {
-        _prepared = await PrepareSnapshotAsync(path, cancellationToken);
+        long preparation = ++_prepareGeneration;
+        long revision = _revision;
+        long generation = _sortGeneration;
+        BrowseSnapshot snapshot = await PrepareSnapshotAsync(path, cancellationToken);
+        if (preparation == _prepareGeneration && revision == _revision && generation == _sortGeneration)
+        {
+            _prepared = snapshot;
+        }
     }
 
     internal async Task<BrowseSnapshot> PrepareSnapshotAsync(string path, CancellationToken cancellationToken, bool resetSelection = false)
@@ -39,32 +53,45 @@ public sealed class ImageBrowseSession
         if (!IsIndexing && _hasCompleteIndex && (!resetSelection || !IsSelection) && FindIndex(fullPath) >= 0
             && (IsSelection || StringComparer.OrdinalIgnoreCase.Equals(directory, _directory)))
         {
-            return new BrowseSnapshot(_directory, _items, IsSelection);
+            return CurrentSnapshot();
         }
-        if (_prepared is { IsSelection: false } prepared && StringComparer.OrdinalIgnoreCase.Equals(directory, prepared.Directory))
+        if (_prepared is { IsSelection: false } prepared && MatchesSort(prepared)
+            && StringComparer.OrdinalIgnoreCase.Equals(directory, prepared.Directory))
         {
             return prepared;
         }
 
-        string[] items = await Task.Run(() => _enumerate(directory, fullPath, cancellationToken), cancellationToken);
+        BrowseSortMode mode = SortMode;
+        bool descending = SortDescending;
+        BrowseSnapshot snapshot = await Task.Run(() => EnumerateSnapshot(directory, fullPath, mode, descending, cancellationToken), cancellationToken);
         cancellationToken.ThrowIfCancellationRequested();
-        return new BrowseSnapshot(directory, items, false);
+        return snapshot;
     }
 
     public async Task<string?> FindFirstAsync(string directory, CancellationToken cancellationToken)
     {
         string fullDirectory = Path.GetFullPath(directory);
-        string[] items = await Task.Run(() => _enumerate(fullDirectory, null, cancellationToken), cancellationToken);
+        long preparation = ++_prepareGeneration;
+        long revision = _revision;
+        long generation = _sortGeneration;
+        BrowseSortMode mode = SortMode;
+        bool descending = SortDescending;
+        BrowseSnapshot snapshot = await Task.Run(() => EnumerateSnapshot(fullDirectory, null, mode, descending, cancellationToken), cancellationToken);
         cancellationToken.ThrowIfCancellationRequested();
-        _prepared = items.Length == 0 ? null : new BrowseSnapshot(fullDirectory, items, false);
-        return items.FirstOrDefault();
+        if (preparation != _prepareGeneration || revision != _revision || generation != _sortGeneration)
+        {
+            return null;
+        }
+        _prepared = snapshot.Items.Length == 0 ? null : snapshot;
+        return snapshot.Items.FirstOrDefault();
     }
 
     internal bool TryCommitCached(string path, bool resetSelection)
     {
         string fullPath = Path.GetFullPath(path);
         string? directory = Path.GetDirectoryName(fullPath);
-        if (_prepared is { IsSelection: false } prepared && StringComparer.OrdinalIgnoreCase.Equals(directory, prepared.Directory))
+        if (_prepared is { IsSelection: false } prepared && MatchesSort(prepared)
+            && StringComparer.OrdinalIgnoreCase.Equals(directory, prepared.Directory))
         {
             CommitSnapshot(prepared, fullPath);
             return true;
@@ -72,7 +99,7 @@ public sealed class ImageBrowseSession
         if (!IsIndexing && _hasCompleteIndex && (!resetSelection || !IsSelection) && FindIndex(fullPath) >= 0
             && (IsSelection || StringComparer.OrdinalIgnoreCase.Equals(directory, _directory)))
         {
-            CommitSnapshot(new BrowseSnapshot(_directory, _items, IsSelection), fullPath);
+            CommitSnapshot(CurrentSnapshot(), fullPath);
             return true;
         }
         return false;
@@ -81,7 +108,7 @@ public sealed class ImageBrowseSession
     internal long BeginIndexing(string path)
     {
         string fullPath = Path.GetFullPath(path);
-        CommitSnapshot(new BrowseSnapshot(Path.GetDirectoryName(fullPath), [fullPath], false), fullPath);
+        CommitSnapshot(new BrowseSnapshot(Path.GetDirectoryName(fullPath), [fullPath], false, SortMode, SortDescending), fullPath);
         IsIndexing = true;
         _hasCompleteIndex = false;
         return _revision;
@@ -122,28 +149,42 @@ public sealed class ImageBrowseSession
             && (IsSelection || StringComparer.OrdinalIgnoreCase.Equals(directory, _directory))
             && _prepared is null)
         {
-            CommitSnapshot(new BrowseSnapshot(_directory, _items, IsSelection), fullPath);
+            CommitSnapshot(CurrentSnapshot(), fullPath);
             return;
         }
         BrowseSnapshot snapshot = !refresh && _prepared is { } prepared
+            && MatchesSort(prepared)
             && (prepared.IsSelection || StringComparer.OrdinalIgnoreCase.Equals(directory, prepared.Directory))
-            ? prepared : new BrowseSnapshot(directory, _enumerate(directory, fullPath, CancellationToken.None), false);
+            ? prepared : Task.Run(() => EnumerateSnapshot(directory, fullPath, SortMode, SortDescending, CancellationToken.None)).GetAwaiter().GetResult();
         CommitSnapshot(snapshot, fullPath);
     }
 
     internal void CommitSelection(IReadOnlyList<string> paths, string currentPath) =>
-        CommitSnapshot(new BrowseSnapshot(null, paths.ToArray(), true), currentPath);
+        CommitSnapshot(new BrowseSnapshot(null, paths.ToArray(), true, SortMode, SortDescending), currentPath);
 
     internal void CommitSnapshot(BrowseSnapshot snapshot, string path)
     {
         string fullPath = Path.GetFullPath(path);
+        InvalidateSorting();
         _items = snapshot.Items;
+        _sortEntries = snapshot.Entries;
         int index = FindIndex(fullPath);
         if (index < 0)
         {
             // Keep a deleted-but-displayed entry without adding unrelated files to a selection.
-            _items = snapshot.IsSelection ? _items.Append(fullPath).ToArray()
-                : _items.Append(fullPath).OrderBy(Path.GetFileName, NaturalFileNameComparer.Instance).ToArray();
+            if (snapshot.IsSelection)
+            {
+                _items = _items.Append(fullPath).ToArray();
+            }
+            else
+            {
+                // A deleted displayed file has no readable attributes; retain it at the end of attribute sorts.
+                FileSortEntry[] entries = (_sortEntries ?? _items.Select(item => new FileSortEntry(item, null)).ToArray())
+                    .Append(new FileSortEntry(fullPath, null)).ToArray();
+                SortEntries(entries, snapshot.SortMode, snapshot.SortDescending, CancellationToken.None);
+                _sortEntries = entries;
+                _items = entries.Select(entry => entry.Path).ToArray();
+            }
             index = FindIndex(fullPath);
         }
         CurrentPath = fullPath;
@@ -162,24 +203,27 @@ public sealed class ImageBrowseSession
         {
             return;
         }
+        InvalidateSorting();
         long revision = ++_revision;
         IsIndexing = true;
         string? directory = _directory;
         bool isSelection = IsSelection;
         string[] selected = _items;
+        BrowseSortMode mode = SortMode;
+        bool descending = SortDescending;
         try
         {
-            string[] items = await Task.Run(() => isSelection
-                ? selected.Where(item =>
+            BrowseSnapshot snapshot = await Task.Run(() => isSelection
+                ? new BrowseSnapshot(directory, selected.Where(item =>
                 {
                     cancellationToken.ThrowIfCancellationRequested();
                     return StringComparer.OrdinalIgnoreCase.Equals(item, path) || File.Exists(item);
-                }).ToArray()
-                : _enumerate(directory, path, cancellationToken), cancellationToken);
+                }).ToArray(), true, mode, descending)
+                : EnumerateSnapshot(directory, path, mode, descending, cancellationToken), cancellationToken);
             cancellationToken.ThrowIfCancellationRequested();
             if (revision == _revision)
             {
-                CommitSnapshot(new BrowseSnapshot(directory, items, isSelection), path);
+                CommitSnapshot(snapshot, path);
             }
         }
         finally
@@ -207,9 +251,8 @@ public sealed class ImageBrowseSession
                         items.Add(path);
                     }
                 }
-                string[] sorted = items.OrderBy(Path.GetFileName, NaturalFileNameComparer.Instance).ToArray();
                 token.ThrowIfCancellationRequested();
-                return sorted;
+                return items.ToArray();
             }
         }
         catch (IOException) { }
@@ -218,5 +261,6 @@ public sealed class ImageBrowseSession
     }
 
     private int FindIndex(string path) => Array.FindIndex(_items, item => StringComparer.OrdinalIgnoreCase.Equals(item, path));
-    internal sealed record BrowseSnapshot(string? Directory, string[] Items, bool IsSelection);
+    internal sealed record BrowseSnapshot(string? Directory, string[] Items, bool IsSelection,
+        BrowseSortMode SortMode = BrowseSortMode.Name, bool SortDescending = false, FileSortEntry[]? Entries = null);
 }

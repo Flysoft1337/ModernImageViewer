@@ -106,6 +106,13 @@ public sealed partial class ImageOpenCoordinator
         }
     }
 
+    public void RefreshNeighborPrefetch()
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        _neighborCache?.CancelPending();
+        ScheduleNeighborPreview();
+    }
+
     private void ScheduleNeighborPreview()
     {
         if (_disposed || _neighborCache is null || _currentSession is not { IsIndexing: false } session

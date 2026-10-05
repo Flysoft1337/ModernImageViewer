@@ -71,6 +71,7 @@ public sealed partial class ImageOpenCoordinator(IImageFilePicker filePicker, II
             ArgumentException.ThrowIfNullOrWhiteSpace(path);
         }
 
+        (browsing ?? browseSession)?.CancelSorting();
         CancelPendingIndexing();
         CancelPendingRefinement();
         _neighborCache?.CancelPending();

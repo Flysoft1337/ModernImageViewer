@@ -5,13 +5,14 @@ using System.Windows.Input;
 
 using ModernImageViewer.Application.Browsing;
 using ModernImageViewer.Application.Images;
+using ModernImageViewer.Application.Integration;
 using ModernImageViewer.Imaging;
 using ModernImageViewer.UI.Commands;
 using ModernImageViewer.UI.Localization;
 
 namespace ModernImageViewer.UI.ViewModels;
 
-public sealed class MainWindowViewModel : INotifyPropertyChanged, IDisposable
+public sealed partial class MainWindowViewModel : INotifyPropertyChanged, IDisposable
 {
     private static readonly SemaphoreSlim s_fileInformationGate = new(1, 1);
     private readonly ILocalizationService _localization;
@@ -43,11 +44,13 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged, IDisposable
     public MainWindowViewModel(
         ILocalizationService localization,
         ImageOpenCoordinator coordinator,
-        ImageBrowseSession browseSession)
+        ImageBrowseSession browseSession,
+        Func<IFileRevealService>? fileReveal = null)
     {
         _localization = localization;
         _coordinator = coordinator;
         _browseSession = browseSession;
+        _fileReveal = fileReveal;
         _selectedLanguage = FindCurrentLanguage();
         OpenCommand = new AsyncRelayCommand(PickInputAsync);
         PreviousCommand = new AsyncRelayCommand(MovePreviousAsync, () => CanMovePrevious);
@@ -62,7 +65,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged, IDisposable
         ? Text("MainWindow_Title")
         : $"{CurrentFileName} — {Text("MainWindow_Title")}";
 
-    public string StatusText => _isIndexingFolder || _browseSession.IsIndexing ? Text("Status_ScanningFolder")
+    public string StatusText => IsSorting ? Text("Sort_Working") : _isIndexingFolder || _browseSession.IsIndexing ? Text("Status_ScanningFolder")
         : _messageKey is not null ? Text(_messageKey) : _coordinator.State.Status switch
         {
             ImageOpenStatus.Loading => Text("Status_Loading"),
@@ -116,7 +119,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged, IDisposable
     public string Slideshow5Label => Text("Slideshow_5Seconds");
     public string Slideshow10Label => Text("Slideshow_10Seconds");
     public string SlideshowSpeedLabel => Text("Slideshow_Speed");
-    public bool CanPlaySlideshow => HasImage && !_browseSession.IsIndexing && _browseSession.Count > 1;
+    public bool CanPlaySlideshow => HasImage && !_browseSession.IsIndexing && !IsSorting && _browseSession.Count > 1;
     public IReadOnlyList<MetadataItem> MetadataItems => _metadataItems;
     public bool HasMetadata => _metadataItems.Count > 0;
     public bool IsSlideshowPlaying
@@ -242,8 +245,8 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged, IDisposable
     public PixelBuffer? CurrentImage => _coordinator.State.Image;
     public bool HasImage => CurrentImage is not null;
     public bool IsLoading => _isIndexingFolder || _coordinator.State.Status == ImageOpenStatus.Loading;
-    public bool CanMovePrevious => _browseSession.CanMovePrevious;
-    public bool CanMoveNext => _browseSession.CanMoveNext;
+    public bool CanMovePrevious => !IsSorting && _browseSession.CanMovePrevious;
+    public bool CanMoveNext => !IsSorting && _browseSession.CanMoveNext;
 
     public ICommand OpenCommand { get; }
     public AsyncRelayCommand PreviousCommand { get; }
@@ -278,11 +281,11 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged, IDisposable
         OnPropertyChanged(nameof(ZoomText));
     }
 
-    public Task<bool> OpenFirstAsync() => _browseSession.IsIndexing || _browseSession.Count == 0
+    public Task<bool> OpenFirstAsync() => _browseSession.IsIndexing || IsSorting || _browseSession.Count == 0
         ? Task.FromResult(false)
         : OpenPathAsync(_browseSession.Items[0]);
 
-    public Task<bool> OpenLastAsync() => _browseSession.IsIndexing || _browseSession.Count == 0
+    public Task<bool> OpenLastAsync() => _browseSession.IsIndexing || IsSorting || _browseSession.Count == 0
         ? Task.FromResult(false)
         : OpenPathAsync(_browseSession.Items[^1]);
 
@@ -396,6 +399,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged, IDisposable
         _refreshCancellation?.Cancel();
         _refreshCancellation?.Dispose();
         _refreshCancellation = new CancellationTokenSource();
+        CancelBrowsingTools();
         _coordinator.ClearPreviewCache();
         _coordinator.CancelPendingIndexing();
         try
@@ -427,6 +431,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged, IDisposable
     public void Dispose()
     {
         _disposed = true;
+        CancelBrowsingTools();
         _refinementCancellation?.Cancel();
         CancelFolderWork();
         _refreshCancellation?.Cancel();
@@ -442,6 +447,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged, IDisposable
 
     private void CancelFolderWork()
     {
+        CancelBrowsingTools();
         _inputVersion++;
         _folderCancellation?.Cancel();
         _folderCancellation?.Dispose();
