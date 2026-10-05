@@ -189,3 +189,6 @@
 - PR #28已创建。复核发现Gray16/Gray32Float/Bgr101010总位宽≤32仍可能包含高位深通道，补齐显式拒绝与现有高位深case，避免支持说明与实现不一致；完整CI以修订后的提交为准。
 
 - 高位深修订后标准Release构建再次0警告/0错误，剪贴板17/17回归通过，完整format再次退出0。提升环境的no-restore曾因另一个用户NuGet路径缺包失败，回到原有默认构建环境后通过；不把该环境错误计为源代码失败。
+
+- [PR #28](https://github.com/Flysoft1337/ModernImageViewer/pull/28)功能提交d501ac2的[Windows CI 37341778600](https://github.com/Flysoft1337/ModernImageViewer/actions/runs/37341778600)成功：完整恢复/格式、Release构建0警告0错误，核心65+UI/codec174=239通过、1项本机真实RAW样本跳过；依赖审计、100MP观察、便携启动/12类格式激活、安装版激活及当前用户安装/同版本重装迁移/卸载检查通过。Release job明确跳过，公开版仍v0.4.0。
+- CI format仍有workspace加载warning，不宣称全部工具零告警。最终只补Markdown验收记录，功能源/测试/流程与已通过d501ac2保持一致；最终合并状态见PR。外部应用剪贴板互通/Alpha、持久剪贴板与native峰值仍未人工验收，不将N3代码交付标成所有设备验收完成。
