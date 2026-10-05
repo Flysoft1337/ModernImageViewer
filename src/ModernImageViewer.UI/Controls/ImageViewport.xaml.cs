@@ -2,6 +2,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Threading;
 
 using ModernImageViewer.Application.Images;
 using ModernImageViewer.Imaging;
@@ -17,6 +18,8 @@ public partial class ImageViewport : UserControl, IDisposable
 {
     public event EventHandler<double>? ScaleChanged;
     public event EventHandler? DetailRequested;
+    public event EventHandler<PixelRect>? RegionDetailRequested;
+    public PixelRect? VisibleDetailRegion => CalculateVisibleDetailRegion();
 
     public static readonly DependencyProperty PresentationProperty = DependencyProperty.Register(
         nameof(Presentation), typeof(ImageOpenState), typeof(ImageViewport),
@@ -54,10 +57,15 @@ public partial class ImageViewport : UserControl, IDisposable
     private Point? _lastPointer;
     private bool _preserveTransform;
     private bool _detailRequested;
+    private readonly DispatcherTimer _regionTimer = new() { Interval = TimeSpan.FromMilliseconds(160) };
+    private SKBitmap? _regionBitmap;
+    private DecodedImageRegion? _displayedRegion;
+    private PixelRect? _lastRequestedRegion;
 
     public ImageViewport()
     {
         InitializeComponent();
+        _regionTimer.Tick += OnRegionTimer;
         Loaded += OnLoaded;
         Unloaded += OnUnloaded;
         LostMouseCapture += (_, _) => { _lastPointer = null; Cursor = Image is null ? Cursors.Arrow : Cursors.Hand; };
@@ -103,6 +111,7 @@ public partial class ImageViewport : UserControl, IDisposable
             && previous.Image.SourceSize == current.Image.SourceSize;
         viewport.Image = current?.Image;
         viewport._preserveTransform = false;
+        viewport.RebuildRegionBitmap(current?.Region);
     }
 
     private static void OnImageChanged(DependencyObject dependencyObject, DependencyPropertyChangedEventArgs e)
@@ -129,6 +138,7 @@ public partial class ImageViewport : UserControl, IDisposable
         }
         _bitmap = SharedPixelBitmap.Create(image);
         _detailRequested = false;
+        _lastRequestedRegion = null;
         if (_preserveTransform)
         {
             NotifyTransformChanged();
@@ -158,8 +168,19 @@ public partial class ImageViewport : UserControl, IDisposable
             (float)(_transform.OffsetY + (sourceSize.Height * _transform.Scale))), _checkerPaint!);
         canvas.Translate((float)_transform.OffsetX, (float)_transform.OffsetY);
         canvas.Scale((float)_transform.Scale);
+        // Exclude the detailed rectangle from the preview, so translucent pixels are composited once.
+        canvas.Save();
+        if (_regionBitmap is not null && _displayedRegion is { } detailed)
+        {
+            canvas.ClipRect(ToSkRect(detailed.Bounds), SKClipOperation.Difference);
+        }
         canvas.DrawBitmap(_bitmap, new SKRect(0, 0, sourceSize.Width, sourceSize.Height),
             new SKSamplingOptions(SKFilterMode.Linear));
+        canvas.Restore();
+        if (_regionBitmap is not null && _displayedRegion is { } region)
+        {
+            canvas.DrawBitmap(_regionBitmap, ToSkRect(region.Bounds), new SKSamplingOptions(SKFilterMode.Linear));
+        }
         canvas.Restore();
     }
 
@@ -259,6 +280,11 @@ public partial class ImageViewport : UserControl, IDisposable
         _surface?.InvalidateVisual();
         double pixelScale = _transform.Scale * VisualTreeHelper.GetDpi(Canvas).DpiScaleX;
         ScaleChanged?.Invoke(this, pixelScale);
+        _regionTimer.Stop();
+        if (NeedsRegionDetail(pixelScale))
+        {
+            _regionTimer.Start();
+        }
         if (!_detailRequested && Image is { } image && image.Size != image.SourceSize
             && pixelScale > Math.Min((double)image.Size.Width / image.SourceSize.Width,
                 (double)image.Size.Height / image.SourceSize.Height))
@@ -267,6 +293,58 @@ public partial class ImageViewport : UserControl, IDisposable
             DetailRequested?.Invoke(this, EventArgs.Empty);
         }
     }
+
+    private bool NeedsRegionDetail(double pixelScale) => Presentation is { Status: ImageOpenStatus.Loaded, IsPreview: true } state
+        && state.RefinementError != ImageOpenError.UnsupportedFormat && Image is { } image
+        && image.SourceSize.PixelCount > ImageOpenCoordinator.FullResolutionOutputLimit / 4
+        && pixelScale > Math.Min((double)image.Size.Width / image.SourceSize.Width,
+            (double)image.Size.Height / image.SourceSize.Height);
+
+    private PixelRect? CalculateVisibleDetailRegion()
+    {
+        if (Image is not { } image || Canvas.ActualWidth <= 0 || Canvas.ActualHeight <= 0 || _transform.Scale <= 0)
+        {
+            return null;
+        }
+        int left = (int)Math.Clamp(Math.Floor(-_transform.OffsetX / _transform.Scale), 0, image.SourceSize.Width);
+        int top = (int)Math.Clamp(Math.Floor(-_transform.OffsetY / _transform.Scale), 0, image.SourceSize.Height);
+        int right = (int)Math.Clamp(Math.Ceiling((Canvas.ActualWidth - _transform.OffsetX) / _transform.Scale), 0, image.SourceSize.Width);
+        int bottom = (int)Math.Clamp(Math.Ceiling((Canvas.ActualHeight - _transform.OffsetY) / _transform.Scale), 0, image.SourceSize.Height);
+        if (right <= left || bottom <= top)
+        {
+            return null;
+        }
+        int width = Math.Min(2048, right - left);
+        int height = Math.Min(2048, bottom - top);
+        return new PixelRect(left + ((right - left - width) / 2), top + ((bottom - top - height) / 2), width, height);
+    }
+
+    private void OnRegionTimer(object? sender, EventArgs e)
+    {
+        _regionTimer.Stop();
+        double scale = _transform.Scale * VisualTreeHelper.GetDpi(Canvas).DpiScaleX;
+        if (!NeedsRegionDetail(scale) || VisibleDetailRegion is not { } bounds || _lastRequestedRegion == bounds
+            || (Presentation?.Region?.Bounds == bounds && !Presentation.IsRegionLoading))
+        {
+            return;
+        }
+        _lastRequestedRegion = bounds;
+        RegionDetailRequested?.Invoke(this, bounds);
+    }
+
+    private void RebuildRegionBitmap(DecodedImageRegion? region)
+    {
+        if (ReferenceEquals(_displayedRegion, region) && (region is null || _regionBitmap is not null))
+        {
+            return;
+        }
+        _regionBitmap?.Dispose();
+        _regionBitmap = region is null ? null : SharedPixelBitmap.Create(region.Image);
+        _displayedRegion = region;
+        _surface?.InvalidateVisual();
+    }
+
+    private static SKRect ToSkRect(PixelRect bounds) => new(bounds.X, bounds.Y, bounds.Right, bounds.Bottom);
 
     protected override void OnDpiChanged(DpiScale oldDpi, DpiScale newDpi)
     {
@@ -322,11 +400,13 @@ public partial class ImageViewport : UserControl, IDisposable
         if (Image is not null && _bitmap is null)
         {
             RebuildBitmap(Image);
+            RebuildRegionBitmap(Presentation?.Region);
         }
     }
 
     private void OnUnloaded(object sender, RoutedEventArgs e)
     {
+        _regionTimer.Stop();
         DisposeBitmap();
         DisposeChecker();
         RemoveSurface();
@@ -344,6 +424,8 @@ public partial class ImageViewport : UserControl, IDisposable
 
     public void Dispose()
     {
+        _regionTimer.Stop();
+        _regionTimer.Tick -= OnRegionTimer;
         DisposeBitmap();
         DisposeChecker();
         RemoveSurface();
@@ -352,6 +434,9 @@ public partial class ImageViewport : UserControl, IDisposable
 
     private void DisposeBitmap()
     {
+        _regionBitmap?.Dispose();
+        _regionBitmap = null;
+        _displayedRegion = null;
         _bitmap?.Dispose();
         _bitmap = null;
     }

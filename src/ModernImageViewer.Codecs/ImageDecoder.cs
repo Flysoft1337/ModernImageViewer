@@ -8,7 +8,7 @@ using SkiaSharp;
 
 namespace ModernImageViewer.Codecs;
 
-public sealed class ImageDecoder : IPreviewImageDecoder, IThumbnailDecoder
+public sealed class ImageDecoder : IPreviewImageDecoder, IThumbnailDecoder, IRegionImageDecoder, IPrefetchImageDecoder
 {
     private static readonly SemaphoreSlim ThumbnailSlots = new(2);
     private readonly WicImageDecoder _wic = new();
@@ -24,6 +24,47 @@ public sealed class ImageDecoder : IPreviewImageDecoder, IThumbnailDecoder
 
     public Task<PixelBuffer> DecodeThumbnailAsync(string path, PixelSize maximumSize, CancellationToken cancellationToken) =>
         DecodeScheduledAsync(path, maximumSize, ThumbnailSlots, cancellationToken);
+
+    public async Task<PixelBuffer?> TryDecodePreviewAsync(string path, PixelSize maximumSize, CancellationToken cancellationToken)
+    {
+        // Idle work never queues behind a foreground decode or creates another full-image slot.
+        if (!await WicImageDecoder.DecodeSlot.WaitAsync(0, cancellationToken))
+        {
+            return null;
+        }
+        try
+        {
+            return await Task.Run(() => Decode(path, maximumSize, null, cancellationToken), cancellationToken);
+        }
+        finally
+        {
+            WicImageDecoder.DecodeSlot.Release();
+        }
+    }
+
+    public async Task<DecodedImageRegion> DecodeRegionAsync(string path, PixelRect region,
+        PixelSize expectedSourceSize, long maximumDecodedBytes, CancellationToken cancellationToken)
+    {
+        await WicImageDecoder.DecodeSlot.WaitAsync(cancellationToken);
+        try
+        {
+            return await Task.Run(() =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                using FileStream stream = new(path, FileMode.Open, FileAccess.Read, FileShare.Read);
+                if (IsWebP(stream))
+                {
+                    // Skia's WebP path cannot guarantee bounded region output without a full decode.
+                    throw new ImageDecodeException(ImageOpenError.UnsupportedFormat);
+                }
+                return _wic.DecodeRegion(stream, region, expectedSourceSize, maximumDecodedBytes, cancellationToken);
+            }, cancellationToken);
+        }
+        finally
+        {
+            WicImageDecoder.DecodeSlot.Release();
+        }
+    }
 
     private async Task<PixelBuffer> DecodeScheduledAsync(string path, PixelSize? maximumSize,
         SemaphoreSlim slots, CancellationToken cancellationToken, long? maximumDecodedBytes = null)
@@ -43,17 +84,22 @@ public sealed class ImageDecoder : IPreviewImageDecoder, IThumbnailDecoder
     {
         cancellationToken.ThrowIfCancellationRequested();
         using FileStream stream = new(path, FileMode.Open, FileAccess.Read, FileShare.Read);
-        Span<byte> signature = stackalloc byte[12];
-        int read = stream.ReadAtLeast(signature, signature.Length, throwOnEndOfStream: false);
-        bool webP = read == signature.Length && signature[..4].SequenceEqual("RIFF"u8)
-            && signature[8..].SequenceEqual("WEBP"u8);
-        stream.Position = 0;
-        if (!webP)
+        if (!IsWebP(stream))
         {
             // Do not initialize Skia's native codec on the JPEG/PNG startup path.
             return _wic.Decode(stream, maximumSize, cancellationToken, maximumDecodedBytes);
         }
         return DecodeWebP(stream, maximumSize, maximumDecodedBytes, cancellationToken);
+    }
+
+    private static bool IsWebP(Stream stream)
+    {
+        Span<byte> signature = stackalloc byte[12];
+        int read = stream.ReadAtLeast(signature, signature.Length, throwOnEndOfStream: false);
+        bool webP = read == signature.Length && signature[..4].SequenceEqual("RIFF"u8)
+            && signature[8..].SequenceEqual("WEBP"u8);
+        stream.Position = 0;
+        return webP;
     }
 
     private static PixelBuffer DecodeWebP(Stream stream, PixelSize? maximumSize, long? maximumDecodedBytes, CancellationToken cancellationToken)

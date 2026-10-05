@@ -36,6 +36,8 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged, IDisposable
     private long? _fileLength;
     private DateTime? _modified;
     private string? _messageKey;
+    private PixelRect? _visibleRegion;
+    private PixelBuffer? _informationImage;
     private IReadOnlyList<BrowseItem> _browseItems = [];
 
     public MainWindowViewModel(
@@ -181,11 +183,13 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged, IDisposable
 
     public ImageOpenState Presentation => _coordinator.State;
     public bool ShowPreviewStatus => HasImage && Presentation.IsPreview && Presentation.Status != ImageOpenStatus.Loading;
-    public bool IsRefining => Presentation.IsRefining;
-    public bool CanRefine => ShowPreviewStatus && !IsRefining;
+    public bool IsRefining => Presentation.IsRefining || Presentation.IsRegionLoading;
+    public bool CanRefine => ShowPreviewStatus && Presentation.Status == ImageOpenStatus.Loaded && !IsRefining;
     public string RefineLabel => Text("Preview_Refine");
     public string CancelLabel => Text("Preview_Cancel");
     public string PreviewStatusText => Text(IsRefining ? "Preview_Refining"
+        : Presentation.Region is not null && Presentation.RefinementError == ImageOpenError.None ? "Preview_RegionReady"
+        : Presentation.RefinementError == ImageOpenError.UnsupportedFormat ? "Preview_RegionUnsupported"
         : Presentation.RefinementError == ImageOpenError.ImageTooLarge ? "Preview_BudgetLimit"
         : Presentation.RefinementError != ImageOpenError.None ? "Preview_DetailFailed" : "Preview_Ready");
 
@@ -199,7 +203,14 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged, IDisposable
         _refinementCancellation = cancellation;
         try
         {
-            await _coordinator.RefineAsync(cancellation.Token);
+            if (!_coordinator.CanRefineWholeImage && _visibleRegion is { } region)
+            {
+                await _coordinator.RequestRegionAsync(region, cancellation.Token);
+            }
+            else
+            {
+                await _coordinator.RefineAsync(cancellation.Token);
+            }
         }
         finally
         {
@@ -210,7 +221,23 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged, IDisposable
         }
     }
 
-    public void CancelRefinement() => _refinementCancellation?.Cancel();
+    public void UpdateVisibleRegion(PixelRect? region) => _visibleRegion = region;
+
+    public async Task RequestRegionDetailAsync(PixelRect region)
+    {
+        if (_disposed || Presentation.Status != ImageOpenStatus.Loaded)
+        {
+            return;
+        }
+        UpdateVisibleRegion(region);
+        await _coordinator.RequestRegionAsync(region);
+    }
+
+    public void CancelRefinement()
+    {
+        _refinementCancellation?.Cancel();
+        _coordinator.CancelPendingRegion();
+    }
 
     public PixelBuffer? CurrentImage => _coordinator.State.Image;
     public bool HasImage => CurrentImage is not null;
@@ -369,12 +396,15 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged, IDisposable
         _refreshCancellation?.Cancel();
         _refreshCancellation?.Dispose();
         _refreshCancellation = new CancellationTokenSource();
+        _coordinator.ClearPreviewCache();
         _coordinator.CancelPendingIndexing();
         try
         {
             Task refresh = _browseSession.RefreshAsync(_refreshCancellation.Token);
             NotifyAll();
             await refresh;
+            // Refresh also reloads the visible file, invalidating old main pixels and region detail.
+            await _coordinator.OpenCandidatesAsync([CurrentFilePath], _browseSession, cancellationToken: _refreshCancellation.Token);
             await ReadFileInformationAsync();
             UpdateBrowseItems();
             _isSlideshowPlaying = _isSlideshowPlaying && CanPlaySlideshow;
@@ -486,8 +516,9 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged, IDisposable
         if (_coordinator.State is { Status: ImageOpenStatus.Loaded, FilePath: not null } state)
         {
             UpdateBrowseItems();
-            if (e.PropertyName == nameof(ImageOpenCoordinator.State))
+            if (e.PropertyName == nameof(ImageOpenCoordinator.State) && !ReferenceEquals(_informationImage, state.Image))
             {
+                _informationImage = state.Image;
                 _ = ReadFileInformationAsync();
                 UpdateMetadataItems();
             }

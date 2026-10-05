@@ -106,4 +106,6 @@
   <data name="Preview_Refining" xml:space="preserve"><value>Loading detail…</value></data>
   <data name="Preview_BudgetLimit" xml:space="preserve"><value>Preview retained · full detail exceeds the memory budget</value></data>
   <data name="Preview_DetailFailed" xml:space="preserve"><value>Detail could not be loaded · preview retained</value></data>
+  <data name="Preview_RegionReady" xml:space="preserve"><value>Preview · visible detail loaded</value></data>
+  <data name="Preview_RegionUnsupported" xml:space="preserve"><value>Preview retained · region detail unavailable for this format</value></data>
 </root>

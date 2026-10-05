@@ -5,12 +5,16 @@ using ModernImageViewer.Imaging;
 
 namespace ModernImageViewer.Application.Images;
 
-public sealed class ImageOpenCoordinator(IImageFilePicker filePicker, IImageDecoder decoder, ImageBrowseSession? browseSession = null)
+public sealed partial class ImageOpenCoordinator(IImageFilePicker filePicker, IImageDecoder decoder, ImageBrowseSession? browseSession = null)
     : INotifyPropertyChanged, IDisposable
 {
     public static PixelSize PreviewMaximumSize { get; } = new(2560, 1600);
     public const long MainPixelBudgetBytes = 128L * 1024 * 1024;
     private static readonly long PreviewReservedBytes = PreviewMaximumSize.PixelCount * 4;
+    private readonly NeighborPreviewCache? _neighborCache = decoder is IPrefetchImageDecoder prefetchDecoder
+        ? new NeighborPreviewCache(prefetchDecoder) : null;
+    private ImageBrowseSession? _currentSession;
+    private int _browseDirection = 1;
     private CancellationTokenSource? _refinementCancellation;
     private long _refinementVersion;
     private CancellationTokenSource? _openCancellation;
@@ -69,6 +73,7 @@ public sealed class ImageOpenCoordinator(IImageFilePicker filePicker, IImageDeco
 
         CancelPendingIndexing();
         CancelPendingRefinement();
+        _neighborCache?.CancelPending();
         long version = Interlocked.Increment(ref _requestVersion);
         _openCancellation?.Cancel();
         _openCancellation?.Dispose();
@@ -78,6 +83,16 @@ public sealed class ImageOpenCoordinator(IImageFilePicker filePicker, IImageDeco
             ? State with { Status = State.Image is null ? ImageOpenStatus.Empty : ImageOpenStatus.Loaded, PendingPath = null }
             : State;
         ImageBrowseSession? session = browsing ?? browseSession;
+        _currentSession = session;
+        string targetPath = Path.GetFullPath(paths[0]);
+        if (StringComparer.OrdinalIgnoreCase.Equals(session?.GetPreviousPath(), targetPath))
+        {
+            _browseDirection = -1;
+        }
+        else if (StringComparer.OrdinalIgnoreCase.Equals(session?.GetNextPath(), targetPath) || resetSelection || selection)
+        {
+            _browseDirection = 1;
+        }
         SkippedCandidateCount = 0;
         State = previous with { Status = ImageOpenStatus.Loading, PendingPath = paths[0], Error = ImageOpenError.None };
         Exception? lastError = null;
@@ -89,7 +104,8 @@ public sealed class ImageOpenCoordinator(IImageFilePicker filePicker, IImageDeco
             try
             {
                 token.ThrowIfCancellationRequested();
-                decoded = decoder is IPreviewImageDecoder previewDecoder
+                decoded = _neighborCache is null ? null : await _neighborCache.TryTakeAsync(path, token);
+                decoded ??= decoder is IPreviewImageDecoder previewDecoder
                     ? await previewDecoder.DecodePreviewAsync(path, PreviewMaximumSize, token)
                     : await decoder.DecodeAsync(path, token);
                 if (version != Volatile.Read(ref _requestVersion) || token.IsCancellationRequested)
@@ -110,6 +126,7 @@ public sealed class ImageOpenCoordinator(IImageFilePicker filePicker, IImageDeco
                         indexingRevision = session.BeginIndexing(path);
                     }
                 }
+                previous.Region?.Dispose();
                 previous.Image?.Dispose();
                 State = new(ImageOpenStatus.Loaded, decoded, Path.GetFullPath(path), IsPreview: decoded.Size != decoded.SourceSize);
                 if (session is not null && indexingRevision is { } revision
@@ -119,6 +136,7 @@ public sealed class ImageOpenCoordinator(IImageFilePicker filePicker, IImageDeco
                     _indexCancellation = CancellationTokenSource.CreateLinkedTokenSource(token);
                     _indexingTask = IndexDirectoryAsync(session, path, revision, version, _indexCancellation.Token);
                 }
+                ScheduleNeighborPreview();
                 return true;
             }
             catch (OperationCanceledException) when (token.IsCancellationRequested)
@@ -159,10 +177,12 @@ public sealed class ImageOpenCoordinator(IImageFilePicker filePicker, IImageDeco
             return false;
         }
 
+        CancelPendingRegion();
+        _neighborCache?.CancelPending();
         PixelBuffer preview = current.Image;
         // Reserve the current and next previews, including a cancelled detail finishing late.
         long maximumDecodedBytes = Math.Min(MainPixelBudgetBytes - preview.Pixels.Length,
-            MainPixelBudgetBytes - 2 * PreviewReservedBytes);
+            MainPixelBudgetBytes - 2 * PreviewReservedBytes - NeighborPreviewCache.MaximumCachedBytes);
         if (preview.SourceSize.PixelCount > maximumDecodedBytes / 4)
         {
             State = current with { RefinementError = ImageOpenError.ImageTooLarge };
@@ -193,8 +213,10 @@ public sealed class ImageOpenCoordinator(IImageFilePicker filePicker, IImageDeco
                 Image = detail,
                 IsPreview = detail.Size != detail.SourceSize,
                 IsRefining = false,
-                RefinementError = ImageOpenError.None
+                RefinementError = ImageOpenError.None,
+                Region = null
             };
+            current.Region?.Dispose();
             detail = null;
             preview.Dispose();
             return true;
@@ -232,6 +254,7 @@ public sealed class ImageOpenCoordinator(IImageFilePicker filePicker, IImageDeco
 
     private void CancelPendingRefinement()
     {
+        CancelPendingRegion();
         Interlocked.Increment(ref _refinementVersion);
         _refinementCancellation?.Cancel();
         _refinementCancellation = null;
@@ -279,6 +302,7 @@ public sealed class ImageOpenCoordinator(IImageFilePicker filePicker, IImageDeco
                 && session.CompleteIndexing(revision, token.IsCancellationRequested ? null : snapshot, path))
             {
                 _indexingSession = null;
+                ScheduleNeighborPreview();
                 PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsIndexing)));
             }
         }
@@ -287,6 +311,7 @@ public sealed class ImageOpenCoordinator(IImageFilePicker filePicker, IImageDeco
     public void CancelPendingOpen()
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
+        _neighborCache?.CancelPending();
         CancelPendingIndexing();
         CancelPendingRefinement();
         Interlocked.Increment(ref _requestVersion);
@@ -310,6 +335,8 @@ public sealed class ImageOpenCoordinator(IImageFilePicker filePicker, IImageDeco
         Interlocked.Increment(ref _requestVersion);
         _openCancellation?.Cancel();
         _openCancellation?.Dispose();
+        _neighborCache?.Dispose();
+        State.Region?.Dispose();
         State.Image?.Dispose();
     }
 
