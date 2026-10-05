@@ -251,7 +251,7 @@ public sealed class MainWindowViewModelTests
             Assert.Equal(System.Windows.Visibility.Collapsed, ((System.Windows.UIElement)window.FindName(name)).Visibility);
         }
         Assert.True(window.ForceCursor);
-        CapturePreviewScreenshots(window, themes, localization, "fullscreen-hidden");
+        CapturePreviewScreenshots(window, themes, localization, "fullscreen-hidden", hideChrome: true);
         setChrome.Invoke(window, [true]);
         typeof(MainWindow).GetMethod("ToggleFullScreen", System.Reflection.BindingFlags.Instance
             | System.Reflection.BindingFlags.NonPublic)!.Invoke(window, null);
@@ -264,7 +264,7 @@ public sealed class MainWindowViewModelTests
     }
 
     private static void CapturePreviewScreenshots(MainWindow window, Themes.ThemeService themes, LocalizationService localization,
-        string prefix = "preview")
+        string prefix = "preview", bool hideChrome = false)
     {
         string? output = Environment.GetEnvironmentVariable("MIV_UI_SCREENSHOT_DIRECTORY");
         if (string.IsNullOrEmpty(output))
@@ -277,6 +277,11 @@ public sealed class MainWindowViewModelTests
         {
             themes.Apply(theme);
             localization.SetCulture(language);
+            if (hideChrome)
+            {
+                typeof(MainWindow).GetMethod("SetChromeVisible", System.Reflection.BindingFlags.Instance
+                    | System.Reflection.BindingFlags.NonPublic)!.Invoke(window, [false]);
+            }
             DrainBindings(window);
             System.Windows.Media.Imaging.RenderTargetBitmap bitmap = new((int)Math.Ceiling(window.ActualWidth), (int)Math.Ceiling(window.ActualHeight), 96, 96,
                 System.Windows.Media.PixelFormats.Pbgra32);
