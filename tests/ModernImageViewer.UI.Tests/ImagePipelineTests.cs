@@ -40,20 +40,11 @@ public sealed class ImagePipelineTests
                     encoder.Save(file);
                 }
 
-                if (encoder is not WmpBitmapEncoder)
+                using PixelBuffer image = await decoder.DecodeAsync(path, TestContext.Current.CancellationToken);
+                Assert.Equal(new PixelSize(1, 1), image.Size);
+                if (encoder is PngBitmapEncoder)
                 {
-                    using PixelBuffer image = await decoder.DecodeAsync(path, TestContext.Current.CancellationToken);
-                    Assert.Equal(new PixelSize(1, 1), image.Size);
-                    if (encoder is PngBitmapEncoder)
-                    {
-                        Assert.Equal(new byte[] { 0, 0, 128, 128 }, image.Pixels.ToArray());
-                    }
-                }
-                else
-                {
-                    ImageDecodeException exception = await Assert.ThrowsAsync<ImageDecodeException>(
-                        () => decoder.DecodeAsync(path, TestContext.Current.CancellationToken));
-                    Assert.Equal(ImageOpenError.UnsupportedFormat, exception.Error);
+                    Assert.Equal(new byte[] { 0, 0, 128, 128 }, image.Pixels.ToArray());
                 }
             }
         }
