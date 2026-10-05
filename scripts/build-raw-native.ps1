@@ -32,6 +32,12 @@ $vendor = Join-Path $work 'LibRaw-0.22.2'
 if (-not (Test-Path (Join-Path $vendor 'libraw/libraw.h') -PathType Leaf)) {
     Expand-Archive -LiteralPath $ArchivePath -DestinationPath $work -Force
 }
+$notices = Join-Path $output 'licenses'
+[IO.Directory]::CreateDirectory($notices) | Out-Null
+foreach ($name in @('COPYRIGHT', 'LICENSE.CDDL', 'LICENSE.LGPL')) {
+    Copy-Item -LiteralPath (Join-Path $vendor $name) -Destination (Join-Path $notices $name) -Force
+}
+Copy-Item -LiteralPath $ArchivePath -Destination (Join-Path $notices 'LibRaw-0.22.2-source.zip') -Force
 $nativeSource = Join-Path $repository 'src/ModernImageViewer.Codecs/Raw/Native/raw-preview.cpp'
 $bridgeHash = (Get-FileHash -LiteralPath $nativeSource -Algorithm SHA256).Hash
 $dll = Join-Path $output 'ModernImageViewer.RawBridge.dll'
@@ -41,7 +47,6 @@ if ((Test-Path $manifestPath -PathType Leaf) -and (Test-Path $dll -PathType Leaf
     if ($previous.Configuration -eq $configuration -and $previous.BridgeSourceSha256 -eq $bridgeHash -and
         $previous.NativeSha256 -eq (Get-FileHash -LiteralPath $dll -Algorithm SHA256).Hash) {
         Write-Output 'RAW native bridge already matches the fixed source and compiler configuration.'
-        Copy-Item -LiteralPath $ArchivePath -Destination (Join-Path $output 'licenses/LibRaw-0.22.2-source.zip') -Force
         return
     }
 }
@@ -76,12 +81,6 @@ foreach ($dependency in $imports) {
         throw "Unexpected RAW runtime dependency: $dependency. Do not depend on a user-installed runtime."
     }
 }
-$notices = Join-Path $output 'licenses'
-[IO.Directory]::CreateDirectory($notices) | Out-Null
-foreach ($name in @('COPYRIGHT', 'LICENSE.CDDL', 'LICENSE.LGPL')) {
-    Copy-Item -LiteralPath (Join-Path $vendor $name) -Destination (Join-Path $notices $name) -Force
-}
-Copy-Item -LiteralPath $ArchivePath -Destination (Join-Path $notices 'LibRaw-0.22.2-source.zip') -Force
 [pscustomobject]@{
     SchemaVersion = 1
     Version = 'LibRaw 0.22.2; preview ABI 1'
