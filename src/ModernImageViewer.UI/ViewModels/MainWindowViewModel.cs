@@ -48,7 +48,8 @@ public sealed partial class MainWindowViewModel : INotifyPropertyChanged, IDispo
         ImageBrowseSession browseSession,
         Func<IFileRevealService>? fileReveal = null,
         IUserSettingsService? settings = null,
-        IClipboardFileService? clipboardFiles = null)
+        IClipboardFileService? clipboardFiles = null,
+        IImageClipboardService? imageClipboard = null)
     {
         _localization = localization;
         _coordinator = coordinator;
@@ -56,10 +57,13 @@ public sealed partial class MainWindowViewModel : INotifyPropertyChanged, IDispo
         _fileReveal = fileReveal;
         _settings = settings;
         _clipboardFiles = clipboardFiles;
+        _imageClipboard = imageClipboard;
         InitializePreferences();
         _selectedLanguage = FindCurrentLanguage();
         OpenCommand = new AsyncRelayCommand(PickInputAsync);
-        PasteFilesCommand = new AsyncRelayCommand(PasteFilesAsync, () => _clipboardFiles is not null);
+        PasteFilesCommand = new AsyncRelayCommand(PasteFilesAsync, () => _imageClipboard is not null || _clipboardFiles is not null);
+        CopyPreviewCommand = new AsyncRelayCommand(() => CopyImageAsync(false), () => CanCopyImage);
+        CopyOriginalCommand = new AsyncRelayCommand(() => CopyImageAsync(true), () => CanCopyOriginal);
         PreviousCommand = new AsyncRelayCommand(MovePreviousAsync, () => CanMovePrevious);
         NextCommand = new AsyncRelayCommand(MoveNextAsync, () => CanMoveNext);
         _localization.CultureChanged += OnCultureChanged;
@@ -80,7 +84,7 @@ public sealed partial class MainWindowViewModel : INotifyPropertyChanged, IDispo
             _ => string.Empty,
         };
 
-    public string CurrentFileName => _coordinator.State.FilePath is null
+    public string CurrentFileName => Presentation.IsMemorySource ? Text("Clipboard_Image") : _coordinator.State.FilePath is null
         ? string.Empty
         : Path.GetFileName(_coordinator.State.FilePath);
 
@@ -155,6 +159,7 @@ public sealed partial class MainWindowViewModel : INotifyPropertyChanged, IDispo
     public string FileAssociationLabel => Text("Association_Title");
     public string SettingsLabel => Text("Settings_Title");
     public string CopyPathLabel => Text("Command_CopyPath");
+    public bool CanCopyPath => HasImage && CurrentFilePath.Length > 0;
     public string RefreshLabel => Text("Command_Refresh");
     public string AppearanceLabel => Text("Appearance_Label");
     public string DarkThemeLabel => Text("Theme_Dark");
@@ -171,7 +176,7 @@ public sealed partial class MainWindowViewModel : INotifyPropertyChanged, IDispo
     public string DirectoryPath => Path.GetDirectoryName(CurrentFilePath) ?? string.Empty;
     public string DirectoryName => _browseSession.IsSelection ? Text("Browsing_Selection")
         : Path.GetFileName(DirectoryPath) is { Length: > 0 } name ? name : DirectoryPath;
-    public string FormatText => HasImage
+    public string FormatText => Presentation.IsMemorySource ? Text("Clipboard_Bitmap") : HasImage
         ? Path.GetExtension(CurrentFilePath).TrimStart('.').ToUpperInvariant()
             + (CurrentImage?.Metadata.IsEmbeddedPreview == true ? $" · {Text("Raw_EmbeddedPreview")}" : string.Empty)
         : "—";
@@ -414,7 +419,7 @@ public sealed partial class MainWindowViewModel : INotifyPropertyChanged, IDispo
 
     public async Task RefreshFolderAsync()
     {
-        if (!HasImage || _disposed)
+        if (!HasImage || _disposed || Presentation.IsMemorySource)
         {
             return;
         }
@@ -471,6 +476,7 @@ public sealed partial class MainWindowViewModel : INotifyPropertyChanged, IDispo
     private void CancelFolderWork()
     {
         CancelBrowsingTools();
+        CancelClipboardWrite();
         _inputVersion++;
         _folderCancellation?.Cancel();
         _folderCancellation?.Dispose();
@@ -542,7 +548,7 @@ public sealed partial class MainWindowViewModel : INotifyPropertyChanged, IDispo
 
     private void OnCoordinatorPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (_coordinator.State is { Status: ImageOpenStatus.Loaded, FilePath: not null } state)
+        if (_coordinator.State is { Status: ImageOpenStatus.Loaded, Image: not null } state)
         {
             UpdateBrowseItems();
             if (e.PropertyName == nameof(ImageOpenCoordinator.State) && !ReferenceEquals(_informationImage, state.Image))
@@ -588,6 +594,7 @@ public sealed partial class MainWindowViewModel : INotifyPropertyChanged, IDispo
         _modified = null;
         try
         {
+            if (path.Length == 0) { return; }
             await s_fileInformationGate.WaitAsync(token);
             (long? length, DateTime? modified) information;
             try
@@ -675,6 +682,8 @@ public sealed partial class MainWindowViewModel : INotifyPropertyChanged, IDispo
         OnPropertyChanged(string.Empty);
         PreviousCommand.RaiseCanExecuteChanged();
         NextCommand.RaiseCanExecuteChanged();
+        CopyPreviewCommand.RaiseCanExecuteChanged();
+        CopyOriginalCommand.RaiseCanExecuteChanged();
     }
 
     private string Text(string key) => _localization.GetString(key);

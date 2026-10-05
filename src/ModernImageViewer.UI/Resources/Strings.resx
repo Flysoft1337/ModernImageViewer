@@ -214,7 +214,19 @@
   <data name="Edit_EmbeddedPreviewNotice" xml:space="preserve"><value>Editing the RAW file's embedded preview, at its preview dimensions. Sensor pixels and full RAW development are not used.</value></data>
   <data name="Error_RawNoPreview" xml:space="preserve"><value>This RAW file has no supported embedded preview.</value></data>
   <data name="Raw_EmbeddedPreview" xml:space="preserve"><value>Embedded preview</value></data>
-  <data name="Command_PasteFiles" xml:space="preserve"><value>Open clipboard files</value></data>
-  <data name="Clipboard_NoFiles" xml:space="preserve"><value>Copy image files in Explorer, then try again. Pasting bitmaps is not supported yet.</value></data>
-  <data name="Shortcut_Action_PasteFiles" xml:space="preserve"><value>Open clipboard files</value></data>
+  <data name="Command_PasteFiles" xml:space="preserve"><value>Open from clipboard</value></data>
+  <data name="Clipboard_NoFiles" xml:space="preserve"><value>The clipboard has no image or image files. Copy one and try again.</value></data>
+  <data name="Shortcut_Action_PasteFiles" xml:space="preserve"><value>Open clipboard image or files</value></data>
+  <data name="Shortcut_Action_CopyPreview" xml:space="preserve"><value>Copy image preview with viewing orientation</value></data>
+  <data name="Clipboard_Image" xml:space="preserve"><value>Clipboard image</value></data>
+  <data name="Clipboard_Bitmap" xml:space="preserve"><value>Bitmap</value></data>
+  <data name="Clipboard_CopyPreview" xml:space="preserve"><value>Copy preview</value></data>
+  <data name="Clipboard_CopyPreviewHint" xml:space="preserve"><value>Copy the whole-image preview, up to 2560×1600, with rotation/flips and PNG transparency; excludes UI and region detail.</value></data>
+  <data name="Clipboard_CopyOriginal" xml:space="preserve"><value>Copy original-size image</value></data>
+  <data name="Clipboard_CopyOriginalHint" xml:space="preserve"><value>Available when full pixels are loaded and output is within 64MiB, including rotation/flips.</value></data>
+  <data name="Clipboard_Source" xml:space="preserve"><value>In-memory image; can be edited and saved as a new file</value></data>
+  <data name="Information_Source" xml:space="preserve"><value>Source</value></data>
+  <data name="Clipboard_PreviewCopied" xml:space="preserve"><value>Image preview copied with viewing orientation.</value></data>
+  <data name="Clipboard_OriginalCopied" xml:space="preserve"><value>Original-size image copied with viewing orientation.</value></data>
+  <data name="Edit_ClipboardNotice" xml:space="preserve"><value>Editing a clipboard image. Saving creates a new file.</value></data>
 </root>

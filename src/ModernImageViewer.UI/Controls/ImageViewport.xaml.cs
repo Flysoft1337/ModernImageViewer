@@ -156,7 +156,9 @@ public partial class ImageViewport : UserControl, IDisposable
         // A single binding carries path and pixels together, so a late refinement cannot reset
         // zoom or accidentally preserve the position when switching to another same-size image.
         viewport._preserveTransform = previous?.Image is not null && current?.Image is not null
-            && string.Equals(previous.FilePath, current.FilePath, StringComparison.OrdinalIgnoreCase)
+            && (previous.IsMemorySource || current.IsMemorySource
+                ? previous.Source?.Identity == current.Source?.Identity
+                : string.Equals(previous.FilePath, current.FilePath, StringComparison.OrdinalIgnoreCase))
             && previous.Image.SourceSize == current.Image.SourceSize;
         if (!viewport._preserveTransform)
         {

@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using System.Globalization;
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
@@ -20,9 +21,10 @@ public partial class EditWindow : Window
     private readonly ILocalizationService _localization;
     private readonly IImageExportService _exporter;
     private readonly ImageEditSession _session;
-    private readonly string _sourcePath;
-    private readonly long _sourceLength;
-    private readonly DateTime _sourceModified;
+    private readonly string? _sourcePath;
+    private readonly long? _sourceLength;
+    private readonly DateTime? _sourceModified;
+    private readonly Guid? _memorySourceIdentity;
     private ImageExportPixels? _sourcePixels;
     private bool _refreshing;
     private bool _sizeDirty;
@@ -32,26 +34,62 @@ public partial class EditWindow : Window
     private bool _closeAfterExport;
 
     public EditWindow(ImageOpenState presentation, ViewOrientation orientation, ILocalizationService localization,
-        IImageExportService exporter, long sourceLength, DateTime sourceModifiedUtc)
+        IImageExportService exporter, long? sourceLength = null, DateTime? sourceModifiedUtc = null,
+        ImageExportPixels? sourcePixels = null)
     {
+        ArgumentNullException.ThrowIfNull(presentation);
+        if (presentation.Image is null) { throw new ArgumentException("An image is required.", nameof(presentation)); }
         _localization = localization;
         _exporter = exporter;
-        _sourcePath = presentation.FilePath ?? throw new ArgumentException("A file source is required.", nameof(presentation));
+        _sourcePath = presentation.FilePath;
+        if (presentation.IsMemorySource)
+        {
+            if (_sourcePath is not null || presentation.Source!.Identity == Guid.Empty || sourcePixels is null
+                || sourcePixels.Size != presentation.Image.SourceSize || sourcePixels.SourceFileStamp is not null
+                || sourcePixels.Stride < (long)sourcePixels.Size.Width * 4
+                || sourcePixels.Pixels.Length < (long)sourcePixels.Stride * sourcePixels.Size.Height)
+            {
+                throw new ArgumentException("A memory source requires an identity and complete pixels.", nameof(presentation));
+            }
+            if ((long)sourcePixels.Stride * sourcePixels.Size.Height > 64L * 1024 * 1024
+                || sourcePixels.Pixels.Length > 64L * 1024 * 1024)
+            {
+                throw new ImageExportException(ImageExportError.BudgetExceeded);
+            }
+            _memorySourceIdentity = presentation.Source.Identity;
+            _sourcePixels = sourcePixels;
+        }
+        else if (string.IsNullOrWhiteSpace(_sourcePath) || sourceLength is null || sourceModifiedUtc is null)
+        {
+            throw new ArgumentException("A file source and its version are required.", nameof(presentation));
+        }
         _session = new(presentation.Image!.SourceSize, orientation);
-        _sourceLength = sourceLength;
-        _sourceModified = sourceModifiedUtc;
-        if (presentation.Image.Size == presentation.Image.SourceSize
-            && presentation.Image.SourceFileStamp == new ImageFileStamp(sourceLength, sourceModifiedUtc))
+        _sourceLength = _memorySourceIdentity is null ? sourceLength : null;
+        _sourceModified = _memorySourceIdentity is null ? sourceModifiedUtc : null;
+        if (_memorySourceIdentity is null && presentation.Image.Size == presentation.Image.SourceSize
+            && presentation.Image.SourceFileStamp == new ImageFileStamp(sourceLength!.Value, sourceModifiedUtc!.Value))
         {
             _sourcePixels = new(presentation.Image.Size, presentation.Image.Stride, presentation.Image.Pixels, presentation.Image.SourceFileStamp);
         }
         DataContext = new EditorStrings(localization);
         InitializeComponent();
-        if (presentation.Image.Metadata.IsEmbeddedPreview)
+        if (presentation.IsMemorySource)
+        {
+            PreviewNotice.Text = Text("Edit_ClipboardNotice");
+        }
+        else if (presentation.Image.Metadata.IsEmbeddedPreview)
         {
             PreviewNotice.Text = Text("Edit_EmbeddedPreviewNotice");
         }
-        Preview.Presentation = presentation;
+        // Own a read-only wrapper, sharing the array without depending on the browsing owner.
+        if (!MemoryMarshal.TryGetArray(presentation.Image.Pixels, out ArraySegment<byte> previewPixels)
+            || previewPixels.Array is null || previewPixels.Offset != 0)
+        {
+            throw new ArgumentException("Array-backed preview pixels are required.", nameof(presentation));
+        }
+        PixelBuffer previewSnapshot = new(presentation.Image.Size, presentation.Image.Stride, previewPixels.Array,
+            presentation.Image.Metadata, presentation.Image.SourceSize, presentation.Image.SourceFileStamp);
+        Preview.Presentation = presentation with { Image = previewSnapshot, Region = null, IsRefining = false, IsRegionLoading = false };
         RefreshEditor();
         UpdateFormatHint();
         Loaded += (_, _) => Preview.Focus();
@@ -60,6 +98,7 @@ public partial class EditWindow : Window
         {
             Preview.Dispose();
             Preview.Presentation = null;
+            previewSnapshot.Dispose();
             _sourcePixels = null;
         };
     }
@@ -259,7 +298,7 @@ public partial class EditWindow : Window
             AddExtension = true,
             DefaultExt = extension,
             Filter = format == ImageExportFormat.Png ? "PNG (*.png)|*.png" : "JPEG (*.jpg;*.jpeg)|*.jpg;*.jpeg",
-            FileName = Path.GetFileNameWithoutExtension(_sourcePath) + "-edited" + extension,
+            FileName = (_sourcePath is null ? "clipboard" : Path.GetFileNameWithoutExtension(_sourcePath)) + "-edited" + extension,
             OverwritePrompt = false,
         };
         if (dialog.ShowDialog(this) != true) { return; }
@@ -275,7 +314,7 @@ public partial class EditWindow : Window
         try
         {
             await _exporter.ExportAsync(new(_sourcePath, dialog.FileName, Recipe, format,
-                quality, _sourceLength, _sourceModified, _sourcePixels), cancellation.Token);
+                quality, _sourceLength, _sourceModified, _sourcePixels, _memorySourceIdentity), cancellation.Token);
             StatusText.Text = string.Format(_localization.CurrentCulture, Text("Edit_Saved"), Path.GetFileName(dialog.FileName));
         }
         catch (OperationCanceledException) { StatusText.Text = Text("Edit_Cancelled"); }

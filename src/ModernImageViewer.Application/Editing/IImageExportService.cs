@@ -10,10 +10,10 @@ public sealed class ImageExportException(ImageExportError error, Exception? inne
     public ImageExportError Error { get; } = error;
 }
 
-public sealed record ImageExportRequest(string SourcePath, string DestinationPath, ImageEditRecipe Recipe,
+public sealed record ImageExportRequest(string? SourcePath, string DestinationPath, ImageEditRecipe Recipe,
     ImageExportFormat Format = ImageExportFormat.Png, int JpegQuality = 90,
     long? ExpectedSourceLength = null, DateTime? ExpectedSourceModifiedUtc = null,
-    ImageExportPixels? SourcePixels = null);
+    ImageExportPixels? SourcePixels = null, Guid? MemorySourceIdentity = null);
 
 public sealed record ImageExportPixels(PixelSize Size, int Stride, ReadOnlyMemory<byte> Pixels, ImageFileStamp? SourceFileStamp = null);
 

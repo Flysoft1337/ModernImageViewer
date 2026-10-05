@@ -197,6 +197,22 @@ public sealed partial class ImageBrowseSession
         _revision++;
     }
 
+    internal void Clear()
+    {
+        InvalidateSorting();
+        _revision++;
+        _prepareGeneration++;
+        _items = [];
+        _sortEntries = null;
+        _prepared = null;
+        _directory = null;
+        _hasCompleteIndex = false;
+        CurrentPath = null;
+        CurrentIndex = -1;
+        IsSelection = false;
+        IsIndexing = false;
+    }
+
     public async Task RefreshAsync(CancellationToken cancellationToken)
     {
         if (CurrentPath is not { } path)
