@@ -2,6 +2,8 @@
 
 > 2026-10-05。本轮按仓库 M0 理解用户所称 N0，起点为 `58e3d7b`。当前 0.5.0 为未发布开发代码，公开下载仍为 v0.4.0，不触发 Release。M0 逐项记录证据，不把本轮部分验证当作整个里程碑关闭。
 
+> 后续本批已接入静态AVIF/HEIF（固定Magick.NET）与LibRaw RAW内嵌预览，并补文件编辑；见[实际实现与验收](raw-modern-editing.md)。下文现代codec候选/RAW研究段保留PR #25首批时的证据，不代表当前仍未接入；M0全管线预算、显示器色彩、MSIX及固定机验收仍未关闭。
+
 ## 实现和验证范围
 
 | 链路 | 本轮结果 | 剩余边界 |
@@ -11,8 +13,8 @@
 | JPEG XR | WIC 实测主图、预览、缩略图及 ROI 通过；接入 `.jxr/.wdp/.hdp` | 输出仍为预乘 BGRA8，不保证 HDR/高位深准确输出 |
 | 受限 SVG | 固定 Svg.Skia 5.2.3；形状/路径/变换/本地渐变直接目标栅格化，区域细化因曲线裁切AA边缘差异暂不开放 | 非完整 SVG；文字、图片、use、clip/mask/filter、动画和外部资源不开放 |
 | 100MP 输出/进程观察 | 流式生成 10000×10000 RGB PNG，生成与解码分进程；新增可复现观察工具 | 单样本不是 P95；进程峰值不是 native 专用分配，更不是全管线硬上限 |
-| AVIF / HEIF | 随包 Skia 的真实样本返回 Unimplemented；独立 codec 继续验证 | 本轮未启用对应扩展名，不依赖用户装有 WIC 扩展宣称支持 |
-| RAW 内嵌预览 | 已核对 LibRaw thumbnail API、独立方向和预算要求 | 尚无随包 native / 机型样本验证，不注册 RAW 扩展名，不实现完整显影 |
+| AVIF / HEIF | Skia不支持后，后批固定Magick.NET实际接入静态管线/方向/RGB ICC | 源32MP/输入128MiB；native整图后缩放，序列/ROI/HDR和完整色彩未保证，证据见专项记录 |
+| RAW 内嵌预览 | 后批固定LibRaw0.22.2 /MT桥接、CR2/NEF/DNG真实预览与分发源码/许可已接入 | 只读取可用JPEG/RGB8/RGB16预览，不显影；完整机型语料/性能与全管线仍待完成 |
 | ZIP / EXE / 依赖声明 | 沿用现有 Windows CI，补 SVG 完整许可及实际包/native 文件清单 | MSIX、可信签名、完整 SBOM/固定机验收仍待完成 |
 
 ## 方向与 ICC 的真实回归
@@ -42,7 +44,7 @@ pwsh ./scripts/measure-codec.ps1
 # 已完成Release解决方案构建时复用输出
 pwsh ./scripts/measure-codec.ps1 -NoBuild
 # 同一机器/样本比较多个格式；每模式单独新进程
-pwsh ./scripts/measure-codec.ps1 -NoBuild -ImagePaths ./sample.jpg,./sample.webp -OutputPath ./artifacts/codec-observation/custom.json
+& ./scripts/measure-codec.ps1 -NoBuild -ImagePaths @('./sample.jpg','./sample.webp') -OutputPath ./artifacts/codec-observation/custom.json
 ```
 
 工具在独立进程逐行生成 RGB PNG，仅30,001字节行缓冲与64KiB IDAT缓冲，压缩数据临时文件；测量进程不会继承400MB的样本数组。每输入/模式分别启动框架依赖 Release进程，记录来源/输出尺寸、输出字节、elapsed、当前/峰值进程内存、OS/运行时/CPU、源文件哈希、提交与工作区状态。CPU型号/RAM读取失败保留null和原因，不编造条件。

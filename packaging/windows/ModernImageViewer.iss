@@ -143,7 +143,7 @@ end;
 function PrepareToInstall(var NeedsRestart: Boolean): String;
 begin
   Result := '';
-  if IsTaskSelected('fileassoc') and not AssociationIdentityAvailable() then
+  if WizardIsTaskSelected('fileassoc') and not AssociationIdentityAvailable() then
     Result := CustomMessage('AssociationCollision');
 end;
 
@@ -220,6 +220,18 @@ begin
   RegisterExtension('.wdp');
   RegisterExtension('.hdp');
   RegisterExtension('.svg');
+  RegisterExtension('.avif');
+  RegisterExtension('.heif');
+  RegisterExtension('.heic');
+  RegisterExtension('.dng');
+  RegisterExtension('.cr2');
+  RegisterExtension('.cr3');
+  RegisterExtension('.nef');
+  RegisterExtension('.arw');
+  RegisterExtension('.raf');
+  RegisterExtension('.rw2');
+  RegisterExtension('.orf');
+  RegisterExtension('.pef');
   WriteString(RegisteredApplicationsKey, ApplicationId, CapabilitiesKey);
   NotifyAssociations($08000000, 0, 0, 0);
 end;
@@ -276,6 +288,18 @@ begin
   UnregisterExtension('.wdp');
   UnregisterExtension('.hdp');
   UnregisterExtension('.svg');
+  UnregisterExtension('.avif');
+  UnregisterExtension('.heif');
+  UnregisterExtension('.heic');
+  UnregisterExtension('.dng');
+  UnregisterExtension('.cr2');
+  UnregisterExtension('.cr3');
+  UnregisterExtension('.nef');
+  UnregisterExtension('.arw');
+  UnregisterExtension('.raf');
+  UnregisterExtension('.rw2');
+  UnregisterExtension('.orf');
+  UnregisterExtension('.pef');
   DeleteMatching(RegisteredApplicationsKey, ApplicationId, CapabilitiesKey, False);
   DeleteMatching(ProgIdKey + '\shell\open\command', '', OpenCommand(), True);
   DeleteMatching(ProgIdKey + '\DefaultIcon', '', IconPath(), True);
@@ -294,7 +318,7 @@ end;
 
 procedure CurStepChanged(CurStep: TSetupStep);
 begin
-  if (CurStep = ssPostInstall) and IsTaskSelected('fileassoc') then RegisterAssociations();
+  if (CurStep = ssPostInstall) and WizardIsTaskSelected('fileassoc') then RegisterAssociations();
 end;
 
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);

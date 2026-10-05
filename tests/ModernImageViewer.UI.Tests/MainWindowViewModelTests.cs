@@ -213,6 +213,7 @@ public sealed class MainWindowViewModelTests
                 CapturePreviewScreenshots(window, themes, localization, "orientation");
                 VerifyOrientationMenus(window, themes, localization);
                 VerifyShortcutHelp(window, themes, localization);
+                VerifyEditor(window, viewModel, themes, localization);
                 ModernImageViewer.Application.Settings.WindowPlacementData normalPlacement = preferences.Current.WindowPlacement!;
                 typeof(MainWindow).GetMethod("ToggleFullScreen", System.Reflection.BindingFlags.Instance
                     | System.Reflection.BindingFlags.NonPublic)!.Invoke(window, null);
@@ -328,7 +329,7 @@ public sealed class MainWindowViewModelTests
             help.UpdateLayout();
             ShortcutHelpViewModel model = Assert.IsType<ShortcutHelpViewModel>(help.DataContext);
             Assert.Equal(6, model.Groups.Count);
-            Assert.Equal(20, model.Groups.Sum(group => group.Rows.Count));
+            Assert.Equal(Enum.GetValues<ViewerAction>().Length, model.Groups.Sum(group => group.Rows.Count));
             Assert.DoesNotContain(model.Groups.SelectMany(group => group.Rows), row => row.Description.StartsWith("Shortcut_", StringComparison.Ordinal));
             Assert.Equal(localization.GetString("Shortcut_Title"), help.Title);
             string? output = Environment.GetEnvironmentVariable("MIV_UI_SCREENSHOT_DIRECTORY");
@@ -388,6 +389,60 @@ public sealed class MainWindowViewModelTests
         encoder.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(bitmap));
         using FileStream file = File.Create(path);
         encoder.Save(file);
+    }
+
+    private static void VerifyEditor(MainWindow window, MainWindowViewModel viewModel, Themes.ThemeService themes, LocalizationService localization)
+    {
+        foreach ((Themes.AppTheme theme, string language) in new[]
+            { (Themes.AppTheme.Dark, "zh-CN"), (Themes.AppTheme.Light, "en-US") })
+        {
+            themes.Apply(theme);
+            localization.SetCulture(language);
+            EditWindow editor = new(viewModel.Presentation, default(ViewOrientation).RotateRight(), localization,
+                new NoopExporter(), 0, DateTime.UtcNow)
+            { Owner = window, Width = 720, Height = 480 };
+            editor.Show();
+            editor.Dispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.ContextIdle);
+            editor.UpdateLayout();
+            Assert.Equal(localization.GetString("Edit_Title"), editor.Title);
+            Assert.Equal(new PixelSize(6000, 8000), editor.Recipe.OutputSize);
+            ((System.Windows.Controls.TextBox)editor.FindName("CropX")).Text = "100";
+            ((System.Windows.Controls.TextBox)editor.FindName("CropY")).Text = "200";
+            ((System.Windows.Controls.TextBox)editor.FindName("CropWidth")).Text = "1000";
+            ((System.Windows.Controls.TextBox)editor.FindName("CropHeight")).Text = "500";
+            typeof(EditWindow).GetMethod("OnApplyCropClick", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
+                .Invoke(editor, [editor, new System.Windows.RoutedEventArgs()]);
+            Assert.Equal(new PixelRect(100, 200, 1000, 500), editor.Recipe.Crop);
+            Assert.Equal(new PixelSize(500, 1000), editor.Recipe.OutputSize);
+            ((System.Windows.Controls.TextBox)editor.FindName("OutputWidth")).Text = "200";
+            typeof(EditWindow).GetMethod("OnApplySizeClick", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
+                .Invoke(editor, [editor, new System.Windows.RoutedEventArgs()]);
+            Assert.Equal(new PixelSize(200, 400), editor.Recipe.OutputSize);
+            ((System.Windows.Controls.Button)editor.FindName("UndoButton")).RaiseEvent(new System.Windows.RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
+            Assert.Equal(new PixelSize(500, 1000), editor.Recipe.OutputSize);
+            ((System.Windows.Controls.Button)editor.FindName("RedoButton")).RaiseEvent(new System.Windows.RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
+            Assert.Equal(new PixelSize(200, 400), editor.Recipe.OutputSize);
+            ((System.Windows.Controls.RadioButton)editor.FindName("JpegFormat")).IsChecked = true;
+            Assert.Equal(System.Windows.Visibility.Visible, ((System.Windows.Controls.StackPanel)editor.FindName("QualityPanel")).Visibility);
+            editor.Dispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.ContextIdle);
+            editor.UpdateLayout();
+            System.Windows.Controls.Button save = (System.Windows.Controls.Button)editor.FindName("SaveButton");
+            System.Windows.Point location = save.TranslatePoint(new System.Windows.Point(0, 0), editor);
+            Assert.InRange(location.X + save.ActualWidth, 0, editor.ActualWidth);
+            Assert.InRange(location.Y + save.ActualHeight, 0, editor.ActualHeight);
+            string? output = Environment.GetEnvironmentVariable("MIV_UI_SCREENSHOT_DIRECTORY");
+            if (!string.IsNullOrEmpty(output))
+            {
+                Directory.CreateDirectory(output);
+                SaveScreenshot(editor, Path.Combine(output, $"editor-{theme}-{language}.png"));
+            }
+            editor.Close();
+        }
+    }
+
+    private sealed class NoopExporter : ModernImageViewer.Application.Editing.IImageExportService
+    {
+        public Task ExportAsync(ModernImageViewer.Application.Editing.ImageExportRequest request, CancellationToken cancellationToken = default) => Task.CompletedTask;
     }
 
     private sealed class PreviewDecoder : IPreviewImageDecoder, IRegionImageDecoder

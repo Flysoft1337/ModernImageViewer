@@ -35,6 +35,7 @@
                 <MenuItem Header="{Binding OpenFolderLabel}" InputGestureText="Ctrl+Shift+O" Click="OnOpenFolderClick" />
                 <MenuItem Header="{Binding FileAssociationLabel}" Click="OnFileAssociationsClick" />
                 <MenuItem Header="{Binding FileActionsLabel}">
+                  <MenuItem Header="{Binding EditLabel}" InputGestureText="Ctrl+E" Click="OnEditClick" IsEnabled="{Binding HasImage}" />
                   <MenuItem Header="{Binding RevealLabel}" InputGestureText="Ctrl+Shift+E" Click="OnRevealClick" IsEnabled="{Binding CanReveal}" />
                   <MenuItem Header="{Binding CopyPathLabel}" Click="OnCopyPathClick" IsEnabled="{Binding HasImage}" />
                 </MenuItem>

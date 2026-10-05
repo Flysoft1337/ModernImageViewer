@@ -8,6 +8,7 @@
     <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="10.0.4" />
     <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.4" />
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.3.0" />
+    <PackageVersion Include="Magick.NET-Q8-x64" Version="14.17.2" />
     <PackageVersion Include="SkiaSharp" Version="4.153.1" />
     <PackageVersion Include="SkiaSharp.Views.WPF" Version="4.153.1" />
     <PackageVersion Include="Svg.Skia" Version="5.2.3" />

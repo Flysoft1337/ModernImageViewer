@@ -26,6 +26,7 @@ public enum ViewerAction
     ShowShortcutHelp,
     RotateRight,
     RotateLeft,
+    EditImage,
 }
 
 public readonly record struct ViewerShortcutGesture(Key Key, ModifierKeys Modifiers = ModifierKeys.None);
@@ -65,6 +66,7 @@ public static class ShortcutCatalog
         Define(ViewerAction.ShowShortcutHelp, "Window", "ShowShortcutHelp", new ViewerShortcutGesture(Key.F1)),
         Define(ViewerAction.RefreshFolder, "File", "RefreshFolder", new ViewerShortcutGesture(Key.F5)),
         Define(ViewerAction.RevealInExplorer, "File", "RevealInExplorer", new ViewerShortcutGesture(Key.E, ModifierKeys.Control | ModifierKeys.Shift)),
+        Define(ViewerAction.EditImage, "File", "EditImage", new ViewerShortcutGesture(Key.E, ModifierKeys.Control)),
     ]);
 
     public static ViewerAction? Match(Key key, ModifierKeys modifiers)

@@ -106,7 +106,7 @@ public sealed class WicImageDecoder : IImageDecoder
         }
     }
 
-    internal PixelBuffer Decode(Stream stream, PixelSize? maximumSize, CancellationToken cancellationToken, long? maximumDecodedBytes = null)
+    internal PixelBuffer Decode(Stream stream, PixelSize? maximumSize, CancellationToken cancellationToken, long? maximumDecodedBytes = null, ushort? orientationOverride = null)
     {
         cancellationToken.ThrowIfCancellationRequested();
         try
@@ -124,6 +124,10 @@ public sealed class WicImageDecoder : IImageDecoder
             PixelSize originalSize = new(frame.PixelWidth, frame.PixelHeight);
             _limits.ValidateAndGetStride(originalSize);
             ImageMetadata metadata = WicMetadataReader.Read(frame);
+            if (orientationOverride is >= 1 and <= 8)
+            {
+                metadata = metadata with { Orientation = orientationOverride.Value };
+            }
             PixelSize orientedSize = metadata.Orientation >= 5
                 ? new PixelSize(originalSize.Height, originalSize.Width) : originalSize;
             if (maximumSize is null && maximumDecodedBytes is { } originalBudget

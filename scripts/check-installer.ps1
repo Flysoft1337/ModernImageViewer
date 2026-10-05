@@ -16,10 +16,11 @@ $applicationKey = "Software\ModernImageViewer\Installed"
 $progId = "ModernImageViewer.Installed.Image"
 $progIdKey = "Software\Classes\$progId"
 $registeredApplicationsKey = "Software\RegisteredApplications"
-$extensions = @(".jpg", ".jpeg", ".png", ".bmp", ".gif", ".tif", ".tiff", ".ico", ".webp", ".jxr", ".wdp", ".hdp", ".svg")
+$extensions = @(".jpg", ".jpeg", ".png", ".bmp", ".gif", ".tif", ".tiff", ".ico", ".webp", ".jxr", ".wdp", ".hdp", ".svg", ".avif", ".heif", ".heic", ".dng", ".cr2", ".cr3", ".nef", ".arw", ".raf", ".rw2", ".orf", ".pef")
 $foreignCandidate = "ModernImageViewer.InstallerSmoke." + [Guid]::NewGuid().ToString("N")
 $currentUser = [Microsoft.Win32.Registry]::CurrentUser
 $candidateKeys = [Collections.Generic.List[string]]::new()
+$uninstallCompleted = $false
 
 function Assert-Equal($Actual, $Expected, [string]$Message) {
     if ($Actual -cne $Expected) { throw $Message }
@@ -209,6 +210,7 @@ try {
     try { $capabilities.SetValue("ApplicationDescription", "Browse JPEG and PNG images with Modern Image Viewer.") }
     finally { $capabilities.Dispose() }
     Invoke-Setup $uninstaller @("/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/LOG=$(Join-Path $logs 'uninstall.log')")
+    $uninstallCompleted = $true
     if ([IO.File]::Exists($executable)) { throw "Uninstall left the application executable behind." }
     if ([IO.File]::Exists((Join-Path $directory "ModernImageViewer.install.json"))) { throw "Uninstall left the installed distribution marker behind." }
     Assert-Equal ([IO.File]::ReadAllText($preferences)) '{"keep":"user data"}' "Uninstall removed a custom user file."
@@ -227,7 +229,7 @@ try {
         finally { if ($null -ne $key) { $key.Dispose() } }
     }
     foreach ($path in $protected.Keys) {
-        $actual = if ($path -match '^Software\\Classes\\\.(jpg|jpeg|png|bmp|gif|tif|tiff|ico|webp|jxr|wdp|hdp|svg)$') { Read-RegistryValue $path "" } else { Read-RegistrySnapshot $path }
+        $actual = if ($path -match '^Software\\Classes\\\.(jpg|jpeg|png|bmp|gif|tif|tiff|ico|webp|jxr|wdp|hdp|svg|avif|heif|heic|dng|cr2|cr3|nef|arw|raf|rw2|orf|pef)$') { Read-RegistryValue $path "" } else { Read-RegistrySnapshot $path }
         Assert-Equal $actual $protected[$path] "Installation changed an existing default choice or portable identity."
     }
     Assert-Equal (Read-RegistryValue $registeredApplicationsKey "ModernImageViewer.Portable") $portableRegistration "Installation changed the portable RegisteredApplications value."
@@ -236,7 +238,7 @@ try {
 finally {
     # Only run the uninstaller from our exclusively owned temporary directory.
     $cleanupSucceeded = $true
-    if ([IO.File]::Exists($uninstaller)) {
+    if (-not $uninstallCompleted -and [IO.File]::Exists($uninstaller)) {
         try { Invoke-Setup $uninstaller @("/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/LOG=$(Join-Path $logs 'cleanup.log')") }
         catch {
             $cleanupSucceeded = $false

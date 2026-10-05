@@ -15,7 +15,7 @@
   <data name="Error_FileNotFound" xml:space="preserve"><value>找不到该文件。</value></data>
   <data name="Error_AccessDenied" xml:space="preserve"><value>没有权限访问该文件。</value></data>
   <data name="Error_UnsupportedFormat" xml:space="preserve"><value>不支持这种图片格式或其中的特性。</value></data>
-  <data name="SupportedFormats_Overview" xml:space="preserve"><value>JPEG · PNG · WebP · BMP · GIF · TIFF · ICO · JPEG XR · SVG（受限）</value></data>
+  <data name="SupportedFormats_Overview" xml:space="preserve"><value>JPEG · PNG · WebP · AVIF · HEIF · BMP · GIF · TIFF · ICO · JPEG XR · SVG（受限）· RAW（内嵌预览）</value></data>
   <data name="Error_CorruptFile" xml:space="preserve"><value>图片文件已损坏或不完整。</value></data>
   <data name="Error_ImageTooLarge" xml:space="preserve"><value>图片过大，无法安全打开。</value></data>
   <data name="Error_DecodeFailed" xml:space="preserve"><value>无法打开该图片。</value></data>
@@ -73,7 +73,7 @@
   <data name="Status_ScanningFolder" xml:space="preserve"><value>正在扫描文件夹…</value></data>
   <data name="Association_Title" xml:space="preserve"><value>用此应用打开图片</value></data>
   <data name="Association_Intro" xml:space="preserve"><value>将支持的图片格式加入 Windows“打开方式”，再选择此应用作为默认图片查看器。</value></data>
-  <data name="Association_Formats" xml:space="preserve"><value>支持的图片类型 · GIF、TIFF 和 WebP 显示首帧</value></data>
+  <data name="Association_Formats" xml:space="preserve"><value>支持的图片类型 · 动画/TIFF 仅首帧/首页，RAW 读取内嵌预览</value></data>
   <data name="Association_Registered" xml:space="preserve"><value>已加入 Windows 打开方式</value></data>
   <data name="Association_NotRegistered" xml:space="preserve"><value>尚未注册打开方式</value></data>
   <data name="Association_OtherLocation" xml:space="preserve"><value>已从其他位置注册</value></data>
@@ -169,4 +169,49 @@
   <data name="Preferences_Browsing" xml:space="preserve"><value>浏览偏好</value></data>
   <data name="Shortcut_Action_RotateRight" xml:space="preserve"><value>向右旋转视图 90°</value></data>
   <data name="Shortcut_Action_RotateLeft" xml:space="preserve"><value>向左旋转视图 90°</value></data>
+  <data name="Shortcut_Action_EditImage" xml:space="preserve"><value>裁剪、调整尺寸与另存为</value></data>
+  <data name="Edit_Title" xml:space="preserve"><value>编辑图片</value></data>
+  <data name="Edit_NonDestructive" xml:space="preserve"><value>原文件保持不变</value></data>
+  <data name="Edit_Undo" xml:space="preserve"><value>撤销</value></data>
+  <data name="Edit_Redo" xml:space="preserve"><value>重做</value></data>
+  <data name="Edit_Reset" xml:space="preserve"><value>重置</value></data>
+  <data name="Edit_Crop" xml:space="preserve"><value>裁剪</value></data>
+  <data name="Edit_CropHint" xml:space="preserve"><value>坐标基于 EXIF 校正后的原图，不随查看旋转改变。</value></data>
+  <data name="Edit_SelectCrop" xml:space="preserve"><value>在图片上选择</value></data>
+  <data name="Edit_DragCrop" xml:space="preserve"><value>拖动选择区域后应用裁剪；Esc 返回编辑预览。</value></data>
+  <data name="Edit_CropX" xml:space="preserve"><value>裁剪左侧坐标</value></data>
+  <data name="Edit_CropY" xml:space="preserve"><value>裁剪顶部坐标</value></data>
+  <data name="Edit_CropWidth" xml:space="preserve"><value>裁剪宽度（原图像素）</value></data>
+  <data name="Edit_CropHeight" xml:space="preserve"><value>裁剪高度（原图像素）</value></data>
+  <data name="Edit_Width" xml:space="preserve"><value>宽度（像素）</value></data>
+  <data name="Edit_Height" xml:space="preserve"><value>高度（像素）</value></data>
+  <data name="Edit_ApplyCrop" xml:space="preserve"><value>应用裁剪</value></data>
+  <data name="Edit_Resize" xml:space="preserve"><value>输出尺寸</value></data>
+  <data name="Edit_OutputWidth" xml:space="preserve"><value>输出宽度（像素）</value></data>
+  <data name="Edit_OutputHeight" xml:space="preserve"><value>输出高度（像素）</value></data>
+  <data name="Edit_KeepRatio" xml:space="preserve"><value>保持宽高比例</value></data>
+  <data name="Edit_ApplySize" xml:space="preserve"><value>应用尺寸</value></data>
+  <data name="Edit_Export" xml:space="preserve"><value>保存副本</value></data>
+  <data name="Edit_SaveAs" xml:space="preserve"><value>另存为…</value></data>
+  <data name="Edit_Quality" xml:space="preserve"><value>JPEG 质量（1–100）</value></data>
+  <data name="Edit_PngHint" xml:space="preserve"><value>PNG 保留透明度，编码无损。</value></data>
+  <data name="Edit_JpegHint" xml:space="preserve"><value>JPEG 将透明区域合成为白底，有损编码。</value></data>
+  <data name="Edit_PreviewNotice" xml:space="preserve"><value>预览可能经过降采样；导出按输出所需分辨率读取源像素。</value></data>
+  <data name="Edit_ExportNotice" xml:space="preserve"><value>请选择新文件名，不替换已有文件。输出为 8 位像素，最多约 1600 万像素；不复制原图 EXIF/ICC 元数据。</value></data>
+  <data name="Edit_OutputSummary" xml:space="preserve"><value>已应用输出 · {0} × {1} 像素</value></data>
+  <data name="Edit_Ready" xml:space="preserve"><value>Ctrl+Z 撤销 · Ctrl+Shift+Z 重做 · Ctrl+S 另存为</value></data>
+  <data name="Edit_InvalidValues" xml:space="preserve"><value>请输入图片范围内的整数。</value></data>
+  <data name="Edit_Saving" xml:space="preserve"><value>正在生成并保存副本…</value></data>
+  <data name="Edit_Saved" xml:space="preserve"><value>已保存：{0}</value></data>
+  <data name="Edit_Cancelled" xml:space="preserve"><value>导出已取消，原文件保持不变。</value></data>
+  <data name="Edit_Cancelling" xml:space="preserve"><value>正在取消导出…</value></data>
+  <data name="Edit_Error_InvalidDestination" xml:space="preserve"><value>请选择不同于原图的新 PNG/JPEG 文件名。</value></data>
+  <data name="Edit_Error_DestinationExists" xml:space="preserve"><value>目标文件已存在，请使用新文件名。</value></data>
+  <data name="Edit_Error_SourceChanged" xml:space="preserve"><value>源文件已改变或无法读取，请重新打开后编辑。</value></data>
+  <data name="Edit_Error_BudgetExceeded" xml:space="preserve"><value>暂不能导出此尺寸与裁剪组合；请减小输出尺寸，或改为整图导出。</value></data>
+  <data name="Edit_Error_DecodeFailed" xml:space="preserve"><value>无法读取源像素，原文件保持不变。</value></data>
+  <data name="Edit_Error_WriteFailed" xml:space="preserve"><value>无法保存副本，请检查目标文件夹和剩余空间。</value></data>
+  <data name="Edit_EmbeddedPreviewNotice" xml:space="preserve"><value>正在编辑 RAW 内嵌预览，尺寸以该预览为准；不使用传感器像素，不进行完整 RAW 显影。</value></data>
+  <data name="Error_RawNoPreview" xml:space="preserve"><value>该 RAW 文件没有可读取的内嵌预览。</value></data>
+  <data name="Raw_EmbeddedPreview" xml:space="preserve"><value>内嵌预览</value></data>
 </root>

@@ -11,6 +11,7 @@ public sealed record ImageMetadata
     public double? Aperture { get; init; }
     public double? FocalLength { get; init; }
     public ushort Orientation { get; init; } = 1;
+    public bool IsEmbeddedPreview { get; init; }
     public bool HasExif => Camera is not null || Lens is not null || CapturedAt is not null
         || Iso is not null || ExposureSeconds is not null || Aperture is not null || FocalLength is not null;
 }

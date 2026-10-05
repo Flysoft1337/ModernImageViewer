@@ -20,6 +20,7 @@ $version = [string]$properties.Project.PropertyGroup.Version
 if ($version -notmatch '^\d+\.\d+\.\d+(\.\d+)?$') { throw "Directory.Build.props must define a numeric installer Version." }
 
 if (-not $SkipPublish) {
+    & (Join-Path $PSScriptRoot "build-raw-native.ps1")
     & dotnet publish (Join-Path $repository "src/ModernImageViewer.App/ModernImageViewer.App.csproj") `
         --configuration Release --runtime win-x64 --self-contained true --output $PublishDirectory `
         -p:PublishSingleFile=false -p:PublishTrimmed=false
@@ -65,6 +66,17 @@ if ($assets.libraries.PSObject.Properties.Name -like 'Svg.Custom/*') {
         Copy-Item -LiteralPath $sourceNotice -Destination (Join-Path $destinationNotices $name) -Force
     }
 }
+$modernPackage = $assets.libraries.PSObject.Properties.Name -like 'Magick.NET-Q8-x64/*'
+if ($modernPackage) {
+    $sourceNotices = Join-Path $repository 'third_party/licenses/modern'
+    $destinationNotices = Join-Path $PublishDirectory 'licenses/modern-source-notices'
+    [IO.Directory]::CreateDirectory($destinationNotices) | Out-Null
+    foreach ($name in @('Apache-2.0.txt', 'Copyright.txt', 'README.md')) {
+        $sourceNotice = Join-Path $sourceNotices $name
+        if (-not (Test-Path $sourceNotice -PathType Leaf)) { throw "Required modern codec notice is missing: $name" }
+        Copy-Item -LiteralPath $sourceNotice -Destination (Join-Path $destinationNotices $name) -Force
+    }
+}
 $packageInventory = [Collections.Generic.List[object]]::new()
 foreach ($library in $assets.libraries.PSObject.Properties) {
     if ($library.Value.type -ne "package") { continue }
@@ -72,7 +84,7 @@ foreach ($library in $assets.libraries.PSObject.Properties) {
         $packageDirectory = Join-Path $packageRoot $library.Value.path
         if (-not (Test-Path $packageDirectory -PathType Container)) { continue }
         $notices = @(Get-ChildItem -LiteralPath $packageDirectory -File -Recurse | Where-Object {
-            $_.Name -match '^(LICEN[CS]E([._-].*)?|COPYING([._-].*)?|NOTICE([._-].*)?|THIRD[-_]?PARTY[-_]?NOTICES([._-].*)?)$'
+            $_.Name -match '^(LICEN[CS]E([._-].*)?|COPYING([._-].*)?|COPYRIGHT([._-].*)?|NOTICE([._-].*)?|THIRD[-_]?PARTY[-_]?NOTICES([._-].*)?)$'
         })
         if ($notices.Count -gt 0) {
             $noticeDirectory = Join-Path $PublishDirectory ("licenses/" + $library.Name.Replace("/", "-"))
@@ -121,8 +133,38 @@ foreach ($library in $assets.libraries.PSObject.Properties) {
 $skiaNotices = Get-ChildItem (Join-Path $PublishDirectory "licenses") -Directory -Filter "SkiaSharp.NativeAssets.Win32-*" |
     Where-Object { (Test-Path (Join-Path $_.FullName "LICENSE.txt")) -and (Test-Path (Join-Path $_.FullName "THIRD-PARTY-NOTICES.txt")) }
 if (-not $skiaNotices) { throw "SkiaSharp native LICENSE.txt and THIRD-PARTY-NOTICES.txt must be included in the distribution." }
+if ($modernPackage) {
+    $modernNotices = Get-ChildItem (Join-Path $PublishDirectory 'licenses') -Directory -Filter 'Magick.NET-Q8-x64-*' |
+        Where-Object { Test-Path (Join-Path $_.FullName 'Notice.txt') -PathType Leaf }
+    if (-not $modernNotices) { throw 'Magick.NET native Notice.txt must be included in the distribution.' }
+    if (@(Get-ChildItem -LiteralPath $PublishDirectory -Recurse -File -Filter 'Magick.Native-Q8-x64.dll').Count -ne 1) {
+        throw 'Exactly one bundled x64 Magick native library is required.'
+    }
+}
+$rawBridge = Join-Path $PublishDirectory 'ModernImageViewer.RawBridge.dll'
+$rawManifestPath = Join-Path $PublishDirectory 'raw-native.json'
+if (-not (Test-Path $rawBridge -PathType Leaf) -or -not (Test-Path $rawManifestPath -PathType Leaf)) {
+    throw 'Bundled RAW preview bridge and source manifest must be included in the distribution.'
+}
+$rawManifest = Get-Content -LiteralPath $rawManifestPath -Raw | ConvertFrom-Json
+if ($rawManifest.NativeSha256 -ne (Get-FileHash -LiteralPath $rawBridge -Algorithm SHA256).Hash) {
+    throw 'Published RAW bridge does not match its source manifest.'
+}
+$rawSourceArchive = Join-Path $PublishDirectory 'licenses/raw-native/LibRaw-0.22.2-source.zip'
+if (-not (Test-Path $rawSourceArchive -PathType Leaf) -or
+    (Get-FileHash -LiteralPath $rawSourceArchive -Algorithm SHA256).Hash -ne $rawManifest.ArchiveSha256) {
+    throw 'The fixed LibRaw source archive must be distributed with its matching hash.'
+}
+foreach ($name in @('COPYRIGHT', 'LICENSE.CDDL', 'LICENSE.LGPL')) {
+    if (-not (Test-Path (Join-Path $PublishDirectory "licenses/raw-native/$name") -PathType Leaf)) {
+        throw "Required RAW native license is missing: $name"
+    }
+}
+$rawNotice = Join-Path $repository 'third_party/licenses/raw/README.md'
+if (-not (Test-Path $rawNotice -PathType Leaf)) { throw 'RAW native source/build notice is missing.' }
+Copy-Item -LiteralPath $rawNotice -Destination (Join-Path $PublishDirectory 'licenses/raw-native/README.md') -Force
 $nativeInventory = @(Get-ChildItem -LiteralPath $PublishDirectory -Recurse -File | Where-Object {
-    $_.Name -match '^(libSkiaSharp|libHarfBuzzSharp|Magick\.Native).*\.dll$'
+    $_.Name -match '^(libSkiaSharp|libHarfBuzzSharp|Magick\.Native|ModernImageViewer\.RawBridge).*\.dll$'
 } | ForEach-Object {
     [pscustomobject]@{
         File = [IO.Path]::GetRelativePath($PublishDirectory, $_.FullName).Replace('\', '/')
@@ -132,9 +174,10 @@ $nativeInventory = @(Get-ChildItem -LiteralPath $PublishDirectory -Recurse -File
 })
 [pscustomobject]@{
     SchemaVersion = 1
-    Scope = 'Resolved NuGet package declarations and actual published image native files; not a certification or complete OS/.NET SBOM'
+    Scope = 'Resolved NuGet declarations, fixed native source manifests and actual published image native files; not a certification or complete OS/.NET SBOM'
     Packages = $packageInventory
     NativeFiles = $nativeInventory
+    NativeSources = @($rawManifest)
 } | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $PublishDirectory 'dependencies.json') -Encoding utf8
 
 # Pin both the official compiler release and its GitHub asset checksum.

@@ -17,3 +17,5 @@ HarfBuzzSharp 14.2.0 的官方包包含 `LICENSE.txt`；已读取的 HarfBuzzSha
 官方包地址为 `https://www.nuget.org/api/v2/package/<包名>/<版本>`，也可从对应 [Svg.Skia 5.2.3](https://www.nuget.org/packages/Svg.Skia/5.2.3)、[Svg.Custom 5.2.3](https://www.nuget.org/packages/Svg.Custom/5.2.3)、[ExCSS 4.3.1](https://www.nuget.org/packages/ExCSS/4.3.1)、[HarfBuzzSharp 14.2.0](https://www.nuget.org/packages/HarfBuzzSharp/14.2.0) 页面下载。
 
 分发清单按实际 `project.assets.json` 记录包名、解析版本、包内容 SHA-512、nuspec 声明的源码 URL/提交和许可；对发布目录中的实际原生文件额外记录 SHA-256。只有通过完整 ZIP/CRC 校验的官方包进入本地源，不把部分下载文件标成完整依赖。
+
+本批新增[Magick.NET及实际native许可](modern/README.md)与[LibRaw预览桥接CDDL/源码分发](raw/README.md)。Magick保留实际Notice（含LGPL依赖），LibRaw选择CDDL且随包携带固定完整源码、原始版权/双许可与构建清单，不以仓库MIT覆盖第三方。

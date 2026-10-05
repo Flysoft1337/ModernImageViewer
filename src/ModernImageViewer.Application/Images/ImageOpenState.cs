@@ -19,6 +19,7 @@ public enum ImageOpenError
     CorruptFile,
     ImageTooLarge,
     DecodeFailed,
+    RawNoPreview,
 }
 
 public sealed record ImageOpenState(

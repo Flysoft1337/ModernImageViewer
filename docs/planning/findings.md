@@ -49,3 +49,14 @@
 - 当前固定侧栏和单行工具条需验证紧凑布局；全屏仍保留画布留白与底部控件。已有主题、焦点框、按钮自动化名称，下一步是收敛与实际无障碍验收。
 - 启动脚本记录窗口/输入空闲与工作集观察；BenchmarkDotNet 仅覆盖像素数计算。后续需要首帧、冷/热启动、私有/native 内存与长期浏览趋势，现有 CI 单样本不代表性能门槛达标。
 - 具体实施依据见 [后续迭代路线图](../next-iteration-roadmap.md)与 [Windows 文件关联方案](../windows-file-association.md)。
+
+## 2026-10-05：RAW / 现代格式 / 编辑接口核对
+
+- WIC已提供内部Stream解码入口，可供RAW内嵌JPEG直接读取，不需要临时假文件或完整显影。
+- 原图方向校正后 SourceSize 是所有ROI坐标基准；编辑需明确保存尺寸和RAW预览来源，预览不等于sensor全尺寸。
+- 现代Magick候选真实AVIF/HEIC read已成功；目标Width/Height并不避免native全图读入，不能宣传直接降采样native。
+- 安装smoke既有finally重复卸载已加正常卸载完成标记；失败路径仍保留清理，正式结果待CI。
+- gh本地认证探测失败；GitHub连接器可读取仓库，后续PR使用已连接工具。本地默认restore网络等待，使用现有代理重试完整恢复。
+- 现代codec已实现统一入口并以真实官方AVIF/HEIC、自生成方向/透明/ICC样本通过5项针对性验证；只支持静态AVIF/HEIF，序列拒绝。源32MP/128MiB文件限制，native全源解码后缩放；192MiB cache不是进程硬上限。
+- 固定ImageMagick源码与64KiB cache实验验证Ping在像素Read前返回，可以先检查源尺寸；实际Read资源失败映射ImageTooLarge。
+- RAW官方0.22.2 Win64包下载完整；原native有MSVC动态运行库依赖，改固定源码/MT构建小桥接以避免用户额外前置运行库。构建及真实样本仍在进行，不提前启用RAW扩展名。

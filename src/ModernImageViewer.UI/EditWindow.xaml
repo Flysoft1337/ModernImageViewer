@@ -1,0 +1,123 @@
+<Window x:Class="ModernImageViewer.UI.EditWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="clr-namespace:ModernImageViewer.UI.Controls"
+        xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
+        Title="{Binding [Edit_Title]}" Width="1000" Height="700" MinWidth="720" MinHeight="480"
+        WindowStyle="None" WindowStartupLocation="CenterOwner" ResizeMode="CanResize"
+        Background="{DynamicResource WindowBackgroundBrush}" Foreground="{DynamicResource PrimaryTextBrush}"
+        FontFamily="Segoe UI Variable, Segoe UI" UseLayoutRounding="True" PreviewKeyDown="OnPreviewKeyDown">
+  <shell:WindowChrome.WindowChrome>
+    <shell:WindowChrome CaptionHeight="54" ResizeBorderThickness="6" GlassFrameThickness="0" />
+  </shell:WindowChrome.WindowChrome>
+  <Window.Resources>
+    <Style x:Key="EditorInput" TargetType="TextBox">
+      <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
+      <Setter Property="Background" Value="{DynamicResource WindowBackgroundBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
+      <Setter Property="BorderThickness" Value="1" /><Setter Property="Padding" Value="10,8" />
+      <Setter Property="FontSize" Value="13" /><Setter Property="MinWidth" Value="58" />
+      <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="TextBox">
+        <Border x:Name="InputBorder" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1" CornerRadius="7" Padding="{TemplateBinding Padding}">
+          <ScrollViewer x:Name="PART_ContentHost" />
+        </Border>
+        <ControlTemplate.Triggers><Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="InputBorder" Property="BorderBrush" Value="{DynamicResource AccentBrush}" /></Trigger><Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.45" /></Trigger></ControlTemplate.Triggers>
+      </ControlTemplate></Setter.Value></Setter>
+    </Style>
+    <Style x:Key="EditorChoice" TargetType="RadioButton">
+      <Setter Property="Padding" Value="14,8" /><Setter Property="Margin" Value="0,0,8,0" />
+      <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
+      <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="RadioButton">
+        <Border x:Name="ChoiceBorder" CornerRadius="7" BorderThickness="1" BorderBrush="{DynamicResource BorderBrush}" Padding="{TemplateBinding Padding}" Background="Transparent"><ContentPresenter /></Border>
+        <ControlTemplate.Triggers>
+          <Trigger Property="IsChecked" Value="True"><Setter TargetName="ChoiceBorder" Property="Background" Value="{DynamicResource AccentSurfaceBrush}" /><Setter TargetName="ChoiceBorder" Property="BorderBrush" Value="{DynamicResource AccentBrush}" /></Trigger>
+          <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="ChoiceBorder" Property="BorderBrush" Value="{DynamicResource AccentBrush}" /></Trigger>
+          <Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.45" /></Trigger>
+        </ControlTemplate.Triggers>
+      </ControlTemplate></Setter.Value></Setter>
+    </Style>
+    <Style x:Key="EditorCheck" TargetType="CheckBox">
+      <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" /><Setter Property="FontSize" Value="12" />
+      <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="CheckBox">
+        <Grid Background="Transparent"><Grid.ColumnDefinitions><ColumnDefinition Width="20" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+          <Border x:Name="CheckBorder" Width="16" Height="16" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="4" Background="{DynamicResource WindowBackgroundBrush}">
+            <Path x:Name="CheckGlyph" Width="9" Height="7" Stretch="Uniform" Stroke="{DynamicResource AccentBrush}" StrokeThickness="1.5" Data="M0,3 L3,6 8,0" Visibility="Collapsed" />
+          </Border><ContentPresenter Grid.Column="1" VerticalAlignment="Center" Margin="6,0,0,0" />
+        </Grid>
+        <ControlTemplate.Triggers><Trigger Property="IsChecked" Value="True"><Setter TargetName="CheckGlyph" Property="Visibility" Value="Visible" /><Setter TargetName="CheckBorder" Property="BorderBrush" Value="{DynamicResource AccentBrush}" /></Trigger><Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="CheckBorder" Property="BorderBrush" Value="{DynamicResource AccentBrush}" /></Trigger><Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.45" /></Trigger></ControlTemplate.Triggers>
+      </ControlTemplate></Setter.Value></Setter>
+    </Style>
+    <Style TargetType="ScrollBar" BasedOn="{StaticResource PanelScrollBarStyle}" />
+  </Window.Resources>
+  <Grid>
+    <Grid.RowDefinitions><RowDefinition Height="54" /><RowDefinition Height="*" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+    <Border BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1" Padding="20,0,10,0">
+      <Grid>
+        <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+        <StackPanel Orientation="Horizontal" VerticalAlignment="Center"><TextBlock Text="{Binding [Edit_Title]}" FontSize="15" FontWeight="SemiBold" /><TextBlock Text="{Binding [Edit_NonDestructive]}" Foreground="{DynamicResource SecondaryTextBrush}" Margin="16,0,0,0" FontSize="12" VerticalAlignment="Center" /></StackPanel>
+        <Button Grid.Column="1" Style="{StaticResource CloseWindowButtonStyle}" Click="OnCloseClick" shell:WindowChrome.IsHitTestVisibleInChrome="True" AutomationProperties.Name="{Binding [Window_Close]}"><Path Style="{StaticResource IconStyle}" Data="{StaticResource Icon.Close}" /></Button>
+      </Grid>
+    </Border>
+    <Grid Grid.Row="1">
+      <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="280" /></Grid.ColumnDefinitions>
+      <Grid>
+        <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+        <WrapPanel x:Name="EditToolbar" Margin="12,8">
+          <Button x:Name="UndoButton" Style="{StaticResource ToolbarButtonStyle}" Click="OnUndoClick" Content="{Binding [Edit_Undo]}" ToolTip="Ctrl+Z" />
+          <Button x:Name="RedoButton" Style="{StaticResource ToolbarButtonStyle}" Click="OnRedoClick" Content="{Binding [Edit_Redo]}" ToolTip="Ctrl+Shift+Z" />
+          <Border Style="{StaticResource ToolDividerStyle}" />
+          <Button Style="{StaticResource ToolbarButtonStyle}" Tag="Left" Click="OnDirectionClick" ToolTip="{Binding [Orientation_RotateLeft]}" AutomationProperties.Name="{Binding [Orientation_RotateLeft]}"><Path Style="{StaticResource IconStyle}" Data="{StaticResource Icon.Refresh}" RenderTransformOrigin="0.5,0.5"><Path.RenderTransform><ScaleTransform ScaleX="-1" /></Path.RenderTransform></Path></Button>
+          <Button Style="{StaticResource ToolbarButtonStyle}" Tag="Right" Click="OnDirectionClick" ToolTip="{Binding [Orientation_RotateRight]}" AutomationProperties.Name="{Binding [Orientation_RotateRight]}"><Path Style="{StaticResource IconStyle}" Data="{StaticResource Icon.Refresh}" /></Button>
+          <Button Style="{StaticResource ToolbarButtonStyle}" Tag="Horizontal" Click="OnDirectionClick" Content="↔" FontSize="20" ToolTip="{Binding [Orientation_FlipHorizontal]}" AutomationProperties.Name="{Binding [Orientation_FlipHorizontal]}" />
+          <Button Style="{StaticResource ToolbarButtonStyle}" Tag="Vertical" Click="OnDirectionClick" Content="↕" FontSize="20" ToolTip="{Binding [Orientation_FlipVertical]}" AutomationProperties.Name="{Binding [Orientation_FlipVertical]}" />
+          <Button Style="{StaticResource ToolbarButtonStyle}" Click="OnResetClick" Content="{Binding [Edit_Reset]}" />
+        </WrapPanel>
+        <Grid Grid.Row="1" ClipToBounds="True" Margin="12,0,12,0">
+          <controls:ImageViewport x:Name="Preview" CanvasBackground="{DynamicResource CanvasBrush}" />
+          <Canvas x:Name="CropOverlay" Background="Transparent" Visibility="Collapsed" Cursor="Cross"
+                  MouseLeftButtonDown="OnCropDown" MouseMove="OnCropMove" MouseLeftButtonUp="OnCropUp" LostMouseCapture="OnCropCaptureLost">
+            <Rectangle x:Name="SelectionRectangle" Stroke="{DynamicResource AccentBrush}" StrokeThickness="2" StrokeDashArray="3,2" Fill="Transparent" Visibility="Collapsed" />
+          </Canvas>
+        </Grid>
+        <StackPanel Grid.Row="2" Margin="20,14"><TextBlock x:Name="OutputSummary" FontSize="13" FontWeight="SemiBold" /><TextBlock x:Name="PreviewNotice" Text="{Binding [Edit_PreviewNotice]}" Foreground="{DynamicResource SecondaryTextBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,5,0,0" /></StackPanel>
+      </Grid>
+      <Border Grid.Column="1" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1,0,0,0">
+        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+          <StackPanel x:Name="EditFields" Margin="18">
+            <TextBlock Text="{Binding [Edit_Crop]}" FontWeight="SemiBold" FontSize="15" />
+            <TextBlock Text="{Binding [Edit_CropHint]}" Style="{StaticResource PanelValueStyle}" Foreground="{DynamicResource SecondaryTextBrush}" FontSize="11" Margin="0,6,0,10" />
+            <Button x:Name="SelectCropButton" Style="{StaticResource ToolbarButtonStyle}" Click="OnSelectCropClick" Content="{Binding [Edit_SelectCrop]}" HorizontalAlignment="Stretch" BorderBrush="{DynamicResource BorderBrush}" />
+            <UniformGrid Columns="2" Margin="0,8,0,0">
+              <StackPanel Margin="0,0,4,0"><TextBlock Text="X" Style="{StaticResource PanelLabelStyle}" Margin="0,0,0,5" /><TextBox x:Name="CropX" Style="{StaticResource EditorInput}" AutomationProperties.Name="{Binding [Edit_CropX]}" /></StackPanel>
+              <StackPanel Margin="4,0,0,0"><TextBlock Text="Y" Style="{StaticResource PanelLabelStyle}" Margin="0,0,0,5" /><TextBox x:Name="CropY" Style="{StaticResource EditorInput}" AutomationProperties.Name="{Binding [Edit_CropY]}" /></StackPanel>
+              <StackPanel Margin="0,8,4,0"><TextBlock Text="{Binding [Edit_Width]}" Style="{StaticResource PanelLabelStyle}" Margin="0,0,0,5" /><TextBox x:Name="CropWidth" Style="{StaticResource EditorInput}" AutomationProperties.Name="{Binding [Edit_CropWidth]}" /></StackPanel>
+              <StackPanel Margin="4,8,0,0"><TextBlock Text="{Binding [Edit_Height]}" Style="{StaticResource PanelLabelStyle}" Margin="0,0,0,5" /><TextBox x:Name="CropHeight" Style="{StaticResource EditorInput}" AutomationProperties.Name="{Binding [Edit_CropHeight]}" /></StackPanel>
+            </UniformGrid>
+            <Button Style="{StaticResource ToolbarButtonStyle}" Margin="0,10,0,0" Click="OnApplyCropClick" Content="{Binding [Edit_ApplyCrop]}" BorderBrush="{DynamicResource BorderBrush}" />
+            <Border Height="1" Background="{DynamicResource BorderBrush}" Margin="0,20,0,20" />
+            <TextBlock Text="{Binding [Edit_Resize]}" FontWeight="SemiBold" FontSize="15" />
+            <UniformGrid Columns="2" Margin="0,12,0,0">
+              <StackPanel Margin="0,0,4,0"><TextBlock Text="{Binding [Edit_Width]}" Style="{StaticResource PanelLabelStyle}" Margin="0,0,0,5" /><TextBox x:Name="OutputWidth" Style="{StaticResource EditorInput}" TextChanged="OnOutputSizeChanged" AutomationProperties.Name="{Binding [Edit_OutputWidth]}" /></StackPanel>
+              <StackPanel Margin="4,0,0,0"><TextBlock Text="{Binding [Edit_Height]}" Style="{StaticResource PanelLabelStyle}" Margin="0,0,0,5" /><TextBox x:Name="OutputHeight" Style="{StaticResource EditorInput}" TextChanged="OnOutputSizeChanged" AutomationProperties.Name="{Binding [Edit_OutputHeight]}" /></StackPanel>
+            </UniformGrid>
+            <CheckBox x:Name="LockAspectRatio" Style="{StaticResource EditorCheck}" IsChecked="True" Content="{Binding [Edit_KeepRatio]}" Margin="0,12,0,0" />
+            <Button Style="{StaticResource ToolbarButtonStyle}" Margin="0,10,0,0" Click="OnApplySizeClick" Content="{Binding [Edit_ApplySize]}" BorderBrush="{DynamicResource BorderBrush}" />
+            <Border Height="1" Background="{DynamicResource BorderBrush}" Margin="0,20,0,20" />
+            <TextBlock Text="{Binding [Edit_Export]}" FontWeight="SemiBold" FontSize="15" />
+            <StackPanel Orientation="Horizontal" Margin="0,12,0,10"><RadioButton x:Name="PngFormat" Content="PNG" GroupName="Format" IsChecked="True" Style="{StaticResource EditorChoice}" Checked="OnFormatChanged" /><RadioButton x:Name="JpegFormat" Content="JPEG" GroupName="Format" Style="{StaticResource EditorChoice}" Checked="OnFormatChanged" /></StackPanel>
+            <TextBlock x:Name="FormatHint" Style="{StaticResource PanelValueStyle}" Foreground="{DynamicResource SecondaryTextBrush}" FontSize="11" />
+            <StackPanel x:Name="QualityPanel" Visibility="Collapsed" Margin="0,12,0,0"><TextBlock Text="{Binding [Edit_Quality]}" Style="{StaticResource PanelLabelStyle}" Margin="0,0,0,5" /><TextBox x:Name="JpegQuality" Text="90" Style="{StaticResource EditorInput}" AutomationProperties.Name="{Binding [Edit_Quality]}" /></StackPanel>
+            <TextBlock Text="{Binding [Edit_ExportNotice]}" Foreground="{DynamicResource SecondaryTextBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,14,0,0" />
+          </StackPanel>
+        </ScrollViewer>
+      </Border>
+    </Grid>
+    <Border Grid.Row="2" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,1,0,0" Padding="18,12">
+      <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+        <TextBlock x:Name="StatusText" FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}" TextWrapping="Wrap" VerticalAlignment="Center" Margin="0,0,12,0" />
+        <Button x:Name="CancelExportButton" Grid.Column="1" Visibility="Collapsed" Style="{StaticResource ToolbarButtonStyle}" Click="OnCancelExportClick" Content="{Binding [Preview_Cancel]}" />
+        <Button x:Name="SaveButton" Grid.Column="2" Style="{StaticResource PrimaryButtonStyle}" Click="OnSaveClick" Content="{Binding [Edit_SaveAs]}" />
+      </Grid>
+    </Border>
+  </Grid>
+</Window>
