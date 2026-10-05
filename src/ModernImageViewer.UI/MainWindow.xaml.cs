@@ -50,6 +50,8 @@ public partial class MainWindow : Window
         Viewport.DetailRequested += OnDetailRequested;
         InitializeRegionDetail();
         InitializeImmersiveControls();
+        InitializeWindowPreferences();
+        Viewport.OrientationChanged += OnOrientationChanged;
         _messageTimer.Tick += (_, _) => { _messageTimer.Stop(); _viewModel.ShowMessage(null); };
         StateChanged += (_, _) =>
         {
@@ -60,6 +62,9 @@ public partial class MainWindow : Window
         _viewModel.PropertyChanged += OnViewModelChanged;
         Closed += (_, _) =>
         {
+            SaveWindowPreferences();
+            _viewModel.FlushPreferences();
+            Viewport.OrientationChanged -= OnOrientationChanged;
             _viewModel.IsSlideshowPlaying = false;
             _viewModel.PropertyChanged -= OnViewModelChanged;
             _messageTimer.Stop();
@@ -272,6 +277,13 @@ public partial class MainWindow : Window
 
     private void ToggleFullScreen()
     {
+        _changingFullScreen = true;
+        try { ChangeFullScreen(); }
+        finally { _changingFullScreen = false; }
+    }
+
+    private void ChangeFullScreen()
+    {
         WindowChrome chrome = WindowChrome.GetWindowChrome(this);
         if (_viewModel.IsFullScreen)
         {
@@ -396,6 +408,8 @@ public partial class MainWindow : Window
             case ViewerAction.ToggleFilmstrip: OnFilmstripClick(this, e); break;
             case ViewerAction.RefreshFolder: OnRefreshClick(this, e); break;
             case ViewerAction.RevealInExplorer: OnRevealClick(this, e); break;
+            case ViewerAction.RotateRight: Viewport.RotateRight(); break;
+            case ViewerAction.RotateLeft: Viewport.RotateLeft(); break;
             case ViewerAction.DismissOverlay: _viewModel.ShowInformation = false; break;
         }
     }

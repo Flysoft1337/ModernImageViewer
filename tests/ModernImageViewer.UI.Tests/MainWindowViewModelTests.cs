@@ -141,8 +141,10 @@ public sealed class MainWindowViewModelTests
                 PreviewDecoder decoder = new();
                 using ImageOpenCoordinator coordinator = new(new FixedFilePicker(null), decoder);
                 using Themes.ThemeService themes = new();
-                LocalizationService localization = new(new MemorySettings());
-                using MainWindowViewModel viewModel = new(localization, coordinator, new ImageBrowseSession());
+                MemorySettings preferences = new();
+                preferences.SaveWindowPlacement(new(100000, -100000, 1280, 820));
+                LocalizationService localization = new(preferences);
+                using MainWindowViewModel viewModel = new(localization, coordinator, new ImageBrowseSession(), settings: preferences);
                 MainWindow window = new(viewModel, themes);
                 FileAssociationWindow associations = new(new NoopFileAssociations(), new TestLocalization());
                 associations.Measure(new System.Windows.Size(620, 650));
@@ -153,6 +155,10 @@ public sealed class MainWindowViewModelTests
                 Assert.Empty(((System.Windows.Controls.Grid)viewport.FindName("Canvas")).Children.Cast<object>());
                 window.Show();
                 DrainBindings(window);
+                Assert.InRange(window.Left, System.Windows.SystemParameters.VirtualScreenLeft,
+                    System.Windows.SystemParameters.VirtualScreenLeft + System.Windows.SystemParameters.VirtualScreenWidth);
+                Assert.InRange(window.Top, System.Windows.SystemParameters.VirtualScreenTop,
+                    System.Windows.SystemParameters.VirtualScreenTop + System.Windows.SystemParameters.VirtualScreenHeight);
                 foreach (Themes.AppTheme theme in Enum.GetValues<Themes.AppTheme>())
                 {
                     themes.Apply(theme);
@@ -164,6 +170,12 @@ public sealed class MainWindowViewModelTests
                 DrainBindings(window);
                 Assert.Equal(new PixelSize(4000, 3000), viewModel.CurrentImage!.SourceSize);
                 Assert.True(viewModel.ShowPreviewStatus);
+                PixelBuffer previewPixels = viewModel.CurrentImage;
+                viewport.RotateRight();
+                viewport.FlipHorizontal();
+                DrainBindings(window);
+                Assert.True(viewModel.HasViewOrientation);
+                Assert.Same(previewPixels, viewModel.CurrentImage);
                 double scale = 0;
                 viewport.ScaleChanged += (_, value) => scale = value;
                 viewport.ActualSize();
@@ -174,9 +186,13 @@ public sealed class MainWindowViewModelTests
                 DrainBindings(window);
                 Assert.Equal(1.15, scale, precision: 6);
                 Assert.False(viewModel.ShowPreviewStatus);
+                Assert.Equal(90, viewport.Orientation.RotationDegrees);
+                Assert.True(viewport.Orientation.IsFlippedHorizontally);
                 Assert.True(coordinator.OpenAsync("next.png").GetAwaiter().GetResult());
                 DrainBindings(window);
                 Assert.NotEqual(1.15, scale);
+                Assert.True(viewport.Orientation.IsIdentity);
+                Assert.False(viewModel.HasViewOrientation);
                 CapturePreviewScreenshots(window, themes, localization);
                 decoder.SourceSize = new PixelSize(8000, 6000);
                 Assert.True(coordinator.OpenAsync("large.png").GetAwaiter().GetResult());
@@ -192,8 +208,19 @@ public sealed class MainWindowViewModelTests
                 Assert.True(viewModel.Presentation.IsPreview);
                 Assert.NotNull(viewModel.Presentation.Region);
                 VerifyCompactAndImmersiveLayouts(window, viewport, viewModel, themes, localization);
+                viewport.RotateRight();
+                viewport.FlipHorizontal();
+                CapturePreviewScreenshots(window, themes, localization, "orientation");
+                VerifyOrientationMenus(window, themes, localization);
                 VerifyShortcutHelp(window, themes, localization);
+                ModernImageViewer.Application.Settings.WindowPlacementData normalPlacement = preferences.Current.WindowPlacement!;
+                typeof(MainWindow).GetMethod("ToggleFullScreen", System.Reflection.BindingFlags.Instance
+                    | System.Reflection.BindingFlags.NonPublic)!.Invoke(window, null);
+                DrainBindings(window);
+                Assert.Equal(normalPlacement, preferences.Current.WindowPlacement);
                 window.Close();
+                Assert.Equal(normalPlacement, preferences.Current.WindowPlacement);
+                Assert.True(preferences.FlushCount > 0);
                 associations.Close();
             }
             catch (Exception exception)
@@ -301,7 +328,7 @@ public sealed class MainWindowViewModelTests
             help.UpdateLayout();
             ShortcutHelpViewModel model = Assert.IsType<ShortcutHelpViewModel>(help.DataContext);
             Assert.Equal(6, model.Groups.Count);
-            Assert.Equal(18, model.Groups.Sum(group => group.Rows.Count));
+            Assert.Equal(20, model.Groups.Sum(group => group.Rows.Count));
             Assert.DoesNotContain(model.Groups.SelectMany(group => group.Rows), row => row.Description.StartsWith("Shortcut_", StringComparison.Ordinal));
             Assert.Equal(localization.GetString("Shortcut_Title"), help.Title);
             string? output = Environment.GetEnvironmentVariable("MIV_UI_SCREENSHOT_DIRECTORY");
@@ -318,7 +345,41 @@ public sealed class MainWindowViewModelTests
         }
     }
 
-    private static void SaveScreenshot(System.Windows.Window window, string path)
+    private static void VerifyOrientationMenus(MainWindow window, Themes.ThemeService themes, LocalizationService localization)
+    {
+        System.Windows.Controls.Button settings = (System.Windows.Controls.Button)window.FindName("SettingsButton");
+        System.Windows.Controls.ContextMenu menu = settings.ContextMenu!;
+        foreach ((Themes.AppTheme theme, string language) in new[]
+            { (Themes.AppTheme.Dark, "zh-CN"), (Themes.AppTheme.Light, "en-US") })
+        {
+            themes.Apply(theme);
+            localization.SetCulture(language);
+            DrainBindings(window);
+            menu.PlacementTarget = settings;
+            menu.IsOpen = true;
+            DrainBindings(window);
+            MainWindowViewModel model = (MainWindowViewModel)window.DataContext;
+            System.Windows.Controls.MenuItem orientation = menu.Items.OfType<System.Windows.Controls.MenuItem>()
+                .Single(item => Equals(item.Header, model.ViewOrientationLabel));
+            orientation.IsSubmenuOpen = true;
+            DrainBindings(window);
+            System.Windows.Controls.MenuItem horizontal = orientation.Items.OfType<System.Windows.Controls.MenuItem>()
+                .Single(item => Equals(item.Tag, "Horizontal"));
+            Assert.True(horizontal.IsChecked);
+            Assert.True(orientation.Items.OfType<System.Windows.Controls.MenuItem>()
+                .Single(item => Equals(item.Tag, "Reset")).IsEnabled);
+            string? output = Environment.GetEnvironmentVariable("MIV_UI_SCREENSHOT_DIRECTORY");
+            if (!string.IsNullOrEmpty(output))
+            {
+                System.Windows.Controls.Primitives.Popup popup = (System.Windows.Controls.Primitives.Popup)
+                    orientation.Template.FindName("PART_Popup", orientation);
+                SaveScreenshot((System.Windows.FrameworkElement)popup.Child, Path.Combine(output, $"orientation-menu-{theme}-{language}.png"));
+            }
+            menu.IsOpen = false;
+        }
+    }
+
+    private static void SaveScreenshot(System.Windows.FrameworkElement window, string path)
     {
         System.Windows.Media.Imaging.RenderTargetBitmap bitmap = new((int)Math.Ceiling(window.ActualWidth),
             (int)Math.Ceiling(window.ActualHeight), 96, 96, System.Windows.Media.PixelFormats.Pbgra32);
@@ -361,10 +422,17 @@ public sealed class MainWindowViewModelTests
 
     private sealed class MemorySettings : ModernImageViewer.Application.Settings.IUserSettingsService
     {
-        public string? Language => "en-US";
-        public string? Theme => "Dark";
-        public void SaveLanguage(string language) { }
-        public void SaveTheme(string theme) { }
+        public ModernImageViewer.Application.Settings.UserSettingsSnapshot Current { get; private set; } = new("en-US", "Dark");
+        public string? Language => Current.Language;
+        public string? Theme => Current.Theme;
+        public int FlushCount { get; private set; }
+        public void SaveLanguage(string language) => Current = Current with { Language = language };
+        public void SaveTheme(string theme) => Current = Current with { Theme = theme };
+        public void SaveWindowPlacement(ModernImageViewer.Application.Settings.WindowPlacementData placement) =>
+            Current = Current with { WindowPlacement = placement };
+        public void SaveBrowsingPreferences(ModernImageViewer.Application.Settings.BrowsingPreferencesData preferences) =>
+            Current = Current with { Browsing = preferences };
+        public void Flush() => FlushCount++;
     }
 
     private sealed class NoopFileAssociations : IFileAssociationService

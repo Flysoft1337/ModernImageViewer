@@ -11,6 +11,20 @@ public sealed partial class ImageBrowseSession
     public bool IsSorting { get; private set; }
     public bool CanSort => !IsSelection && !IsIndexing && _hasCompleteIndex && Count > 0;
 
+    public void InitializeSortPreference(BrowseSortMode mode, bool descending)
+    {
+        if (!Enum.IsDefined(mode))
+        {
+            throw new ArgumentOutOfRangeException(nameof(mode));
+        }
+        if (Count != 0 || IsIndexing || IsSorting)
+        {
+            throw new InvalidOperationException("Sorting preferences must be initialized before opening a session.");
+        }
+        SortMode = mode;
+        SortDescending = descending;
+    }
+
     public async Task<bool> ChangeSortAsync(BrowseSortMode mode, bool descending, CancellationToken cancellationToken)
     {
         if (!Enum.IsDefined(mode))

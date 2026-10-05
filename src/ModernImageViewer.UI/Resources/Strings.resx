@@ -159,4 +159,13 @@
   <data name="File_Revealed" xml:space="preserve"><value>File selected in Explorer</value></data>
   <data name="File_RevealMissing" xml:space="preserve"><value>The file is no longer available. The displayed image was kept.</value></data>
   <data name="File_RevealFailed" xml:space="preserve"><value>File Explorer could not be opened.</value></data>
+  <data name="Orientation_Title" xml:space="preserve"><value>View orientation</value></data>
+  <data name="Orientation_RotateLeft" xml:space="preserve"><value>Rotate left 90°</value></data>
+  <data name="Orientation_RotateRight" xml:space="preserve"><value>Rotate right 90°</value></data>
+  <data name="Orientation_FlipHorizontal" xml:space="preserve"><value>Flip horizontally</value></data>
+  <data name="Orientation_FlipVertical" xml:space="preserve"><value>Flip vertically</value></data>
+  <data name="Orientation_Reset" xml:space="preserve"><value>Reset orientation</value></data>
+  <data name="Preferences_Browsing" xml:space="preserve"><value>Browsing preferences</value></data>
+  <data name="Shortcut_Action_RotateRight" xml:space="preserve"><value>Rotate view right 90°</value></data>
+  <data name="Shortcut_Action_RotateLeft" xml:space="preserve"><value>Rotate view left 90°</value></data>
 </root>

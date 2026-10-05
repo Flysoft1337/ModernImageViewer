@@ -53,6 +53,7 @@ public sealed partial class MainWindowViewModel
                 _coordinator.RefreshNeighborPrefetch();
                 UpdateBrowseItems();
                 _messageKey = null;
+                SaveBrowsingPreferences();
             }
             return changed;
         }
