@@ -216,6 +216,10 @@ begin
   RegisterExtension('.tiff');
   RegisterExtension('.ico');
   RegisterExtension('.webp');
+  RegisterExtension('.jxr');
+  RegisterExtension('.wdp');
+  RegisterExtension('.hdp');
+  RegisterExtension('.svg');
   WriteString(RegisteredApplicationsKey, ApplicationId, CapabilitiesKey);
   NotifyAssociations($08000000, 0, 0, 0);
 end;
@@ -268,6 +272,10 @@ begin
   UnregisterExtension('.tiff');
   UnregisterExtension('.ico');
   UnregisterExtension('.webp');
+  UnregisterExtension('.jxr');
+  UnregisterExtension('.wdp');
+  UnregisterExtension('.hdp');
+  UnregisterExtension('.svg');
   DeleteMatching(RegisteredApplicationsKey, ApplicationId, CapabilitiesKey, False);
   DeleteMatching(ProgIdKey + '\shell\open\command', '', OpenCommand(), True);
   DeleteMatching(ProgIdKey + '\DefaultIcon', '', IconPath(), True);

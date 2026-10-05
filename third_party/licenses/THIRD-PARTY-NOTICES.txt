@@ -1,0 +1,17 @@
+Svg.Skia, Svg.Model, Svg.SceneGraph, Svg.Animation, ShimSkiaSharp 5.2.3
+NuGet package copyright: Copyright © Wiesław Šoltés 2026
+Upstream MIT license copyright: Copyright (c) 2020 Wiesław Šoltés
+Source: https://github.com/wieslawsoltes/Svg.Skia/tree/7910666415a96a09643d1729eb5da5d115d75748
+Full license: Svg.Skia-MIT.txt
+
+Svg.Custom 5.2.3
+NuGet package copyright: Copyright © Wiesław Šoltés 2026
+Original SVG source assembly copyright: Copyright © Microsoft 2006
+Package source: https://github.com/wieslawsoltes/Svg.Skia/tree/7910666415a96a09643d1729eb5da5d115d75748
+SVG submodule source: https://github.com/wieslawsoltes/SVG/tree/7a418e7953cd6542b18214d7b37e6f4accc5c2ff
+Full license: Svg.Custom-MS-PL.txt
+
+ExCSS 4.3.1
+Upstream MIT license copyright: Copyright (c) 2024 Tyler Brinks
+Source: https://github.com/TylerBrinks/ExCSS/tree/c97e84d6126bb2e42658cf5af627d52e697c8779
+Full license: ExCSS-MIT.txt

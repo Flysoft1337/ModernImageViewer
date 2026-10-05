@@ -98,6 +98,18 @@ jobs:
       - name: Audit dependencies
         run: dotnet list .\ModernImageViewer.slnx package --vulnerable --include-transitive
 
+      - name: Observe bounded 100MP codec output
+        shell: pwsh
+        run: .\scripts\measure-codec.ps1 -NoBuild
+
+      - name: Upload codec observation
+        uses: actions/upload-artifact@v7
+        with:
+          name: codec-observation
+          path: artifacts/codec-observation/*.json
+          if-no-files-found: error
+          retention-days: 14
+
       - name: Restore win-x64 runtime assets
         run: dotnet restore .\src\ModernImageViewer.App\ModernImageViewer.App.csproj --runtime win-x64
 

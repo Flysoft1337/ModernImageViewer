@@ -1,6 +1,7 @@
 <Solution>
   <Folder Name="/benchmarks/">
     <Project Path="benchmarks/ModernImageViewer.Benchmarks/ModernImageViewer.Benchmarks.csproj" />
+    <Project Path="benchmarks/ModernImageViewer.CodecProbe/ModernImageViewer.CodecProbe.csproj" />
   </Folder>
   <Folder Name="/src/">
     <Project Path="src/ModernImageViewer.App/ModernImageViewer.App.csproj" />

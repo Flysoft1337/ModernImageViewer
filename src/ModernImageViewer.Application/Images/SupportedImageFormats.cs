@@ -3,7 +3,7 @@ namespace ModernImageViewer.Application.Images;
 public static class SupportedImageFormats
 {
     public static IReadOnlyList<string> Extensions { get; } = Array.AsReadOnly<string>(
-        [".jpg", ".jpeg", ".png", ".bmp", ".gif", ".tif", ".tiff", ".ico", ".webp"]);
+        [".jpg", ".jpeg", ".png", ".bmp", ".gif", ".tif", ".tiff", ".ico", ".webp", ".jxr", ".wdp", ".hdp", ".svg"]);
 
     private static readonly HashSet<string> s_extensions = new(Extensions, StringComparer.OrdinalIgnoreCase);
 

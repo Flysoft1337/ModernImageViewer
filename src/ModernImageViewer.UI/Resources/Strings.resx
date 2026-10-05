@@ -14,7 +14,8 @@
   <data name="Status_Loading" xml:space="preserve"><value>Loading image…</value></data>
   <data name="Error_FileNotFound" xml:space="preserve"><value>The file could not be found.</value></data>
   <data name="Error_AccessDenied" xml:space="preserve"><value>Access to the file was denied.</value></data>
-  <data name="Error_UnsupportedFormat" xml:space="preserve"><value>This image format is not supported.</value></data>
+  <data name="Error_UnsupportedFormat" xml:space="preserve"><value>This image format or its features are not supported.</value></data>
+  <data name="SupportedFormats_Overview" xml:space="preserve"><value>JPEG · PNG · WebP · BMP · GIF · TIFF · ICO · JPEG XR · SVG (restricted)</value></data>
   <data name="Error_CorruptFile" xml:space="preserve"><value>The image file is damaged or incomplete.</value></data>
   <data name="Error_ImageTooLarge" xml:space="preserve"><value>The image is too large to open safely.</value></data>
   <data name="Error_DecodeFailed" xml:space="preserve"><value>The image could not be opened.</value></data>

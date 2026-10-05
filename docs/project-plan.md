@@ -367,6 +367,8 @@ ModernImageViewer.Benchmarks   启动、解码、切图、导出基准
 
 ### M0：技术验证（按能力逐项关闭风险）
 
+本轮阶段实现和可复现证据见[M0验证](m0-validation.md)：JPEG XR/受限SVG、WebP方向/ICC和100MP观察/依赖清单已接入开发代码；现代Skia实测不能据此启用AVIF/HEIF，RAW/native部署、显示器色彩、MSIX及固定机性能仍未关闭。局部观察不是整个M0退出。
+
 - WPF 承载 SkiaSharp 画布；
 - WIC/libvips 解码 JPEG、PNG、WebP、HEIF/AVIF；
 - 100 MP 大图降采样与内存预算；
