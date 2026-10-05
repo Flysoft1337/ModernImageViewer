@@ -159,4 +159,13 @@
   <data name="File_Revealed" xml:space="preserve"><value>已在资源管理器中定位</value></data>
   <data name="File_RevealMissing" xml:space="preserve"><value>文件已不存在，当前图片仍可查看。</value></data>
   <data name="File_RevealFailed" xml:space="preserve"><value>无法打开资源管理器。</value></data>
+  <data name="Orientation_Title" xml:space="preserve"><value>查看方向</value></data>
+  <data name="Orientation_RotateLeft" xml:space="preserve"><value>向左旋转 90°</value></data>
+  <data name="Orientation_RotateRight" xml:space="preserve"><value>向右旋转 90°</value></data>
+  <data name="Orientation_FlipHorizontal" xml:space="preserve"><value>水平翻转</value></data>
+  <data name="Orientation_FlipVertical" xml:space="preserve"><value>垂直翻转</value></data>
+  <data name="Orientation_Reset" xml:space="preserve"><value>恢复方向</value></data>
+  <data name="Preferences_Browsing" xml:space="preserve"><value>浏览偏好</value></data>
+  <data name="Shortcut_Action_RotateRight" xml:space="preserve"><value>向右旋转视图 90°</value></data>
+  <data name="Shortcut_Action_RotateLeft" xml:space="preserve"><value>向左旋转视图 90°</value></data>
 </root>

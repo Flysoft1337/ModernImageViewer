@@ -6,41 +6,102 @@ using ModernImageViewer.Application.Settings;
 
 namespace ModernImageViewer.Platform.Settings;
 
-public sealed class UserSettingsService : IUserSettingsService
+public sealed class UserSettingsService : IUserSettingsService, IDisposable
 {
     private readonly string _settingsPath;
+    private readonly object _gate = new();
+    private UserSettingsSnapshot _current;
+    private Timer? _saveTimer;
+    private bool _dirty;
+    private bool _disposed;
 
-    public UserSettingsService()
+    public UserSettingsService() : this(Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        "ModernImageViewer", "settings.json"))
+    { }
+
+    public UserSettingsService(string settingsPath)
     {
-        string settingsDirectory = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "ModernImageViewer");
-        _settingsPath = Path.Combine(settingsDirectory, "settings.json");
-        UserSettingsData? settings = Load();
-        Language = settings?.Language;
-        Theme = settings?.Theme;
+        ArgumentException.ThrowIfNullOrWhiteSpace(settingsPath);
+        _settingsPath = Path.GetFullPath(settingsPath);
+        _current = (Load() ?? new()).Normalize();
     }
 
-    public string? Language { get; private set; }
-
-    public string? Theme { get; private set; }
-
-    public void SaveTheme(string theme)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(theme);
-        Save(new UserSettingsData(Language, theme));
-        Theme = theme;
-    }
+    public UserSettingsSnapshot Current { get { lock (_gate) { return _current; } } }
+    public string? Language => Current.Language;
+    public string? Theme => Current.Theme;
 
     public void SaveLanguage(string language)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(language);
-
-        Save(new UserSettingsData(language, Theme));
-        Language = language;
+        Update(current => current with { Language = language });
     }
 
-    private void Save(UserSettingsData settings)
+    public void SaveTheme(string theme)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(theme);
+        Update(current => current with { Theme = theme });
+    }
+
+    public void SaveBrowsingPreferences(BrowsingPreferencesData preferences)
+    {
+        ArgumentNullException.ThrowIfNull(preferences);
+        Update(current => current with { Browsing = preferences.Normalize() });
+    }
+
+    public void SaveWindowPlacement(WindowPlacementData placement)
+    {
+        ArgumentNullException.ThrowIfNull(placement);
+        if (placement.IsValid)
+        {
+            Update(current => current with { WindowPlacement = placement });
+        }
+    }
+
+    private void Update(Func<UserSettingsSnapshot, UserSettingsSnapshot> update)
+    {
+        lock (_gate)
+        {
+            if (_disposed) { return; }
+            UserSettingsSnapshot next = update(_current);
+            if (next == _current) { return; }
+            _current = next;
+            _dirty = true;
+            _saveTimer ??= new Timer(_ => Flush(), null, Timeout.Infinite, Timeout.Infinite);
+            _saveTimer.Change(350, Timeout.Infinite);
+        }
+    }
+
+    public void Flush()
+    {
+        lock (_gate)
+        {
+            if (!_dirty) { return; }
+            try
+            {
+                Save(_current);
+                _dirty = false;
+            }
+            catch (IOException) { }
+            catch (UnauthorizedAccessException) { }
+            catch (System.Security.SecurityException) { }
+        }
+    }
+
+    public void Dispose()
+    {
+        lock (_gate)
+        {
+            if (_disposed) { return; }
+            _disposed = true;
+            _saveTimer?.Dispose();
+            _saveTimer = null;
+            Flush();
+        }
+        GC.SuppressFinalize(this);
+    }
+
+    private void Save(UserSettingsSnapshot settings)
     {
         string? directory = Path.GetDirectoryName(_settingsPath);
         if (directory is not null)
@@ -51,7 +112,7 @@ public sealed class UserSettingsService : IUserSettingsService
         string temporaryPath = _settingsPath + $".{Guid.NewGuid():N}.tmp";
         try
         {
-            File.WriteAllText(temporaryPath, JsonSerializer.Serialize(settings, UserSettingsJsonContext.Default.UserSettingsData));
+            File.WriteAllText(temporaryPath, JsonSerializer.Serialize(settings, UserSettingsJsonContext.Default.UserSettingsSnapshot));
             File.Move(temporaryPath, _settingsPath, overwrite: true);
         }
         finally
@@ -63,7 +124,7 @@ public sealed class UserSettingsService : IUserSettingsService
         }
     }
 
-    private UserSettingsData? Load()
+    private UserSettingsSnapshot? Load()
     {
         try
         {
@@ -72,7 +133,7 @@ public sealed class UserSettingsService : IUserSettingsService
                 return null;
             }
 
-            UserSettingsData? settings = JsonSerializer.Deserialize(File.ReadAllText(_settingsPath), UserSettingsJsonContext.Default.UserSettingsData);
+            UserSettingsSnapshot? settings = JsonSerializer.Deserialize(File.ReadAllText(_settingsPath), UserSettingsJsonContext.Default.UserSettingsSnapshot);
             return settings;
         }
         catch (JsonException)
@@ -87,12 +148,14 @@ public sealed class UserSettingsService : IUserSettingsService
         {
             return null;
         }
+        catch (System.Security.SecurityException)
+        {
+            return null;
+        }
     }
 
 }
 
-internal sealed record UserSettingsData(string? Language, string? Theme = null);
-
 [JsonSourceGenerationOptions(WriteIndented = true)]
-[JsonSerializable(typeof(UserSettingsData))]
+[JsonSerializable(typeof(UserSettingsSnapshot))]
 internal sealed partial class UserSettingsJsonContext : JsonSerializerContext;

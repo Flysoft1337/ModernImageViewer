@@ -47,6 +47,15 @@
                   <MenuItem Header="{Binding SortDescendingLabel}" Tag="Descending" IsCheckable="True" IsChecked="{Binding SortDescending, Mode=OneWay}" Click="OnSortDirectionClick" />
                 </MenuItem>
                 <Separator />
+                <MenuItem Header="{Binding ViewOrientationLabel}" IsEnabled="{Binding HasImage}">
+                  <MenuItem Header="{Binding RotateLeftLabel}" InputGestureText="Ctrl+Shift+R" Tag="Left" Click="OnOrientationClick"><MenuItem.Icon><Path Style="{StaticResource IconStyle}" Data="{StaticResource Icon.Refresh}" RenderTransformOrigin="0.5,0.5"><Path.RenderTransform><ScaleTransform ScaleX="-1" /></Path.RenderTransform></Path></MenuItem.Icon></MenuItem>
+                  <MenuItem Header="{Binding RotateRightLabel}" InputGestureText="Ctrl+R" Tag="Right" Click="OnOrientationClick"><MenuItem.Icon><Path Style="{StaticResource IconStyle}" Data="{StaticResource Icon.Refresh}" /></MenuItem.Icon></MenuItem>
+                  <Separator />
+                  <MenuItem Header="{Binding FlipHorizontalLabel}" Tag="Horizontal" IsCheckable="True" IsChecked="{Binding IsFlippedHorizontally, Mode=OneWay}" Click="OnOrientationClick" />
+                  <MenuItem Header="{Binding FlipVerticalLabel}" Tag="Vertical" IsCheckable="True" IsChecked="{Binding IsFlippedVertically, Mode=OneWay}" Click="OnOrientationClick" />
+                  <Separator />
+                  <MenuItem Header="{Binding ResetOrientationLabel}" Tag="Reset" Click="OnOrientationClick" IsEnabled="{Binding HasViewOrientation}" />
+                </MenuItem>
                 <MenuItem Header="{Binding InformationLabel}" InputGestureText="Ctrl+I" IsCheckable="True" IsChecked="{Binding ShowInformation, Mode=OneWay}" Click="OnInformationClick" />
                 <MenuItem Header="{Binding FilmstripLabel}" InputGestureText="Ctrl+T" IsCheckable="True" IsChecked="{Binding ShowFilmstrip, Mode=OneWay}" Click="OnFilmstripClick" />
                 <MenuItem Header="{Binding SlideshowLabel}" InputGestureText="F6" IsCheckable="True" IsChecked="{Binding IsSlideshowPlaying, Mode=OneWay}" IsEnabled="{Binding CanPlaySlideshow}" Click="OnSlideshowClick" />
@@ -58,10 +67,15 @@
                   <MenuItem x:Name="SystemThemeItem" Header="{Binding SystemThemeLabel}" Tag="System" IsCheckable="True" Click="OnThemeClick" />
                 </MenuItem>
                 <MenuItem Header="{Binding LanguageLabel}"><MenuItem Header="简体中文" Tag="zh-CN" Click="OnLanguageClick" /><MenuItem Header="English" Tag="en-US" Click="OnLanguageClick" /></MenuItem>
-                <MenuItem Header="{Binding SlideshowSpeedLabel}">
+                <MenuItem Header="{Binding BrowsingPreferencesLabel}">
+                  <MenuItem Header="{Binding InformationLabel}" IsCheckable="True" IsChecked="{Binding ShowInformation, Mode=OneWay}" Click="OnInformationClick" />
+                  <MenuItem Header="{Binding FilmstripLabel}" IsCheckable="True" IsChecked="{Binding ShowFilmstrip, Mode=OneWay}" Click="OnFilmstripClick" />
+                  <Separator />
+                  <MenuItem Header="{Binding SlideshowSpeedLabel}">
                   <MenuItem x:Name="Slideshow2Item" Header="{Binding Slideshow2Label}" Tag="2" IsCheckable="True" Click="OnSlideshowSpeedClick" />
                   <MenuItem x:Name="Slideshow5Item" Header="{Binding Slideshow5Label}" Tag="5" IsCheckable="True" Click="OnSlideshowSpeedClick" />
                   <MenuItem x:Name="Slideshow10Item" Header="{Binding Slideshow10Label}" Tag="10" IsCheckable="True" Click="OnSlideshowSpeedClick" />
+                  </MenuItem>
                 </MenuItem>
                 <Separator /><MenuItem Header="{Binding RefreshLabel}" InputGestureText="F5" Click="OnRefreshClick" IsEnabled="{Binding HasImage}" />
                 <MenuItem Header="{Binding HelpLabel}" InputGestureText="F1" Click="OnShortcutHelpClick" />

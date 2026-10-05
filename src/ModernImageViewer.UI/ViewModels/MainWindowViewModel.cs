@@ -6,6 +6,7 @@ using System.Windows.Input;
 using ModernImageViewer.Application.Browsing;
 using ModernImageViewer.Application.Images;
 using ModernImageViewer.Application.Integration;
+using ModernImageViewer.Application.Settings;
 using ModernImageViewer.Imaging;
 using ModernImageViewer.UI.Commands;
 using ModernImageViewer.UI.Localization;
@@ -45,12 +46,15 @@ public sealed partial class MainWindowViewModel : INotifyPropertyChanged, IDispo
         ILocalizationService localization,
         ImageOpenCoordinator coordinator,
         ImageBrowseSession browseSession,
-        Func<IFileRevealService>? fileReveal = null)
+        Func<IFileRevealService>? fileReveal = null,
+        IUserSettingsService? settings = null)
     {
         _localization = localization;
         _coordinator = coordinator;
         _browseSession = browseSession;
         _fileReveal = fileReveal;
+        _settings = settings;
+        InitializePreferences();
         _selectedLanguage = FindCurrentLanguage();
         OpenCommand = new AsyncRelayCommand(PickInputAsync);
         PreviousCommand = new AsyncRelayCommand(MovePreviousAsync, () => CanMovePrevious);
@@ -135,7 +139,14 @@ public sealed partial class MainWindowViewModel : INotifyPropertyChanged, IDispo
     public int SlideshowSeconds
     {
         get => _slideshowSeconds;
-        set { _slideshowSeconds = Math.Clamp(value, 2, 30); OnPropertyChanged(); }
+        set
+        {
+            int seconds = Math.Clamp(value, 2, 30);
+            if (_slideshowSeconds == seconds) { return; }
+            _slideshowSeconds = seconds;
+            OnPropertyChanged();
+            SaveBrowsingPreferences();
+        }
     }
     public string FileAssociationLabel => Text("Association_Title");
     public string SettingsLabel => Text("Settings_Title");
@@ -168,8 +179,10 @@ public sealed partial class MainWindowViewModel : INotifyPropertyChanged, IDispo
         get => _showInformation;
         set
         {
+            if (_showInformation == value) { return; }
             _showInformation = value;
             OnPropertyChanged();
+            SaveBrowsingPreferences();
         }
     }
 
@@ -178,9 +191,11 @@ public sealed partial class MainWindowViewModel : INotifyPropertyChanged, IDispo
         get => _showFilmstrip;
         set
         {
+            if (_showFilmstrip == value) { return; }
             _showFilmstrip = value;
             OnPropertyChanged();
             OnPropertyChanged(nameof(IsFilmstripVisible));
+            SaveBrowsingPreferences();
         }
     }
 
@@ -430,6 +445,7 @@ public sealed partial class MainWindowViewModel : INotifyPropertyChanged, IDispo
 
     public void Dispose()
     {
+        FlushPreferences();
         _disposed = true;
         CancelBrowsingTools();
         _refinementCancellation?.Cancel();

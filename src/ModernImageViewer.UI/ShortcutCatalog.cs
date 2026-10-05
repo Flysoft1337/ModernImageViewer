@@ -24,6 +24,8 @@ public enum ViewerAction
     DismissOverlay,
     RevealInExplorer,
     ShowShortcutHelp,
+    RotateRight,
+    RotateLeft,
 }
 
 public readonly record struct ViewerShortcutGesture(Key Key, ModifierKeys Modifiers = ModifierKeys.None);
@@ -53,6 +55,8 @@ public static class ShortcutCatalog
         Define(ViewerAction.ActualSize, "Canvas", "ActualSize", new ViewerShortcutGesture(Key.D1), new ViewerShortcutGesture(Key.NumPad1)),
         Define(ViewerAction.ZoomIn, "Canvas", "ZoomIn", new ViewerShortcutGesture(Key.OemPlus), new ViewerShortcutGesture(Key.Add), new ViewerShortcutGesture(Key.OemPlus, ModifierKeys.Shift)),
         Define(ViewerAction.ZoomOut, "Canvas", "ZoomOut", new ViewerShortcutGesture(Key.OemMinus), new ViewerShortcutGesture(Key.Subtract)),
+        Define(ViewerAction.RotateRight, "Canvas", "RotateRight", new ViewerShortcutGesture(Key.R, ModifierKeys.Control)),
+        Define(ViewerAction.RotateLeft, "Canvas", "RotateLeft", new ViewerShortcutGesture(Key.R, ModifierKeys.Control | ModifierKeys.Shift)),
         Define(ViewerAction.ToggleSlideshow, "Playback", "ToggleSlideshow", new ViewerShortcutGesture(Key.F6), new ViewerShortcutGesture(Key.Space)),
         Define(ViewerAction.ToggleInformation, "Window", "ToggleInformation", new ViewerShortcutGesture(Key.I, ModifierKeys.Control)),
         Define(ViewerAction.ToggleFilmstrip, "Window", "ToggleFilmstrip", new ViewerShortcutGesture(Key.T, ModifierKeys.Control)),

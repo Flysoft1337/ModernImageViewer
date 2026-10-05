@@ -19,6 +19,8 @@ public partial class ImageViewport : UserControl, IDisposable
     public event EventHandler<double>? ScaleChanged;
     public event EventHandler? DetailRequested;
     public event EventHandler<PixelRect>? RegionDetailRequested;
+    public event EventHandler? OrientationChanged;
+    public ViewOrientation Orientation { get; private set; }
     public PixelRect? VisibleDetailRegion => CalculateVisibleDetailRegion();
 
     public static readonly DependencyProperty PresentationProperty = DependencyProperty.Register(
@@ -84,7 +86,7 @@ public partial class ImageViewport : UserControl, IDisposable
             return;
         }
 
-        _transform.Fit(Image.SourceSize, Canvas.ActualWidth, Canvas.ActualHeight);
+        _transform.Fit(Orientation.GetDisplaySize(Image.SourceSize), Canvas.ActualWidth, Canvas.ActualHeight);
         NotifyTransformChanged();
     }
 
@@ -95,7 +97,27 @@ public partial class ImageViewport : UserControl, IDisposable
             return;
         }
 
-        _transform.ActualSize(Image.SourceSize, Canvas.ActualWidth, Canvas.ActualHeight, 1 / VisualTreeHelper.GetDpi(Canvas).DpiScaleX);
+        _transform.ActualSize(Orientation.GetDisplaySize(Image.SourceSize), Canvas.ActualWidth, Canvas.ActualHeight, 1 / VisualTreeHelper.GetDpi(Canvas).DpiScaleX);
+        NotifyTransformChanged();
+    }
+
+    public void RotateLeft() => ChangeOrientation(Orientation.RotateLeft());
+    public void RotateRight() => ChangeOrientation(Orientation.RotateRight());
+    public void FlipHorizontal() => ChangeOrientation(Orientation.FlipHorizontal());
+    public void FlipVertical() => ChangeOrientation(Orientation.FlipVertical());
+    public void ResetOrientation() => ChangeOrientation(default);
+
+    private void ChangeOrientation(ViewOrientation orientation)
+    {
+        if (Image is not { } image || orientation == Orientation)
+        {
+            return;
+        }
+        _transform.Reorient(image.SourceSize, Orientation, orientation, Canvas.ActualWidth, Canvas.ActualHeight,
+            1 / VisualTreeHelper.GetDpi(Canvas).DpiScaleX);
+        Orientation = orientation;
+        _lastRequestedRegion = null;
+        OrientationChanged?.Invoke(this, EventArgs.Empty);
         NotifyTransformChanged();
     }
 
@@ -109,6 +131,10 @@ public partial class ImageViewport : UserControl, IDisposable
         viewport._preserveTransform = previous?.Image is not null && current?.Image is not null
             && string.Equals(previous.FilePath, current.FilePath, StringComparison.OrdinalIgnoreCase)
             && previous.Image.SourceSize == current.Image.SourceSize;
+        if (!viewport._preserveTransform)
+        {
+            viewport.ClearOrientation();
+        }
         viewport.Image = current?.Image;
         viewport._preserveTransform = false;
         viewport.RebuildRegionBitmap(current?.Region);
@@ -122,6 +148,10 @@ public partial class ImageViewport : UserControl, IDisposable
 
     private void RebuildBitmap(PixelBuffer? image)
     {
+        if (!_preserveTransform)
+        {
+            ClearOrientation();
+        }
         DisposeBitmap();
         Cursor = image is null ? Cursors.Arrow : Cursors.Hand;
         if (image is null)
@@ -163,11 +193,15 @@ public partial class ImageViewport : UserControl, IDisposable
         canvas.Scale((float)dpiScale);
         EnsureCheckerPaint();
         PixelSize sourceSize = Image!.SourceSize;
+        PixelSize displaySize = Orientation.GetDisplaySize(sourceSize);
         canvas.DrawRect(new SKRect((float)_transform.OffsetX, (float)_transform.OffsetY,
-            (float)(_transform.OffsetX + (sourceSize.Width * _transform.Scale)),
-            (float)(_transform.OffsetY + (sourceSize.Height * _transform.Scale))), _checkerPaint!);
+            (float)(_transform.OffsetX + (displaySize.Width * _transform.Scale)),
+            (float)(_transform.OffsetY + (displaySize.Height * _transform.Scale))), _checkerPaint!);
         canvas.Translate((float)_transform.OffsetX, (float)_transform.OffsetY);
         canvas.Scale((float)_transform.Scale);
+        var orientation = Orientation.GetMatrix(sourceSize);
+        canvas.Concat(new SKMatrix((float)orientation.M11, (float)orientation.M21, (float)orientation.OffsetX,
+            (float)orientation.M12, (float)orientation.M22, (float)orientation.OffsetY, 0, 0, 1));
         // Exclude the detailed rectangle from the preview, so translucent pixels are composited once.
         canvas.Save();
         if (_regionBitmap is not null && _displayedRegion is { } detailed)
@@ -262,6 +296,10 @@ public partial class ImageViewport : UserControl, IDisposable
         {
             ActualSize();
         }
+        else
+        {
+            NotifyTransformChanged();
+        }
     }
 
     private void ZoomAtCenter(double factor)
@@ -302,21 +340,20 @@ public partial class ImageViewport : UserControl, IDisposable
 
     private PixelRect? CalculateVisibleDetailRegion()
     {
-        if (Image is not { } image || Canvas.ActualWidth <= 0 || Canvas.ActualHeight <= 0 || _transform.Scale <= 0)
+        return Image is { } image
+            ? _transform.GetVisibleSourceRegion(image.SourceSize, Orientation, Canvas.ActualWidth, Canvas.ActualHeight)
+            : null;
+    }
+
+    private void ClearOrientation()
+    {
+        if (Orientation == default)
         {
-            return null;
+            return;
         }
-        int left = (int)Math.Clamp(Math.Floor(-_transform.OffsetX / _transform.Scale), 0, image.SourceSize.Width);
-        int top = (int)Math.Clamp(Math.Floor(-_transform.OffsetY / _transform.Scale), 0, image.SourceSize.Height);
-        int right = (int)Math.Clamp(Math.Ceiling((Canvas.ActualWidth - _transform.OffsetX) / _transform.Scale), 0, image.SourceSize.Width);
-        int bottom = (int)Math.Clamp(Math.Ceiling((Canvas.ActualHeight - _transform.OffsetY) / _transform.Scale), 0, image.SourceSize.Height);
-        if (right <= left || bottom <= top)
-        {
-            return null;
-        }
-        int width = Math.Min(2048, right - left);
-        int height = Math.Min(2048, bottom - top);
-        return new PixelRect(left + ((right - left - width) / 2), top + ((bottom - top - height) / 2), width, height);
+        Orientation = default;
+        _lastRequestedRegion = null;
+        OrientationChanged?.Invoke(this, EventArgs.Empty);
     }
 
     private void OnRegionTimer(object? sender, EventArgs e)
@@ -399,7 +436,9 @@ public partial class ImageViewport : UserControl, IDisposable
     {
         if (Image is not null && _bitmap is null)
         {
+            _preserveTransform = true;
             RebuildBitmap(Image);
+            _preserveTransform = false;
             RebuildRegionBitmap(Presentation?.Region);
         }
     }

@@ -64,6 +64,58 @@ public sealed class ViewportTransform
         Mode = ViewportMode.Custom;
     }
 
+    public void Reorient(PixelSize source, ViewOrientation previous, ViewOrientation current,
+        double viewportWidth, double viewportHeight, double pixelScale = 1)
+    {
+        PixelSize display = current.GetDisplaySize(source);
+        if (Mode == ViewportMode.Fit)
+        {
+            Fit(display, viewportWidth, viewportHeight);
+        }
+        else if (Mode == ViewportMode.ActualSize)
+        {
+            ActualSize(display, viewportWidth, viewportHeight, pixelScale);
+        }
+        else
+        {
+            var anchor = previous.ToSourcePoint(source,
+                ((viewportWidth / 2) - OffsetX) / Scale, ((viewportHeight / 2) - OffsetY) / Scale);
+            var point = current.ToDisplayPoint(source, anchor.X, anchor.Y);
+            OffsetX = (viewportWidth / 2) - (point.X * Scale);
+            OffsetY = (viewportHeight / 2) - (point.Y * Scale);
+        }
+    }
+
+    public PixelRect? GetVisibleSourceRegion(PixelSize source, ViewOrientation orientation,
+        double viewportWidth, double viewportHeight, int maximumEdge = 2048)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(maximumEdge);
+        if (viewportWidth <= 0 || viewportHeight <= 0 || Scale <= 0)
+        {
+            return null;
+        }
+        double left = -OffsetX / Scale;
+        double top = -OffsetY / Scale;
+        double right = (viewportWidth - OffsetX) / Scale;
+        double bottom = (viewportHeight - OffsetY) / Scale;
+        var first = orientation.ToSourcePoint(source, left, top);
+        var second = orientation.ToSourcePoint(source, right, top);
+        var third = orientation.ToSourcePoint(source, left, bottom);
+        var fourth = orientation.ToSourcePoint(source, right, bottom);
+        int sourceLeft = (int)Math.Clamp(Math.Floor(Math.Min(Math.Min(first.X, second.X), Math.Min(third.X, fourth.X))), 0, source.Width);
+        int sourceTop = (int)Math.Clamp(Math.Floor(Math.Min(Math.Min(first.Y, second.Y), Math.Min(third.Y, fourth.Y))), 0, source.Height);
+        int sourceRight = (int)Math.Clamp(Math.Ceiling(Math.Max(Math.Max(first.X, second.X), Math.Max(third.X, fourth.X))), 0, source.Width);
+        int sourceBottom = (int)Math.Clamp(Math.Ceiling(Math.Max(Math.Max(first.Y, second.Y), Math.Max(third.Y, fourth.Y))), 0, source.Height);
+        if (sourceRight <= sourceLeft || sourceBottom <= sourceTop)
+        {
+            return null;
+        }
+        int width = Math.Min(maximumEdge, sourceRight - sourceLeft);
+        int height = Math.Min(maximumEdge, sourceBottom - sourceTop);
+        return new PixelRect(sourceLeft + ((sourceRight - sourceLeft - width) / 2),
+            sourceTop + ((sourceBottom - sourceTop - height) / 2), width, height);
+    }
+
     private void Center(PixelSize image, double viewportWidth, double viewportHeight)
     {
         OffsetX = (viewportWidth - (image.Width * Scale)) / 2;
