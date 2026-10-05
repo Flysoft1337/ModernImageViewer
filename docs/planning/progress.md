@@ -204,3 +204,6 @@
 - 本地标准Release构建0警告/0错误，最终编辑核心6项通过、相关UI/codec34项通过；截图用既有STA窗口case再通过，不累加计数。深中文/浅英文720×480裁剪与WebP导出面板已查看，发现原品质标签限定JPEG，改双语通用品质；补成功WebP内存来源案例，最后统一验证后再计数。
 
 - 最终标准Release构建0警告/0错误；编辑核心6/6、相关UI/codec35/35通过（包含成功内存WebP），230双语资源键一致、Markdown链接和git diff检查通过，完整dotnet format --verify-no-changes --no-restore退出0。深中文/浅英文裁剪与导出截图已查看，最终英文品质标签已复查。准备PR复用既有Windows CI，不发Release。
+
+- [PR #29](https://github.com/Flysoft1337/ModernImageViewer/pull/29)功能提交b7286b2的[Windows CI 37346291867](https://github.com/Flysoft1337/ModernImageViewer/actions/runs/37346291867)成功：完整恢复/格式，Release构建0警告0错误；核心68+UI/codec185=253通过、1项本机真实RAW样本跳过。依赖审计、100MP观察、便携启动/12类格式激活、安装版同样激活、当前用户安装/同版本重装迁移/卸载均通过，Release job明确跳过。
+- CI format有既有workspace加载warning，不称全部工具零告警。末次仅Markdown验收记录，功能源/测试/CI流程与已通过b7286b2一致；最终合并状态见PR。保持0.5.0开发基线、公开v0.4.0，任意角度、调整/标注和完整元数据/ICC未实现。
