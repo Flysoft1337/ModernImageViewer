@@ -125,6 +125,47 @@
       <Border x:Name="InformationPanel" Panel.ZIndex="30" HorizontalAlignment="Right" Width="272" CornerRadius="12" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1">
         <Border.Style><Style TargetType="Border"><Setter Property="Margin" Value="12,12,12,92" /><Setter Property="Visibility" Value="Collapsed" /><Style.Triggers><MultiDataTrigger><MultiDataTrigger.Conditions><Condition Binding="{Binding ShowInformation}" Value="True" /><Condition Binding="{Binding IsChromeVisible, RelativeSource={RelativeSource AncestorType=Window}}" Value="True" /></MultiDataTrigger.Conditions><Setter Property="Visibility" Value="Visible" /></MultiDataTrigger><MultiDataTrigger><MultiDataTrigger.Conditions><Condition Binding="{Binding IsFullScreen}" Value="True" /><Condition Binding="{Binding IsFilmstripVisible}" Value="True" /></MultiDataTrigger.Conditions><Setter Property="Margin" Value="12,12,12,238" /></MultiDataTrigger></Style.Triggers></Style></Border.Style>
         <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+          <ScrollViewer.Resources>
+            <Style TargetType="ScrollBar">
+              <Setter Property="Width" Value="8" />
+              <Setter Property="Background" Value="Transparent" />
+              <Setter Property="Template">
+                <Setter.Value>
+                  <ControlTemplate TargetType="ScrollBar">
+                    <Grid Margin="0,4,3,4" Background="Transparent">
+                      <Track x:Name="PART_Track" Orientation="Vertical" IsDirectionReversed="True"
+                             Minimum="{TemplateBinding Minimum}" Maximum="{TemplateBinding Maximum}"
+                             Value="{TemplateBinding Value}" ViewportSize="{TemplateBinding ViewportSize}">
+                        <Track.DecreaseRepeatButton>
+                          <RepeatButton Command="ScrollBar.PageUpCommand" Focusable="False">
+                            <RepeatButton.Template><ControlTemplate TargetType="RepeatButton"><Border Background="Transparent" /></ControlTemplate></RepeatButton.Template>
+                          </RepeatButton>
+                        </Track.DecreaseRepeatButton>
+                        <Track.Thumb>
+                          <Thumb MinHeight="18">
+                            <Thumb.Template>
+                              <ControlTemplate TargetType="Thumb">
+                                <Border x:Name="Grip" Background="{DynamicResource SecondaryTextBrush}" CornerRadius="3" Opacity="0.35" />
+                                <ControlTemplate.Triggers>
+                                  <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Grip" Property="Opacity" Value="0.65" /></Trigger>
+                                  <Trigger Property="IsDragging" Value="True"><Setter TargetName="Grip" Property="Opacity" Value="0.85" /></Trigger>
+                                </ControlTemplate.Triggers>
+                              </ControlTemplate>
+                            </Thumb.Template>
+                          </Thumb>
+                        </Track.Thumb>
+                        <Track.IncreaseRepeatButton>
+                          <RepeatButton Command="ScrollBar.PageDownCommand" Focusable="False">
+                            <RepeatButton.Template><ControlTemplate TargetType="RepeatButton"><Border Background="Transparent" /></ControlTemplate></RepeatButton.Template>
+                          </RepeatButton>
+                        </Track.IncreaseRepeatButton>
+                      </Track>
+                    </Grid>
+                  </ControlTemplate>
+                </Setter.Value>
+              </Setter>
+            </Style>
+          </ScrollViewer.Resources>
           <StackPanel Margin="22,18">
             <Grid><TextBlock Text="{Binding InformationLabel}" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center" /><Button HorizontalAlignment="Right" Style="{StaticResource ToolbarButtonStyle}" Click="OnInformationClick" ToolTip="{Binding CloseLabel}" AutomationProperties.Name="{Binding CloseLabel}"><Path Style="{StaticResource IconStyle}" Width="14" Height="14" Data="{StaticResource Icon.Close}" /></Button></Grid>
             <TextBlock Style="{StaticResource PanelLabelStyle}" Text="{Binding FileNameLabel}" /><TextBlock Style="{StaticResource PanelValueStyle}" Text="{Binding CurrentFileName}" FontWeight="SemiBold" />
