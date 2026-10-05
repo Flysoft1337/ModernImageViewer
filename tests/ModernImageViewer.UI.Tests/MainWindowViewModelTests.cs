@@ -158,7 +158,7 @@ public sealed class MainWindowViewModelTests
                     Assert.Equal(theme, themes.CurrentTheme);
                 }
                 Assert.True(coordinator.OpenAsync("preview.png").GetAwaiter().GetResult());
-                window.UpdateLayout();
+                DrainBindings(window);
                 Assert.Equal(new PixelSize(400, 300), viewModel.CurrentImage!.SourceSize);
                 Assert.True(viewModel.ShowPreviewStatus);
                 double scale = 0;
@@ -168,11 +168,11 @@ public sealed class MainWindowViewModelTests
                 viewport.ZoomIn();
                 Assert.Equal(1.15, scale, precision: 6);
                 Assert.True(coordinator.RefineAsync().GetAwaiter().GetResult());
-                window.UpdateLayout();
+                DrainBindings(window);
                 Assert.Equal(1.15, scale, precision: 6);
                 Assert.False(viewModel.ShowPreviewStatus);
                 Assert.True(coordinator.OpenAsync("next.png").GetAwaiter().GetResult());
-                window.UpdateLayout();
+                DrainBindings(window);
                 Assert.NotEqual(1.15, scale);
                 CapturePreviewScreenshots(window, themes, localization);
                 window.Close();
@@ -197,6 +197,14 @@ public sealed class MainWindowViewModelTests
         }
     }
 
+    private static void DrainBindings(MainWindow window)
+    {
+        // This STA test deliberately has no Application.Run loop. Transfer deferred bindings
+        // before observing the viewport, as the normal window dispatcher does in the app.
+        window.Dispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.ContextIdle);
+        window.UpdateLayout();
+    }
+
     private static void CapturePreviewScreenshots(MainWindow window, Themes.ThemeService themes, LocalizationService localization)
     {
         string? output = Environment.GetEnvironmentVariable("MIV_UI_SCREENSHOT_DIRECTORY");
@@ -210,7 +218,7 @@ public sealed class MainWindowViewModelTests
         {
             themes.Apply(theme);
             localization.SetCulture(language);
-            window.UpdateLayout();
+            DrainBindings(window);
             System.Windows.Media.Imaging.RenderTargetBitmap bitmap = new(1280, 820, 96, 96,
                 System.Windows.Media.PixelFormats.Pbgra32);
             bitmap.Render(window);
