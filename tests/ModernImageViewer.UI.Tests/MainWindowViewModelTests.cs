@@ -486,7 +486,20 @@ public sealed class MainWindowViewModelTests
             Assert.Equal(new PixelSize(500, 1000), editor.Recipe.OutputSize);
             ((System.Windows.Controls.Button)editor.FindName("RedoButton")).RaiseEvent(new System.Windows.RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
             Assert.Equal(new PixelSize(200, 400), editor.Recipe.OutputSize);
+            ((System.Windows.Controls.RadioButton)editor.FindName("CropRatioWide")).IsChecked = true;
+            Assert.Equal(new PixelSize(200, 400), editor.Recipe.OutputSize); // A preset is a draft until applied.
+            typeof(EditWindow).GetMethod("OnApplyCropClick", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
+                .Invoke(editor, [editor, new System.Windows.RoutedEventArgs()]);
+            Assert.Equal(new PixelSize(500, 281), editor.Recipe.NaturalSize);
+            ((System.Windows.Controls.Button)editor.FindName("UndoButton")).RaiseEvent(new System.Windows.RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
+            Assert.Equal(new PixelSize(200, 400), editor.Recipe.OutputSize);
+            ((System.Windows.Controls.RadioButton)editor.FindName("CropRatioFree")).IsChecked = true;
             ((System.Windows.Controls.RadioButton)editor.FindName("JpegFormat")).IsChecked = true;
+            Assert.Equal(System.Windows.Visibility.Visible, ((System.Windows.Controls.StackPanel)editor.FindName("QualityPanel")).Visibility);
+            ((System.Windows.Controls.RadioButton)editor.FindName("PngFormat")).IsChecked = true;
+            Assert.Equal(System.Windows.Visibility.Collapsed, ((System.Windows.Controls.StackPanel)editor.FindName("QualityPanel")).Visibility);
+            ((System.Windows.Controls.RadioButton)editor.FindName("WebpFormat")).IsChecked = true;
+            Assert.Equal(localization.GetString("Edit_WebpHint"), ((System.Windows.Controls.TextBlock)editor.FindName("FormatHint")).Text);
             Assert.Equal(System.Windows.Visibility.Visible, ((System.Windows.Controls.StackPanel)editor.FindName("QualityPanel")).Visibility);
             editor.Dispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.ContextIdle);
             editor.UpdateLayout();
@@ -499,6 +512,10 @@ public sealed class MainWindowViewModelTests
             {
                 Directory.CreateDirectory(output);
                 SaveScreenshot(editor, Path.Combine(output, $"editor-{theme}-{language}.png"));
+                ((System.Windows.Controls.ScrollViewer)editor.FindName("EditorFieldsScroll")).ScrollToEnd();
+                editor.Dispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.ContextIdle);
+                editor.UpdateLayout();
+                SaveScreenshot(editor, Path.Combine(output, $"editor-export-{theme}-{language}.png"));
             }
             editor.Close();
         }
