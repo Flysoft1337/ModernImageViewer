@@ -87,7 +87,7 @@ public sealed class BrowsingToolsTests
         }
         Assert.Equal(ViewerAction.RevealInExplorer, ShortcutCatalog.Match(Key.E, ModifierKeys.Control | ModifierKeys.Shift));
         Assert.Equal(ViewerAction.ShowShortcutHelp, ShortcutCatalog.Match(Key.F1, ModifierKeys.None));
-        Assert.Null(ShortcutCatalog.Match(Key.V, ModifierKeys.Control));
+        Assert.Equal(ViewerAction.PasteFiles, ShortcutCatalog.Match(Key.V, ModifierKeys.Control));
         Assert.Null(ShortcutCatalog.Match(Key.Left, ModifierKeys.Control));
     }
 

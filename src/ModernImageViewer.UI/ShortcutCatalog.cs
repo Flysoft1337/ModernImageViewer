@@ -8,6 +8,7 @@ public enum ViewerAction
 {
     OpenImage,
     OpenFolder,
+    PasteFiles,
     PreviousImage,
     NextImage,
     FirstImage,
@@ -48,6 +49,7 @@ public static class ShortcutCatalog
     [
         Define(ViewerAction.OpenImage, "Open", "OpenImage", new ViewerShortcutGesture(Key.O, ModifierKeys.Control)),
         Define(ViewerAction.OpenFolder, "Open", "OpenFolder", new ViewerShortcutGesture(Key.O, ModifierKeys.Control | ModifierKeys.Shift)),
+        Define(ViewerAction.PasteFiles, "Open", "PasteFiles", new ViewerShortcutGesture(Key.V, ModifierKeys.Control)),
         Define(ViewerAction.PreviousImage, "Navigation", "PreviousImage", new ViewerShortcutGesture(Key.Left)),
         Define(ViewerAction.NextImage, "Navigation", "NextImage", new ViewerShortcutGesture(Key.Right)),
         Define(ViewerAction.FirstImage, "Navigation", "FirstImage", new ViewerShortcutGesture(Key.Home)),

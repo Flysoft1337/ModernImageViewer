@@ -214,4 +214,7 @@
   <data name="Edit_EmbeddedPreviewNotice" xml:space="preserve"><value>正在编辑 RAW 内嵌预览，尺寸以该预览为准；不使用传感器像素，不进行完整 RAW 显影。</value></data>
   <data name="Error_RawNoPreview" xml:space="preserve"><value>该 RAW 文件没有可读取的内嵌预览。</value></data>
   <data name="Raw_EmbeddedPreview" xml:space="preserve"><value>内嵌预览</value></data>
+  <data name="Command_PasteFiles" xml:space="preserve"><value>打开剪贴板文件</value></data>
+  <data name="Clipboard_NoFiles" xml:space="preserve"><value>请先在资源管理器中复制图片文件，再重试；暂不支持粘贴位图</value></data>
+  <data name="Shortcut_Action_PasteFiles" xml:space="preserve"><value>打开剪贴板文件</value></data>
 </root>

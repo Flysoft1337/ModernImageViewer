@@ -397,6 +397,7 @@ public partial class MainWindow : Window
         switch (action)
         {
             case ViewerAction.OpenFolder: OnOpenFolderClick(this, e); break;
+            case ViewerAction.PasteFiles: await _viewModel.PasteFilesCommand.ExecuteAsync(); break;
             case ViewerAction.PreviousImage: await _viewModel.PreviousCommand.ExecuteAsync(); break;
             case ViewerAction.NextImage: await _viewModel.NextCommand.ExecuteAsync(); break;
             case ViewerAction.FirstImage: await _viewModel.OpenFirstAsync(); break;

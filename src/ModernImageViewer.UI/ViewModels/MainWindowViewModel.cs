@@ -47,16 +47,19 @@ public sealed partial class MainWindowViewModel : INotifyPropertyChanged, IDispo
         ImageOpenCoordinator coordinator,
         ImageBrowseSession browseSession,
         Func<IFileRevealService>? fileReveal = null,
-        IUserSettingsService? settings = null)
+        IUserSettingsService? settings = null,
+        IClipboardFileService? clipboardFiles = null)
     {
         _localization = localization;
         _coordinator = coordinator;
         _browseSession = browseSession;
         _fileReveal = fileReveal;
         _settings = settings;
+        _clipboardFiles = clipboardFiles;
         InitializePreferences();
         _selectedLanguage = FindCurrentLanguage();
         OpenCommand = new AsyncRelayCommand(PickInputAsync);
+        PasteFilesCommand = new AsyncRelayCommand(PasteFilesAsync, () => _clipboardFiles is not null);
         PreviousCommand = new AsyncRelayCommand(MovePreviousAsync, () => CanMovePrevious);
         NextCommand = new AsyncRelayCommand(MoveNextAsync, () => CanMoveNext);
         _localization.CultureChanged += OnCultureChanged;
