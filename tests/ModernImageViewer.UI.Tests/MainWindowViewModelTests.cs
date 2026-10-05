@@ -138,7 +138,8 @@ public sealed class MainWindowViewModelTests
                 }
                 app.Resources.Add("BooleanToVisibilityConverter", new System.Windows.Controls.BooleanToVisibilityConverter());
                 app.Resources.Add("InverseBooleanToVisibilityConverter", new Converters.InverseBooleanToVisibilityConverter());
-                using ImageOpenCoordinator coordinator = new(new FixedFilePicker(null), new PreviewDecoder());
+                PreviewDecoder decoder = new();
+                using ImageOpenCoordinator coordinator = new(new FixedFilePicker(null), decoder);
                 using Themes.ThemeService themes = new();
                 LocalizationService localization = new(new MemorySettings());
                 using MainWindowViewModel viewModel = new(localization, coordinator, new ImageBrowseSession());
@@ -177,6 +178,20 @@ public sealed class MainWindowViewModelTests
                 DrainBindings(window);
                 Assert.NotEqual(1.15, scale);
                 CapturePreviewScreenshots(window, themes, localization);
+                decoder.SourceSize = new PixelSize(8000, 6000);
+                Assert.True(coordinator.OpenAsync("large.png").GetAwaiter().GetResult());
+                DrainBindings(window);
+                viewport.ActualSize();
+                DrainBindings(window);
+                PixelRect region = Assert.IsType<PixelRect>(viewport.VisibleDetailRegion);
+                Assert.InRange(region.Width, 1, 2048);
+                Assert.InRange(region.Height, 1, 2048);
+                Assert.True(coordinator.RequestRegionAsync(region).GetAwaiter().GetResult());
+                DrainBindings(window);
+                Assert.Equal(1, scale);
+                Assert.True(viewModel.Presentation.IsPreview);
+                Assert.NotNull(viewModel.Presentation.Region);
+                VerifyCompactAndImmersiveLayouts(window, viewport, viewModel, themes, localization);
                 window.Close();
                 associations.Close();
             }
@@ -207,7 +222,49 @@ public sealed class MainWindowViewModelTests
         window.UpdateLayout();
     }
 
-    private static void CapturePreviewScreenshots(MainWindow window, Themes.ThemeService themes, LocalizationService localization)
+    private static void VerifyCompactAndImmersiveLayouts(MainWindow window, Controls.ImageViewport viewport,
+        MainWindowViewModel viewModel, Themes.ThemeService themes, LocalizationService localization)
+    {
+        window.Width = 720;
+        window.Height = 480;
+        DrainBindings(window);
+        Assert.True(window.IsCompactLayout);
+        double width = viewport.ActualWidth;
+        viewModel.ShowInformation = true;
+        DrainBindings(window);
+        Assert.Equal(width, viewport.ActualWidth);
+        System.Windows.FrameworkElement toolbar = (System.Windows.FrameworkElement)window.FindName("Toolbar");
+        Assert.InRange(toolbar.ActualWidth, 1, window.ActualWidth);
+        CapturePreviewScreenshots(window, themes, localization, "compact");
+        typeof(MainWindow).GetMethod("ToggleFullScreen", System.Reflection.BindingFlags.Instance
+            | System.Reflection.BindingFlags.NonPublic)!.Invoke(window, null);
+        DrainBindings(window);
+        Assert.True(viewModel.IsFullScreen);
+        Assert.Equal(new System.Windows.Thickness(0), viewport.Margin);
+        Assert.Equal(3, System.Windows.Controls.Grid.GetRowSpan((System.Windows.UIElement)window.FindName("CanvasLayout")));
+        System.Reflection.MethodInfo setChrome = typeof(MainWindow).GetMethod("SetChromeVisible",
+            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
+        setChrome.Invoke(window, [false]);
+        DrainBindings(window);
+        foreach (string name in new[] { "Toolbar", "InformationPanel", "Filmstrip", "StatusBar", "PreviewStatusOverlay", "LoadingOverlay", "MessageOverlay" })
+        {
+            Assert.Equal(System.Windows.Visibility.Collapsed, ((System.Windows.UIElement)window.FindName(name)).Visibility);
+        }
+        Assert.True(window.ForceCursor);
+        CapturePreviewScreenshots(window, themes, localization, "fullscreen-hidden", hideChrome: true);
+        setChrome.Invoke(window, [true]);
+        typeof(MainWindow).GetMethod("ToggleFullScreen", System.Reflection.BindingFlags.Instance
+            | System.Reflection.BindingFlags.NonPublic)!.Invoke(window, null);
+        DrainBindings(window);
+        Assert.False(viewModel.IsFullScreen);
+        Assert.True(window.IsChromeVisible);
+        Assert.True(viewModel.ShowInformation);
+        Assert.Equal(720, window.Width);
+        Assert.Equal(480, window.Height);
+    }
+
+    private static void CapturePreviewScreenshots(MainWindow window, Themes.ThemeService themes, LocalizationService localization,
+        string prefix = "preview", bool hideChrome = false)
     {
         string? output = Environment.GetEnvironmentVariable("MIV_UI_SCREENSHOT_DIRECTORY");
         if (string.IsNullOrEmpty(output))
@@ -220,27 +277,35 @@ public sealed class MainWindowViewModelTests
         {
             themes.Apply(theme);
             localization.SetCulture(language);
+            if (hideChrome)
+            {
+                typeof(MainWindow).GetMethod("SetChromeVisible", System.Reflection.BindingFlags.Instance
+                    | System.Reflection.BindingFlags.NonPublic)!.Invoke(window, [false]);
+            }
             DrainBindings(window);
-            System.Windows.Media.Imaging.RenderTargetBitmap bitmap = new(1280, 820, 96, 96,
+            System.Windows.Media.Imaging.RenderTargetBitmap bitmap = new((int)Math.Ceiling(window.ActualWidth), (int)Math.Ceiling(window.ActualHeight), 96, 96,
                 System.Windows.Media.PixelFormats.Pbgra32);
             bitmap.Render(window);
             System.Windows.Media.Imaging.PngBitmapEncoder encoder = new();
             encoder.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(bitmap));
-            using FileStream file = File.Create(Path.Combine(output, $"preview-{theme}-{language}.png"));
+            using FileStream file = File.Create(Path.Combine(output, $"{prefix}-{theme}-{language}.png"));
             encoder.Save(file);
         }
     }
 
-    private sealed class PreviewDecoder : IPreviewImageDecoder
+    private sealed class PreviewDecoder : IPreviewImageDecoder, IRegionImageDecoder
     {
-        private static readonly PixelSize SourceSize = new(4000, 3000);
+        public PixelSize SourceSize { get; set; } = new(4000, 3000);
         public Task<PixelBuffer> DecodeAsync(string path, CancellationToken cancellationToken) =>
             Task.FromResult(CreateImage(SourceSize));
 
         public Task<PixelBuffer> DecodePreviewAsync(string path, PixelSize maximumSize, CancellationToken cancellationToken) =>
             Task.FromResult(CreateImage(new PixelSize(2000, 1500)));
 
-        private static PixelBuffer CreateImage(PixelSize size)
+        public Task<DecodedImageRegion> DecodeRegionAsync(string path, PixelRect region, PixelSize expectedSourceSize,
+            long maximumDecodedBytes, CancellationToken cancellationToken) => Task.FromResult(new DecodedImageRegion(CreateImage(region.Size), region));
+
+        private PixelBuffer CreateImage(PixelSize size)
         {
             byte[] pixels = new byte[size.Width * size.Height * 4];
             for (int y = 0; y < size.Height; y++)

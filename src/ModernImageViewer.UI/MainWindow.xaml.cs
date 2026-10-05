@@ -48,10 +48,12 @@ public partial class MainWindow : Window
         DataContext = viewModel;
         Viewport.ScaleChanged += (_, scale) => _viewModel.UpdateScale(scale);
         Viewport.DetailRequested += OnDetailRequested;
+        InitializeRegionDetail();
+        InitializeImmersiveControls();
         _messageTimer.Tick += (_, _) => { _messageTimer.Stop(); _viewModel.ShowMessage(null); };
         StateChanged += (_, _) =>
         {
-            WindowLayout.Margin = WindowState == WindowState.Maximized ? new Thickness(6) : new Thickness(0);
+            WindowLayout.Margin = !_viewModel.IsFullScreen && WindowState == WindowState.Maximized ? new Thickness(6) : new Thickness(0);
             UpdateSlideshowTimer();
         };
         _slideshowTimer.Tick += OnSlideshowTick;
@@ -62,6 +64,8 @@ public partial class MainWindow : Window
             _viewModel.PropertyChanged -= OnViewModelChanged;
             _messageTimer.Stop();
             _slideshowTimer.Stop();
+            DisposeImmersiveControls();
+            DisposeRegionDetail();
             Viewport.DetailRequested -= OnDetailRequested;
             Viewport.Dispose();
         };
@@ -153,7 +157,14 @@ public partial class MainWindow : Window
         }
     }
 
-    private void OnViewModelChanged(object? sender, PropertyChangedEventArgs e) => UpdateSlideshowTimer();
+    private void OnViewModelChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        UpdateSlideshowTimer();
+        if (e.PropertyName == nameof(MainWindowViewModel.IsFullScreen))
+        {
+            UpdateImmersiveMode();
+        }
+    }
 
     private void UpdateSlideshowTimer()
     {
@@ -177,9 +188,11 @@ public partial class MainWindow : Window
 
     private void OnSettingsClick(object sender, RoutedEventArgs e)
     {
-        if (sender is Button { ContextMenu: { } menu } button)
+        if (sender is Button button && SettingsButton.ContextMenu is { } menu)
         {
+            RevealImmersiveControls();
             menu.PlacementTarget = button;
+            menu.Placement = ReferenceEquals(button, SettingsButton) ? PlacementMode.Bottom : PlacementMode.Top;
             menu.IsOpen = true;
         }
     }
@@ -331,6 +344,7 @@ public partial class MainWindow : Window
 
     private async void OnPreviewKeyDown(object sender, KeyEventArgs e)
     {
+        RevealImmersiveControls();
         if (e.Key == Key.F11 && Keyboard.Modifiers == ModifierKeys.None)
         {
             ToggleFullScreen();

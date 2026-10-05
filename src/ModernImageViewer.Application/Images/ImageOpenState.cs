@@ -29,4 +29,6 @@ public sealed record ImageOpenState(
     ImageOpenError Error = ImageOpenError.None,
     bool IsPreview = false,
     bool IsRefining = false,
-    ImageOpenError RefinementError = ImageOpenError.None);
+    ImageOpenError RefinementError = ImageOpenError.None,
+    DecodedImageRegion? Region = null,
+    bool IsRegionLoading = false);

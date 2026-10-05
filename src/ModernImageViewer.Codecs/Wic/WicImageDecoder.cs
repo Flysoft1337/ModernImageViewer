@@ -1,4 +1,5 @@
 using System.IO;
+using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 
@@ -41,6 +42,67 @@ public sealed class WicImageDecoder : IImageDecoder
     {
         using FileStream stream = new(path, FileMode.Open, FileAccess.Read, FileShare.Read);
         return Decode(stream, maximumSize, cancellationToken);
+    }
+
+    internal DecodedImageRegion DecodeRegion(Stream stream, PixelRect region, PixelSize expectedSourceSize,
+        long maximumDecodedBytes, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (region.Width <= 0 || region.Height <= 0 || region.Width > 2048 || region.Height > 2048
+            || maximumDecodedBytes <= 0 || (long)region.Width * region.Height * 4 > maximumDecodedBytes)
+        {
+            throw new ImageSizeLimitExceededException();
+        }
+        try
+        {
+            BitmapDecoder decoder = BitmapDecoder.Create(stream,
+                BitmapCreateOptions.PreservePixelFormat | BitmapCreateOptions.DelayCreation, BitmapCacheOption.None);
+            if (decoder.Frames.Count == 0 || !Containers.Contains(decoder.CodecInfo.ContainerFormat))
+            {
+                throw new ImageDecodeException(ImageOpenError.UnsupportedFormat);
+            }
+            BitmapFrame frame = decoder.Frames[0];
+            PixelSize rawSize = new(frame.PixelWidth, frame.PixelHeight);
+            _limits.ValidateAndGetStride(rawSize);
+            ImageMetadata metadata = WicMetadataReader.Read(frame);
+            PixelSize orientedSize = metadata.Orientation >= 5 ? new PixelSize(rawSize.Height, rawSize.Width) : rawSize;
+            if (orientedSize != expectedSourceSize || region.Right > orientedSize.Width || region.Bottom > orientedSize.Height)
+            {
+                // An image replaced since its preview was decoded must not produce a mismatched overlay.
+                throw new ImageDecodeException(ImageOpenError.CorruptFile);
+            }
+            PixelRect rawBounds = RegionOrientation.ToRawBounds(region, rawSize, metadata.Orientation);
+            int rawStride = _limits.ValidateAndGetStride(rawBounds.Size);
+            int outputStride = _limits.ValidateAndGetStride(region.Size);
+            BitmapSource converted = frame.Format == PixelFormats.Pbgra32
+                ? frame : new FormatConvertedBitmap(frame, PixelFormats.Pbgra32, null, 0);
+            // Copy only the requested rectangle. Native codecs may still decode internally outside it.
+            byte[] rawPixels = GC.AllocateUninitializedArray<byte>(checked(rawStride * rawBounds.Height), pinned: true);
+            cancellationToken.ThrowIfCancellationRequested();
+            converted.CopyPixels(new Int32Rect(rawBounds.X, rawBounds.Y, rawBounds.Width, rawBounds.Height), rawPixels, rawStride, 0);
+            cancellationToken.ThrowIfCancellationRequested();
+            byte[] output = rawPixels;
+            if (metadata.Orientation != 1)
+            {
+                // A second bounded ROI buffer is needed for orientation; never allocate full-image BGRA.
+                output = GC.AllocateUninitializedArray<byte>(checked(outputStride * region.Height), pinned: true);
+                RegionOrientation.CopyOriented(rawPixels, rawStride, rawBounds, region, rawSize,
+                    metadata.Orientation, output, outputStride, cancellationToken);
+            }
+            return new DecodedImageRegion(new PixelBuffer(region.Size, outputStride, output, metadata, orientedSize), region);
+        }
+        catch (ImageDecodeException)
+        {
+            throw;
+        }
+        catch (FileFormatException exception)
+        {
+            throw new ImageDecodeException(ImageOpenError.CorruptFile, exception);
+        }
+        catch (NotSupportedException exception)
+        {
+            throw new ImageDecodeException(ImageOpenError.UnsupportedFormat, exception);
+        }
     }
 
     internal PixelBuffer Decode(Stream stream, PixelSize? maximumSize, CancellationToken cancellationToken, long? maximumDecodedBytes = null)

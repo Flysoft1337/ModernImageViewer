@@ -11,6 +11,8 @@ public static class DependencyInjection
         services.AddSingleton<ImageDecoder>();
         services.AddSingleton<IImageDecoder>(provider => provider.GetRequiredService<ImageDecoder>());
         services.AddSingleton<IThumbnailDecoder>(provider => provider.GetRequiredService<ImageDecoder>());
+        services.AddSingleton<IRegionImageDecoder>(provider => provider.GetRequiredService<ImageDecoder>());
+        services.AddSingleton<IPrefetchImageDecoder>(provider => provider.GetRequiredService<ImageDecoder>());
         return services;
     }
 }

@@ -106,4 +106,6 @@
   <data name="Preview_Refining" xml:space="preserve"><value>正在加载细节…</value></data>
   <data name="Preview_BudgetLimit" xml:space="preserve"><value>已保留预览 · 完整细节超出内存预算</value></data>
   <data name="Preview_DetailFailed" xml:space="preserve"><value>细节加载失败 · 已保留预览</value></data>
+  <data name="Preview_RegionReady" xml:space="preserve"><value>预览 · 当前区域细节已加载</value></data>
+  <data name="Preview_RegionUnsupported" xml:space="preserve"><value>已保留预览 · 此格式暂不支持区域细节</value></data>
 </root>

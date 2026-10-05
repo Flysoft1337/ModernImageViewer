@@ -122,6 +122,19 @@ public sealed class FormatDecoderTests
         using PixelBuffer main = await decoder.DecodeAsync(path, TestContext.Current.CancellationToken);
         Assert.Equal(new PixelSize(256, 128), main.Size);
         Assert.Equal(main.Size, main.SourceSize);
+        if (!string.Equals(Path.GetExtension(path), ".webp", StringComparison.OrdinalIgnoreCase))
+        {
+            PixelRect bounds = new(17, 9, 31, 19);
+            using DecodedImageRegion region = await decoder.DecodeRegionAsync(path, bounds, main.SourceSize,
+                16 * 1024 * 1024, TestContext.Current.CancellationToken);
+            Assert.Equal(bounds, region.Bounds);
+            Assert.Equal(bounds.Size, region.Image.Size);
+            for (int y = 0; y < bounds.Height; y++)
+            {
+                Assert.Equal(main.Pixels.Slice(((bounds.Y + y) * main.Stride) + (bounds.X * 4), bounds.Width * 4).ToArray(),
+                    region.Image.Pixels.Slice(y * region.Image.Stride, bounds.Width * 4).ToArray());
+            }
+        }
         using PixelBuffer preview = await decoder.DecodePreviewAsync(path, new PixelSize(128, 80), TestContext.Current.CancellationToken);
         Assert.Equal(main.Size, preview.SourceSize);
         Assert.InRange(preview.Size.Width, 1, 128);
