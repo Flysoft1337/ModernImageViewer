@@ -4,7 +4,7 @@ public sealed class PixelBuffer : IDisposable
 {
     private byte[]? _pixels;
 
-    public PixelBuffer(PixelSize size, int stride, byte[] pixels, ImageMetadata? metadata = null)
+    public PixelBuffer(PixelSize size, int stride, byte[] pixels, ImageMetadata? metadata = null, PixelSize? sourceSize = null)
     {
         ArgumentNullException.ThrowIfNull(pixels);
 
@@ -19,6 +19,7 @@ public sealed class PixelBuffer : IDisposable
 
         Metadata = metadata ?? ImageMetadata.Empty;
         Size = size;
+        SourceSize = sourceSize ?? size;
         Stride = stride;
         _pixels = pixels;
     }
@@ -26,6 +27,8 @@ public sealed class PixelBuffer : IDisposable
     public ImageMetadata Metadata { get; }
 
     public PixelSize Size { get; }
+
+    public PixelSize SourceSize { get; }
 
     public int Stride { get; }
 

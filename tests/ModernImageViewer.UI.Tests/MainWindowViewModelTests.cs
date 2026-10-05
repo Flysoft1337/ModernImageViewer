@@ -138,9 +138,10 @@ public sealed class MainWindowViewModelTests
                 }
                 app.Resources.Add("BooleanToVisibilityConverter", new System.Windows.Controls.BooleanToVisibilityConverter());
                 app.Resources.Add("InverseBooleanToVisibilityConverter", new Converters.InverseBooleanToVisibilityConverter());
-                using ImageOpenCoordinator coordinator = new(new FixedFilePicker(null), new SuccessfulDecoder());
+                using ImageOpenCoordinator coordinator = new(new FixedFilePicker(null), new PreviewDecoder());
                 using Themes.ThemeService themes = new();
-                MainWindowViewModel viewModel = new(new TestLocalization(), coordinator, new ImageBrowseSession());
+                LocalizationService localization = new(new MemorySettings());
+                using MainWindowViewModel viewModel = new(localization, coordinator, new ImageBrowseSession());
                 MainWindow window = new(viewModel, themes);
                 FileAssociationWindow associations = new(new NoopFileAssociations(), new TestLocalization());
                 associations.Measure(new System.Windows.Size(620, 650));
@@ -156,6 +157,24 @@ public sealed class MainWindowViewModelTests
                     Assert.IsType<System.Windows.Media.SolidColorBrush>(associations.FindResource("SurfaceBrush"));
                     Assert.Equal(theme, themes.CurrentTheme);
                 }
+                Assert.True(coordinator.OpenAsync("preview.png").GetAwaiter().GetResult());
+                window.UpdateLayout();
+                Assert.Equal(new PixelSize(400, 300), viewModel.CurrentImage!.SourceSize);
+                Assert.True(viewModel.ShowPreviewStatus);
+                double scale = 0;
+                viewport.ScaleChanged += (_, value) => scale = value;
+                viewport.ActualSize();
+                Assert.Equal(1, scale);
+                viewport.ZoomIn();
+                Assert.Equal(1.15, scale, precision: 6);
+                Assert.True(coordinator.RefineAsync().GetAwaiter().GetResult());
+                window.UpdateLayout();
+                Assert.Equal(1.15, scale, precision: 6);
+                Assert.False(viewModel.ShowPreviewStatus);
+                Assert.True(coordinator.OpenAsync("next.png").GetAwaiter().GetResult());
+                window.UpdateLayout();
+                Assert.NotEqual(1.15, scale);
+                CapturePreviewScreenshots(window, themes, localization);
                 window.Close();
                 associations.Close();
             }
@@ -176,6 +195,65 @@ public sealed class MainWindowViewModelTests
         {
             System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(failure).Throw();
         }
+    }
+
+    private static void CapturePreviewScreenshots(MainWindow window, Themes.ThemeService themes, LocalizationService localization)
+    {
+        string? output = Environment.GetEnvironmentVariable("MIV_UI_SCREENSHOT_DIRECTORY");
+        if (string.IsNullOrEmpty(output))
+        {
+            return;
+        }
+        Directory.CreateDirectory(output);
+        foreach ((Themes.AppTheme theme, string language) in new[]
+            { (Themes.AppTheme.Dark, "zh-CN"), (Themes.AppTheme.Light, "en-US") })
+        {
+            themes.Apply(theme);
+            localization.SetCulture(language);
+            window.UpdateLayout();
+            System.Windows.Media.Imaging.RenderTargetBitmap bitmap = new(1280, 820, 96, 96,
+                System.Windows.Media.PixelFormats.Pbgra32);
+            bitmap.Render(window);
+            System.Windows.Media.Imaging.PngBitmapEncoder encoder = new();
+            encoder.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(bitmap));
+            using FileStream file = File.Create(Path.Combine(output, $"preview-{theme}-{language}.png"));
+            encoder.Save(file);
+        }
+    }
+
+    private sealed class PreviewDecoder : IPreviewImageDecoder
+    {
+        private static readonly PixelSize SourceSize = new(400, 300);
+        public Task<PixelBuffer> DecodeAsync(string path, CancellationToken cancellationToken) =>
+            Task.FromResult(CreateImage(SourceSize));
+
+        public Task<PixelBuffer> DecodePreviewAsync(string path, PixelSize maximumSize, CancellationToken cancellationToken) =>
+            Task.FromResult(CreateImage(new PixelSize(100, 75)));
+
+        private static PixelBuffer CreateImage(PixelSize size)
+        {
+            byte[] pixels = new byte[size.Width * size.Height * 4];
+            for (int y = 0; y < size.Height; y++)
+            {
+                for (int x = 0; x < size.Width; x++)
+                {
+                    int index = ((y * size.Width) + x) * 4;
+                    pixels[index] = (byte)(100 + (100 * x / size.Width));
+                    pixels[index + 1] = (byte)(60 + (120 * y / size.Height));
+                    pixels[index + 2] = 40;
+                    pixels[index + 3] = 255;
+                }
+            }
+            return new PixelBuffer(size, size.Width * 4, pixels, sourceSize: SourceSize);
+        }
+    }
+
+    private sealed class MemorySettings : ModernImageViewer.Application.Settings.IUserSettingsService
+    {
+        public string? Language => "en-US";
+        public string? Theme => "Dark";
+        public void SaveLanguage(string language) { }
+        public void SaveTheme(string theme) { }
     }
 
     private sealed class NoopFileAssociations : IFileAssociationService

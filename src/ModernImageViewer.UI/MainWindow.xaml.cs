@@ -47,6 +47,7 @@ public partial class MainWindow : Window
         InitializeComponent();
         DataContext = viewModel;
         Viewport.ScaleChanged += (_, scale) => _viewModel.UpdateScale(scale);
+        Viewport.DetailRequested += OnDetailRequested;
         _messageTimer.Tick += (_, _) => { _messageTimer.Stop(); _viewModel.ShowMessage(null); };
         StateChanged += (_, _) =>
         {
@@ -61,11 +62,28 @@ public partial class MainWindow : Window
             _viewModel.PropertyChanged -= OnViewModelChanged;
             _messageTimer.Stop();
             _slideshowTimer.Stop();
+            Viewport.DetailRequested -= OnDetailRequested;
             Viewport.Dispose();
         };
     }
 
     public IThumbnailDecoder? ThumbnailDecoder { get; }
+
+    private void OnDetailRequested(object? sender, EventArgs e)
+    {
+        // Queue after the pixel/path binding has completed; do not reenter a WPF binding update.
+        ModernImageViewer.Imaging.PixelBuffer? requestedImage = _viewModel.CurrentImage;
+        _ = Dispatcher.InvokeAsync(async () =>
+        {
+            if (IsLoaded && ReferenceEquals(requestedImage, _viewModel.CurrentImage))
+            {
+                await _viewModel.RefineImageAsync();
+            }
+        }, DispatcherPriority.Background);
+    }
+
+    private async void OnRefineClick(object sender, RoutedEventArgs e) => await _viewModel.RefineImageAsync();
+    private void OnCancelRefinementClick(object sender, RoutedEventArgs e) => _viewModel.CancelRefinement();
 
     private void OnFitClick(object sender, RoutedEventArgs e) => Viewport.Fit();
     private void OnActualSizeClick(object sender, RoutedEventArgs e) => Viewport.ActualSize();

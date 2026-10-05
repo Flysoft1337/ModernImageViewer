@@ -8,6 +8,11 @@ namespace ModernImageViewer.Application.Images;
 public sealed class ImageOpenCoordinator(IImageFilePicker filePicker, IImageDecoder decoder, ImageBrowseSession? browseSession = null)
     : INotifyPropertyChanged, IDisposable
 {
+    public static PixelSize PreviewMaximumSize { get; } = new(2560, 1600);
+    public const long MainPixelBudgetBytes = 128L * 1024 * 1024;
+    private static readonly long PreviewReservedBytes = PreviewMaximumSize.PixelCount * 4;
+    private CancellationTokenSource? _refinementCancellation;
+    private long _refinementVersion;
     private CancellationTokenSource? _openCancellation;
     private long _requestVersion;
     private CancellationTokenSource? _indexCancellation;
@@ -63,17 +68,18 @@ public sealed class ImageOpenCoordinator(IImageFilePicker filePicker, IImageDeco
         }
 
         CancelPendingIndexing();
+        CancelPendingRefinement();
         long version = Interlocked.Increment(ref _requestVersion);
         _openCancellation?.Cancel();
         _openCancellation?.Dispose();
         _openCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         CancellationToken token = _openCancellation.Token;
         ImageOpenState previous = State.Status == ImageOpenStatus.Loading
-            ? new(State.Image is null ? ImageOpenStatus.Empty : ImageOpenStatus.Loaded, State.Image, State.FilePath)
+            ? State with { Status = State.Image is null ? ImageOpenStatus.Empty : ImageOpenStatus.Loaded, PendingPath = null }
             : State;
         ImageBrowseSession? session = browsing ?? browseSession;
         SkippedCandidateCount = 0;
-        State = new(ImageOpenStatus.Loading, previous.Image, previous.FilePath, paths[0]);
+        State = previous with { Status = ImageOpenStatus.Loading, PendingPath = paths[0], Error = ImageOpenError.None };
         Exception? lastError = null;
         string? failedPath = null;
 
@@ -83,7 +89,9 @@ public sealed class ImageOpenCoordinator(IImageFilePicker filePicker, IImageDeco
             try
             {
                 token.ThrowIfCancellationRequested();
-                decoded = await decoder.DecodeAsync(path, token);
+                decoded = decoder is IPreviewImageDecoder previewDecoder
+                    ? await previewDecoder.DecodePreviewAsync(path, PreviewMaximumSize, token)
+                    : await decoder.DecodeAsync(path, token);
                 if (version != Volatile.Read(ref _requestVersion) || token.IsCancellationRequested)
                 {
                     decoded.Dispose();
@@ -103,7 +111,7 @@ public sealed class ImageOpenCoordinator(IImageFilePicker filePicker, IImageDeco
                     }
                 }
                 previous.Image?.Dispose();
-                State = new(ImageOpenStatus.Loaded, decoded, Path.GetFullPath(path));
+                State = new(ImageOpenStatus.Loaded, decoded, Path.GetFullPath(path), IsPreview: decoded.Size != decoded.SourceSize);
                 if (session is not null && indexingRevision is { } revision
                     && !_disposed && version == Volatile.Read(ref _requestVersion))
                 {
@@ -136,9 +144,101 @@ public sealed class ImageOpenCoordinator(IImageFilePicker filePicker, IImageDeco
         }
         if (version == Volatile.Read(ref _requestVersion))
         {
-            State = new(ImageOpenStatus.Error, previous.Image, previous.FilePath, failedPath, MapError(lastError!));
+            State = previous with { Status = ImageOpenStatus.Error, PendingPath = failedPath, Error = MapError(lastError!) };
         }
         return false;
+    }
+
+    public async Task<bool> RefineAsync(CancellationToken cancellationToken = default)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        ImageOpenState current = State;
+        if (current.Status != ImageOpenStatus.Loaded || !current.IsPreview || current.IsRefining
+            || current.Image is null || current.FilePath is null || decoder is not IPreviewImageDecoder previewDecoder)
+        {
+            return false;
+        }
+
+        PixelBuffer preview = current.Image;
+        // Reserve the current and next previews, including a cancelled detail finishing late.
+        long maximumDecodedBytes = Math.Min(MainPixelBudgetBytes - preview.Pixels.Length,
+            MainPixelBudgetBytes - 2 * PreviewReservedBytes);
+        if (preview.SourceSize.PixelCount > maximumDecodedBytes / 4)
+        {
+            State = current with { RefinementError = ImageOpenError.ImageTooLarge };
+            return false;
+        }
+
+        long openVersion = Volatile.Read(ref _requestVersion);
+        long refinementVersion = Interlocked.Increment(ref _refinementVersion);
+        CancellationTokenSource cancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        _refinementCancellation = cancellation;
+        CancellationToken token = cancellation.Token;
+        State = current with { IsRefining = true, RefinementError = ImageOpenError.None };
+        PixelBuffer? detail = null;
+        try
+        {
+            detail = await previewDecoder.DecodeDetailAsync(current.FilePath, maximumDecodedBytes, token);
+            if (!IsCurrentRefinement(openVersion, refinementVersion, preview) || token.IsCancellationRequested)
+            {
+                return false;
+            }
+            // Also enforce the output bound for custom implementations of the decoder interface.
+            if (detail.Pixels.Length > maximumDecodedBytes)
+            {
+                throw new ImageSizeLimitExceededException();
+            }
+            State = State with
+            {
+                Image = detail,
+                IsPreview = detail.Size != detail.SourceSize,
+                IsRefining = false,
+                RefinementError = ImageOpenError.None
+            };
+            detail = null;
+            preview.Dispose();
+            return true;
+        }
+        catch (OperationCanceledException) when (token.IsCancellationRequested)
+        {
+            return false;
+        }
+        catch (Exception exception)
+        {
+            if (IsCurrentRefinement(openVersion, refinementVersion, preview) && !token.IsCancellationRequested)
+            {
+                State = State with { IsRefining = false, RefinementError = MapError(exception) };
+            }
+            return false;
+        }
+        finally
+        {
+            detail?.Dispose();
+            if (IsCurrentRefinement(openVersion, refinementVersion, preview) && State.IsRefining)
+            {
+                State = State with { IsRefining = false };
+            }
+            if (ReferenceEquals(_refinementCancellation, cancellation))
+            {
+                _refinementCancellation = null;
+            }
+            cancellation.Dispose();
+        }
+    }
+
+    private bool IsCurrentRefinement(long openVersion, long refinementVersion, PixelBuffer preview) =>
+        !_disposed && openVersion == Volatile.Read(ref _requestVersion)
+        && refinementVersion == Volatile.Read(ref _refinementVersion) && ReferenceEquals(State.Image, preview);
+
+    private void CancelPendingRefinement()
+    {
+        Interlocked.Increment(ref _refinementVersion);
+        _refinementCancellation?.Cancel();
+        _refinementCancellation = null;
+        if (!_disposed && State.IsRefining)
+        {
+            State = State with { IsRefining = false };
+        }
     }
 
     // Opening completes when pixels are ready; callers that need navigation can await the index separately.
@@ -188,11 +288,12 @@ public sealed class ImageOpenCoordinator(IImageFilePicker filePicker, IImageDeco
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         CancelPendingIndexing();
+        CancelPendingRefinement();
         Interlocked.Increment(ref _requestVersion);
         _openCancellation?.Cancel();
         if (State.Status == ImageOpenStatus.Loading)
         {
-            State = new(State.Image is null ? ImageOpenStatus.Empty : ImageOpenStatus.Loaded, State.Image, State.FilePath);
+            State = State with { Status = State.Image is null ? ImageOpenStatus.Empty : ImageOpenStatus.Loaded, PendingPath = null };
         }
     }
 
@@ -205,6 +306,7 @@ public sealed class ImageOpenCoordinator(IImageFilePicker filePicker, IImageDeco
 
         _disposed = true;
         CancelPendingIndexing();
+        CancelPendingRefinement();
         Interlocked.Increment(ref _requestVersion);
         _openCancellation?.Cancel();
         _openCancellation?.Dispose();
