@@ -144,7 +144,8 @@ public sealed class MainWindowViewModelTests
                 MemorySettings preferences = new();
                 preferences.SaveWindowPlacement(new(100000, -100000, 1280, 820));
                 LocalizationService localization = new(preferences);
-                using MainWindowViewModel viewModel = new(localization, coordinator, new ImageBrowseSession(), settings: preferences);
+                using MainWindowViewModel viewModel = new(localization, coordinator, new ImageBrowseSession(), settings: preferences,
+                    clipboardFiles: new Platform.Integration.WindowsClipboardFileService(() => null));
                 MainWindow window = new(viewModel, themes);
                 FileAssociationWindow associations = new(new NoopFileAssociations(), new TestLocalization());
                 associations.Measure(new System.Windows.Size(620, 650));
@@ -362,6 +363,16 @@ public sealed class MainWindowViewModelTests
             MainWindowViewModel model = (MainWindowViewModel)window.DataContext;
             System.Windows.Controls.MenuItem orientation = menu.Items.OfType<System.Windows.Controls.MenuItem>()
                 .Single(item => Equals(item.Header, model.ViewOrientationLabel));
+            System.Windows.Controls.MenuItem paste = menu.Items.OfType<System.Windows.Controls.MenuItem>()
+                .Single(item => Equals(item.Header, model.PasteFilesLabel));
+            Assert.Same(model.PasteFilesCommand, paste.Command);
+            Assert.True(paste.IsEnabled);
+            Assert.Equal("Ctrl+V", paste.InputGestureText);
+            string? menuOutput = Environment.GetEnvironmentVariable("MIV_UI_SCREENSHOT_DIRECTORY");
+            if (!string.IsNullOrEmpty(menuOutput))
+            {
+                SaveScreenshot(menu, Path.Combine(menuOutput, $"clipboard-menu-{theme}-{language}.png"));
+            }
             orientation.IsSubmenuOpen = true;
             DrainBindings(window);
             System.Windows.Controls.MenuItem horizontal = orientation.Items.OfType<System.Windows.Controls.MenuItem>()

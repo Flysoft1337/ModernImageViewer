@@ -214,4 +214,7 @@
   <data name="Edit_EmbeddedPreviewNotice" xml:space="preserve"><value>Editing the RAW file's embedded preview, at its preview dimensions. Sensor pixels and full RAW development are not used.</value></data>
   <data name="Error_RawNoPreview" xml:space="preserve"><value>This RAW file has no supported embedded preview.</value></data>
   <data name="Raw_EmbeddedPreview" xml:space="preserve"><value>Embedded preview</value></data>
+  <data name="Command_PasteFiles" xml:space="preserve"><value>Open clipboard files</value></data>
+  <data name="Clipboard_NoFiles" xml:space="preserve"><value>Copy image files in Explorer, then try again. Pasting bitmaps is not supported yet.</value></data>
+  <data name="Shortcut_Action_PasteFiles" xml:space="preserve"><value>Open clipboard files</value></data>
 </root>

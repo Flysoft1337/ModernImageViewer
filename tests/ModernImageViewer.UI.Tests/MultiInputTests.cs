@@ -1,9 +1,11 @@
 using System.Globalization;
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Threading.Channels;
 
 using ModernImageViewer.Application.Browsing;
 using ModernImageViewer.Application.Images;
+using ModernImageViewer.Application.Integration;
 using ModernImageViewer.Imaging;
 using ModernImageViewer.UI.Commands;
 using ModernImageViewer.UI.Localization;
@@ -117,6 +119,60 @@ public sealed class MultiInputTests
         Assert.Equal(latest, session.CurrentPath);
         Assert.False(session.IsSelection);
         Assert.Equal([latest], session.Items);
+    }
+
+    [Fact]
+    public async Task ClipboardFilesReuseSelectionAndFailuresPreserveCurrentImage()
+    {
+        using ImageFiles files = new();
+        string first = files.Add("第一张.png");
+        string second = files.Add("另一目录/02.jpg");
+        string corrupt = files.Add("corrupt.png");
+        ClipboardFiles clipboard = new();
+        ImageBrowseSession session = new();
+        using ImageOpenCoordinator coordinator = new(new FixedPicker(null), new FileDecoder());
+        using MainWindowViewModel model = new(new TestLocalization(), coordinator, session, clipboardFiles: clipboard);
+        clipboard.Paths = [corrupt, second, first, second, files.Directory, files.Add("unsupported.txt")];
+        await model.PasteFilesCommand.ExecuteAsync();
+        await coordinator.WaitForIndexingAsync(TestContext.Current.CancellationToken);
+        Assert.Equal([second, first], session.Items);
+        Assert.True(session.IsSelection);
+        Assert.Equal(second, model.CurrentFilePath);
+        Assert.Equal("Input_PartiallySkipped", model.StatusText);
+        PixelBuffer image = model.CurrentImage!;
+
+        clipboard.Paths = [];
+        await model.PasteFilesCommand.ExecuteAsync();
+        Assert.Equal("Clipboard_NoFiles", model.StatusText);
+        clipboard.Error = Marshal.GetExceptionForHR(unchecked((int)0x800401D0));
+        await model.PasteFilesCommand.ExecuteAsync();
+        Assert.Equal("Error_ClipboardBusy", model.StatusText);
+        clipboard.Error = new ArgumentException("Too many files");
+        await model.PasteFilesCommand.ExecuteAsync();
+        Assert.Equal("Input_TooManyFiles", model.StatusText);
+        clipboard.Error = null;
+        clipboard.Paths = [files.Add("unsupported.txt"), Path.Combine(files.Directory, "missing.png")];
+        await model.PasteFilesCommand.ExecuteAsync();
+        Assert.Equal("Input_NoSupportedFiles", model.StatusText);
+        clipboard.Paths = [corrupt];
+        await model.PasteFilesCommand.ExecuteAsync();
+        Assert.Equal(ImageOpenError.CorruptFile, coordinator.State.Error);
+        Assert.Same(image, model.CurrentImage);
+        Assert.Equal([second, first], session.Items);
+
+        clipboard.Paths = [first];
+        await model.PasteFilesCommand.ExecuteAsync(); // Retrying a previously failed paste succeeds.
+        await coordinator.WaitForIndexingAsync(TestContext.Current.CancellationToken);
+        Assert.Equal(first, model.CurrentFilePath);
+        Assert.False(session.IsSelection);
+        Assert.False(model.IsSlideshowPlaying);
+    }
+
+    private sealed class ClipboardFiles : IClipboardFileService
+    {
+        public IReadOnlyList<string> Paths { get; set; } = [];
+        public Exception? Error { get; set; }
+        public IReadOnlyList<string> ReadFiles() => Error is null ? Paths : throw Error;
     }
 
     private static PixelBuffer CreateImage() => new(new PixelSize(1, 1), 4, new byte[4]);

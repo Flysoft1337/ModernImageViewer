@@ -164,3 +164,12 @@
 - [PR #26](https://github.com/Flysoft1337/ModernImageViewer/pull/26)功能提交2af705e的[Windows CI 37320482281](https://github.com/Flysoft1337/ModernImageViewer/actions/runs/37320482281)成功：Release0警告0错误，核心61+UI148=209通过，1个真实样本本机专用case明确skip；自有DNG均执行。12类格式便携/安装激活、安装/重装迁移/卸载成功，Release跳过。正常卸载后的二次清理warning消除；仍有format workspace warning，Inno旧名hint改WizardIsTaskSelected于最终小修。
 - 已取回实际win-x64包核对4个image native hash、31包/1源码manifest、完整Magick/SVG/HarfBuzz/LibRaw许可、固定源码ZIP哈希和深中文/浅英文编辑截图。RAW桥接实际MSVC19.51.36260.0、1,178,624B、SHA2560F8F296A678B026D070239115E95B40363F7B6D1924B37DCB4C807F637739809，仅KERNEL32/WS2_32；不同编译器hash以各包manifest为准。
 - RAW新增四个新进程单样本观察、环境与原hash见专项记录；CIM硬件信息拒绝保留未知，不作P95/提升/nativecap声明。多路径原生pwsh参数误作为逗号单字符串已改脚本数组调用，修正文档示例。本批最终文档/小修提交仍复用同一CI，不触发Release。
+
+## 2026-10-05：N3 剪贴板文件列表
+
+- master 7e0494f已同步，使用codex/n3-clipboard-files；按用户要求只交付文件列表小批，不发布。
+- 已接入按需FileDrop读取、Ctrl+V/菜单/双语帮助；错误保留图片，后续验证与CI按实际结果补录。
+- 首次回归测试模拟ExternalException触发CA2201，改运行时Marshal.GetExceptionForHR产生真实COM错误；最终Release构建0警告/0错误。一次旧测试DLL结果不计为新增验收。
+- 新增选择测试首次把未浏览的损坏后续文件当成已剔除；现有管线只逐个尝试首个可读文件，改损坏首项验证跳过，不改变懒解码。
+- 本地Release构建0警告/0错误；20项相关回归通过（精确FileDrop/不请求位图、128/129边界、顺序/去重/筛选、空/占用/损坏与重试保留、快捷键目录、双语资源与既有窗口主题检查）。已查看深中文/浅英文菜单截图；format检查结果及正式CI随后按实际记录。不修改剪贴板、不据此声称真实Shell复制端人工验收。
+- dotnet format --verify-no-changes --no-restore退出0，git diff --check通过；不增加CI矩阵。默认沙箱gh无法读取有效keyring，提升环境认证成功。

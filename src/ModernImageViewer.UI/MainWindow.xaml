@@ -33,6 +33,7 @@
             <Button.ContextMenu>
               <ContextMenu DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}" Opened="OnSettingsOpened">
                 <MenuItem Header="{Binding OpenFolderLabel}" InputGestureText="Ctrl+Shift+O" Click="OnOpenFolderClick" />
+                <MenuItem Header="{Binding PasteFilesLabel}" InputGestureText="Ctrl+V" Command="{Binding PasteFilesCommand}" />
                 <MenuItem Header="{Binding FileAssociationLabel}" Click="OnFileAssociationsClick" />
                 <MenuItem Header="{Binding FileActionsLabel}">
                   <MenuItem Header="{Binding EditLabel}" InputGestureText="Ctrl+E" Click="OnEditClick" IsEnabled="{Binding HasImage}" />
