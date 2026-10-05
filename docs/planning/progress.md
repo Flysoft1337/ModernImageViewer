@@ -142,3 +142,7 @@
 
 - 最终入口同源Release验证68/68通过（SVG62、SVG文件管线1、格式2、WebP方向2、ICC1），核心正式项目58项通过。统一入口发现SVG曲线ROI边界AA差异后已撤掉SVG区域API及宣称，暂保留有界完整目标/预算内细化；原始发现与约束见M0记录。正式Windows CI仍待完整NuGet/native与发布包验收。
 - PR #25首次Windows CI（37297973532）完整恢复、格式和构建通过，核心58项通过，UI130/131通过；唯一失败是旧ImagePipeline回归仍期待JPEG XR/Wmp不支持。已将该断言按真实新增容器接受更新，保留内容检测而非扩展名决定接受的验证；正式最终验收仍见后续CI。
+- 功能/回归提交 `0873225` 的[Windows CI 37298669958](https://github.com/Flysoft1337/ModernImageViewer/actions/runs/37298669958)完整恢复/格式/Release构建0警告0错误、核心58+UI131=189项全部通过；100MP观察、便携包启动和所有9类格式（含JPEG XR/受限SVG）单窗口激活、安装版同样格式激活、当前用户安装/重装迁移/卸载主要断言通过，Release job跳过。
+- 取回实际CI包核对：libSkiaSharp.dll 12,875,576B，SHA256 935EF4A00462E6B0C4DADB870F734FA43679B4F561287FE0D28CBE2BA147E832；libHarfBuzzSharp.dll 2,065,248B，SHA256 3E47DCF6E42ADA1ADA2202BFBAB1A804C0C98EDDD6989145E27AF6588FED90AF。HarfBuzz.Win32实际LICENSE/THIRD-PARTY-NOTICES与SVG三个源许可/署名均已入包，dependencies.json按真实解析记录；本地missing包不再作为正式分发未验证状态。
+- CI观察为Windows10.0.26100 x64/.NET10.0.12、4逻辑CPU（宿主AMD EPYC9V74）、17,174,360,064B RAM，PR测试合并快照bca660b、工作区干净。相同100MP生成样本preview1600²/10,240,000B，288.15ms/PeakWS57,782,272B；thumbnail140²/78,400B，222.98ms/PeakWS39,280,640B。单次虚拟runner不作为固定机P95/提升或全部nativecap证明；JSON已上传。深浅主题/紧凑画布截图已查看。
+- 安装主要断言通过后，既有finally二次调用已卸载的临时卸载器返回1并保留临时目录，CI有warning；单独记录，不说成零告警验收。M0更多现代codec/RAW/显示器ICC/MSIX和固定机验收仍待推进；最终文档提交检查见PR #25，本轮不触发Release。

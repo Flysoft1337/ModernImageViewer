@@ -74,3 +74,5 @@ RAW最低路线为固定LibRaw native → open_file/unpack_thumb，不调用unpa
 固定SVG依赖包括MS-PL与MIT；部分NuGet只有SPDX声明没有完整文本，分发必须另带[固定源码许可证和署名](../third_party/licenses/README.md)。安装器复制实际还原包的LICENSE/NOTICE，并强制复制SVG源许可，生成 `dependencies.json` 的解析包/源提交/许可/包SHA-512与实际图像native文件SHA-256；它不是完整OS/.NET或标准格式认证SBOM。
 
 本地已完成JPEG XR/WIC路径、WebP EXIF、ICC与同源SVG验证；完整正式项目恢复仍受HarfBuzz Linux/Win32包下载故障影响，不能把手工官方DLL同源验证表述为完整发布依赖通过。正式Windows CI继续执行原有格式、构建、UI/codec、启动、激活和安装/升级/卸载检查；最终结果在本轮PR与进度日志补充。
+
+后续正式[Windows CI 37298669958](https://github.com/Flysoft1337/ModernImageViewer/actions/runs/37298669958)已完整恢复、构建0警告0错误、58核心+131UI/codec全部通过，并完成真实便携/安装版全部9类格式激活、100MP观察及安装主要断言；Release跳过。[PR #25](https://github.com/Flysoft1337/ModernImageViewer/pull/25)最终检查与[进度](planning/progress.md)保留完整记录。已检查实际libSkiaSharp/libHarfBuzzSharp native、SVG/MS-PL/MIT及HarfBuzz声明入包，不再以本地网络阻碍推断正式包不可用；二次临时目录清理warning另记，M0未关闭项仍保留。

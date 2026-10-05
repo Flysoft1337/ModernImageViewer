@@ -12,6 +12,8 @@
 
 HarfBuzzSharp 14.2.0 的官方包包含 `LICENSE.txt`；已读取的 HarfBuzzSharp.NativeAssets.macOS 14.2.0 包另包含 `THIRD-PARTY-NOTICES.txt`。直接复制实际还原包内的完整文本，不用本目录的 SVG/MIT 文件替换。其 nuspec 指向 SkiaSharp 源码提交 `4e4ce7af7ea8702593af5aeb25d05c65ffb74e90`，包版权为 `© Microsoft Corporation. All rights reserved.`。Windows 发布应核对实际选中的 `HarfBuzzSharp.NativeAssets.Win32/14.2.0`，保留它自己的原生组件声明。
 
+本轮[Windows CI](https://github.com/Flysoft1337/ModernImageViewer/actions/runs/37298669958)实际win-x64发布包已核对：HarfBuzzSharp.NativeAssets.Win32/14.2.0的LICENSE.txt与THIRD-PARTY-NOTICES.txt均被携带；libHarfBuzzSharp.dll为2,065,248字节，SHA256 `3E47DCF6E42ADA1ADA2202BFBAB1A804C0C98EDDD6989145E27AF6588FED90AF`。解析包和实际文件清单见包内dependencies.json，不把未发布的其他OS组件误记为Windows文件。
+
 官方包地址为 `https://www.nuget.org/api/v2/package/<包名>/<版本>`，也可从对应 [Svg.Skia 5.2.3](https://www.nuget.org/packages/Svg.Skia/5.2.3)、[Svg.Custom 5.2.3](https://www.nuget.org/packages/Svg.Custom/5.2.3)、[ExCSS 4.3.1](https://www.nuget.org/packages/ExCSS/4.3.1)、[HarfBuzzSharp 14.2.0](https://www.nuget.org/packages/HarfBuzzSharp/14.2.0) 页面下载。
 
 分发清单按实际 `project.assets.json` 记录包名、解析版本、包内容 SHA-512、nuspec 声明的源码 URL/提交和许可；对发布目录中的实际原生文件额外记录 SHA-256。只有通过完整 ZIP/CRC 校验的官方包进入本地源，不把部分下载文件标成完整依赖。

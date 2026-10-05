@@ -13,7 +13,7 @@
 
 - [x] M0首批开发代码：按仓库M0理解N0，接入JPEG XR/受限SVG、WebP EXIF原地纠正与ICC回归；现代Skia AVIF/HEIF样本实测不支持，RAW继续待验证。
 - [x] M0首批工具/声明：统一目录/选择器/导航/关联/安装器；流式100MP样本与独立观察；固定SVG许可与实际包/native清单，见[M0验证](../m0-validation.md)。
-- [ ] M0首批最终验证：正式Windows CI完整恢复、构建、格式、全部UI/codec、启动/激活/安装及随包native/许可。局部同源验证不等于完整M0退出。
+- [x] M0首批正式验证：[Windows CI 37298669958](https://github.com/Flysoft1337/ModernImageViewer/actions/runs/37298669958)完整恢复/构建、58核心+131UI/codec、100MP观察、启动/所有格式激活及安装主要断言通过，已检查native/许可证/截图；二次临时清理warning记录于进度，最终提交检查见[PR #25](https://github.com/Flysoft1337/ModernImageViewer/pull/25)。不是整个M0退出。
 
 - [x] 核对 PR #21 已合并及最终 Windows CI：核心 41 + UI/codec 37 项、启动/激活/安装检查通过，公开版本仍为 v0.4.0。
 - [x] 编写 [下一批功能实施方案](../feature-expansion-plan.md)，明确 N1–N6 的接入位置、依赖、UI、像素所有权及完成条件。
