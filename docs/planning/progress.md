@@ -173,3 +173,5 @@
 - 新增选择测试首次把未浏览的损坏后续文件当成已剔除；现有管线只逐个尝试首个可读文件，改损坏首项验证跳过，不改变懒解码。
 - 本地Release构建0警告/0错误；20项相关回归通过（精确FileDrop/不请求位图、128/129边界、顺序/去重/筛选、空/占用/损坏与重试保留、快捷键目录、双语资源与既有窗口主题检查）。已查看深中文/浅英文菜单截图；format检查结果及正式CI随后按实际记录。不修改剪贴板、不据此声称真实Shell复制端人工验收。
 - dotnet format --verify-no-changes --no-restore退出0，git diff --check通过；不增加CI矩阵。默认沙箱gh无法读取有效keyring，提升环境认证成功。
+- [PR #27](https://github.com/Flysoft1337/ModernImageViewer/pull/27)功能提交54af7b9的[Windows CI 37334574016](https://github.com/Flysoft1337/ModernImageViewer/actions/runs/37334574016)成功：Release构建0警告/0错误，核心61+UI/codec150=211通过、1项本机真实RAW样本跳过；格式、依赖审计、100MP观察、便携启动/12类格式激活、安装版激活及安装/重装迁移/卸载检查通过。Release job跳过，公开版仍v0.4.0。
+- dotnet format仍有workspace加载warning，不能称所有工具零告警；GitHub直连超时后以现有代理取得结果。最后仅更新Markdown验收记录，功能源/测试/CI流程保持与已通过54af7b9一致；最终合并状态见PR。N3位图/复制图片留后续小批，未操作用户剪贴板，Shell复制端人工交互仍未验收。
