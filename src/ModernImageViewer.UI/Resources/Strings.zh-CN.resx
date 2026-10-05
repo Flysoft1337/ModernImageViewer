@@ -100,4 +100,10 @@
   <data name="Activation_Failed" xml:space="preserve"><value>正在运行的应用无法接收此次请求。请重试；若窗口无响应，请关闭后重新打开。</value></data>
   <data name="Activation_StartFailed" xml:space="preserve"><value>应用无法启动。请关闭无响应的窗口后重试。</value></data>
   <data name="Association_Partial" xml:space="preserve"><value>注册尚未完整，可重新注册或取消</value></data>
+  <data name="Preview_Ready" xml:space="preserve"><value>预览 · 放大查看细节</value></data>
+  <data name="Preview_Refine" xml:space="preserve"><value>加载细节</value></data>
+  <data name="Preview_Cancel" xml:space="preserve"><value>取消</value></data>
+  <data name="Preview_Refining" xml:space="preserve"><value>正在加载细节…</value></data>
+  <data name="Preview_BudgetLimit" xml:space="preserve"><value>已保留预览 · 完整细节超出内存预算</value></data>
+  <data name="Preview_DetailFailed" xml:space="preserve"><value>细节加载失败 · 已保留预览</value></data>
 </root>

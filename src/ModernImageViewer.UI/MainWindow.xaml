@@ -80,7 +80,7 @@
         </ScrollViewer>
       </Border>
       <Grid Background="{DynamicResource CanvasBrush}">
-        <controls:ImageViewport x:Name="Viewport" Margin="28,28,28,92" Image="{Binding CurrentImage}" CanvasBackground="{DynamicResource CanvasBrush}" />
+        <controls:ImageViewport x:Name="Viewport" Margin="28,28,28,92" Presentation="{Binding Presentation}" CanvasBackground="{DynamicResource CanvasBrush}" />
         <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="{Binding HasImage, Converter={StaticResource InverseBooleanToVisibilityConverter}}">
           <Grid Width="180" Height="136" Margin="0,0,0,30">
             <Border Width="108" Height="98" CornerRadius="14" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" RenderTransformOrigin="0.5,0.5" HorizontalAlignment="Left" VerticalAlignment="Center"><Border.RenderTransform><RotateTransform Angle="-14" /></Border.RenderTransform></Border>
@@ -93,6 +93,22 @@
           <Button Style="{StaticResource ToolbarButtonStyle}" Click="OnOpenFolderClick" HorizontalAlignment="Center" Margin="0,12,0,0" Foreground="{DynamicResource AccentBrush}" Content="{Binding OpenFolderLabel}" ToolTip="Ctrl+Shift+O" />
           <TextBlock Text="JPEG  ·  PNG  ·  WebP  ·  BMP  ·  GIF  ·  TIFF  ·  ICO" TextWrapping="Wrap" TextAlignment="Center" MaxWidth="360" Foreground="{DynamicResource SecondaryTextBrush}" Opacity="0.7" Margin="0,18,0,0" FontSize="11" HorizontalAlignment="Center" />
         </StackPanel>
+        <Border HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="20,0,20,100" Padding="12,8"
+                CornerRadius="10" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}"
+                BorderThickness="1" Visibility="{Binding ShowPreviewStatus, Converter={StaticResource BooleanToVisibilityConverter}}">
+          <StackPanel Orientation="Horizontal">
+            <ProgressBar Width="32" Height="3" IsIndeterminate="True" VerticalAlignment="Center" Margin="0,0,10,0"
+                         Visibility="{Binding IsRefining, Converter={StaticResource BooleanToVisibilityConverter}}" />
+            <TextBlock Text="{Binding PreviewStatusText}" FontSize="12" VerticalAlignment="Center" MaxWidth="280"
+                       TextWrapping="Wrap" Foreground="{DynamicResource SecondaryTextBrush}" AutomationProperties.LiveSetting="Polite" />
+            <Button Style="{StaticResource ToolbarButtonStyle}" Content="{Binding RefineLabel}" Margin="10,0,0,0"
+                    Click="OnRefineClick" Visibility="{Binding IsRefining, Converter={StaticResource InverseBooleanToVisibilityConverter}}"
+                    IsEnabled="{Binding CanRefine}" AutomationProperties.Name="{Binding RefineLabel}" />
+            <Button Style="{StaticResource ToolbarButtonStyle}" Content="{Binding CancelLabel}" Margin="10,0,0,0"
+                    Click="OnCancelRefinementClick" Visibility="{Binding IsRefining, Converter={StaticResource BooleanToVisibilityConverter}}"
+                    AutomationProperties.Name="{Binding CancelLabel}" />
+          </StackPanel>
+        </Border>
         <Border HorizontalAlignment="Center" VerticalAlignment="Top" Margin="20" Padding="16,10" CornerRadius="10" Background="{DynamicResource SurfaceBrush}" Visibility="{Binding IsLoading, Converter={StaticResource BooleanToVisibilityConverter}}"><StackPanel Orientation="Horizontal"><ProgressBar Width="56" Height="3" IsIndeterminate="True" VerticalAlignment="Center" /><TextBlock Text="{Binding StatusText}" Margin="12,0,0,0" Foreground="{DynamicResource PrimaryTextBrush}" /></StackPanel></Border>
         <Border HorizontalAlignment="Left" VerticalAlignment="Top" Margin="20" Padding="14,9" CornerRadius="10" Background="{DynamicResource SurfaceBrush}" Visibility="{Binding HasStatusMessage, Converter={StaticResource BooleanToVisibilityConverter}}"><TextBlock Text="{Binding StatusText}" TextWrapping="Wrap" MaxWidth="450" Foreground="{DynamicResource PrimaryTextBrush}" AutomationProperties.LiveSetting="Polite" /></Border>
         <Button HorizontalAlignment="Right" VerticalAlignment="Top" Margin="16" Style="{StaticResource ToolbarButtonStyle}" Background="{DynamicResource SurfaceBrush}" Click="OnFullScreenClick" ToolTip="Esc" AutomationProperties.Name="{Binding FullScreenLabel}" Visibility="{Binding IsFullScreen, Converter={StaticResource BooleanToVisibilityConverter}}"><Path Style="{StaticResource IconStyle}" Data="{StaticResource Icon.Close}" /></Button>

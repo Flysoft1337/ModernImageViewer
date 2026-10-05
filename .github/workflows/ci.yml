@@ -6,21 +6,43 @@ on:
   pull_request:
     branches: [master]
   workflow_dispatch:
+    inputs:
+      publish_release:
+        description: '构建验证通过后发布 GitHub Release（仅 master）'
+        type: boolean
+        default: false
+      prerelease:
+        description: '发布为预发布版本（仅 publish_release=true 时生效）'
+        type: boolean
+        default: false
 
 permissions:
   contents: read
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  # Release builds must not cancel each other before their version-scoped publish lock.
+  group: ${{ github.workflow }}-${{ inputs.publish_release && github.run_id || github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ !inputs.publish_release }}
 
 jobs:
   build-test-publish:
     runs-on: windows-latest
     timeout-minutes: 30
+    outputs:
+      release_version: ${{ steps.release_metadata.outputs.version }}
+      release_commit: ${{ steps.release_metadata.outputs.commit }}
 
     steps:
       - uses: actions/checkout@v7
+
+      - name: Check release publisher boundaries (offline)
+        run: python scripts/test-publish-release.py
+
+      - name: Validate release request and version
+        id: release_metadata
+        if: github.event_name == 'workflow_dispatch' && inputs.publish_release
+        shell: pwsh
+        run: python .\scripts\publish-release.py prepare
 
       - name: Set up .NET
         uses: actions/setup-dotnet@v6
@@ -46,6 +68,7 @@ jobs:
       - name: Test
         env:
           MIV_FORMAT_FIXTURE_DIRECTORY: ${{ github.workspace }}\artifacts\format-fixtures
+          MIV_UI_SCREENSHOT_DIRECTORY: ${{ github.workspace }}\artifacts\ui-screenshots
         run: >-
           dotnet test .\ModernImageViewer.slnx
           --configuration Release
@@ -60,6 +83,15 @@ jobs:
         with:
           name: test-results
           path: artifacts/test-results/**
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Upload UI screenshots
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: ui-screenshots
+          path: artifacts/ui-screenshots/**
           if-no-files-found: warn
           retention-days: 14
 
@@ -139,3 +171,38 @@ jobs:
           path: artifacts/publish/win-x64/**
           if-no-files-found: error
           retention-days: 14
+
+  publish-release:
+    name: Publish verified GitHub Release
+    needs: build-test-publish
+    if: github.event_name == 'workflow_dispatch' && inputs.publish_release
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    concurrency:
+      group: release-${{ needs.build-test-publish.outputs.release_version }}
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.build-test-publish.outputs.release_commit }}
+
+      - name: Download verified installer and portable package
+        uses: actions/download-artifact@v8
+        with:
+          name: ModernImageViewer-Setup-win-x64
+          path: artifacts/installer
+
+      - name: Publish immutable version assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_VERSION: ${{ needs.build-test-publish.outputs.release_version }}
+          RELEASE_COMMIT: ${{ needs.build-test-publish.outputs.release_commit }}
+          RELEASE_PRERELEASE: ${{ inputs.prerelease }}
+        run: >-
+          python scripts/publish-release.py publish
+          --version "$RELEASE_VERSION"
+          --commit "$RELEASE_COMMIT"
+          --prerelease "$RELEASE_PRERELEASE"
+          --assets artifacts/installer

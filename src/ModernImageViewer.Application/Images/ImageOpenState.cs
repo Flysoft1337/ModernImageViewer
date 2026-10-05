@@ -26,4 +26,7 @@ public sealed record ImageOpenState(
     PixelBuffer? Image = null,
     string? FilePath = null,
     string? PendingPath = null,
-    ImageOpenError Error = ImageOpenError.None);
+    ImageOpenError Error = ImageOpenError.None,
+    bool IsPreview = false,
+    bool IsRefining = false,
+    ImageOpenError RefinementError = ImageOpenError.None);

@@ -43,7 +43,7 @@ public sealed class WicImageDecoder : IImageDecoder
         return Decode(stream, maximumSize, cancellationToken);
     }
 
-    internal PixelBuffer Decode(Stream stream, PixelSize? maximumSize, CancellationToken cancellationToken)
+    internal PixelBuffer Decode(Stream stream, PixelSize? maximumSize, CancellationToken cancellationToken, long? maximumDecodedBytes = null)
     {
         cancellationToken.ThrowIfCancellationRequested();
         try
@@ -61,6 +61,13 @@ public sealed class WicImageDecoder : IImageDecoder
             PixelSize originalSize = new(frame.PixelWidth, frame.PixelHeight);
             _limits.ValidateAndGetStride(originalSize);
             ImageMetadata metadata = WicMetadataReader.Read(frame);
+            PixelSize orientedSize = metadata.Orientation >= 5
+                ? new PixelSize(originalSize.Height, originalSize.Width) : originalSize;
+            if (maximumSize is null && maximumDecodedBytes is { } originalBudget
+                && orientedSize.PixelCount * 4 > originalBudget)
+            {
+                throw new ImageSizeLimitExceededException();
+            }
             cancellationToken.ThrowIfCancellationRequested();
             BitmapSource source = frame;
             if (maximumSize is PixelSize maximum)
@@ -95,13 +102,17 @@ public sealed class WicImageDecoder : IImageDecoder
                 throw new ImageDecodeException(ImageOpenError.UnsupportedFormat);
             }
             int stride = _limits.ValidateAndGetStride(size);
+            if (maximumDecodedBytes is { } budget && (long)stride * size.Height > budget)
+            {
+                throw new ImageSizeLimitExceededException();
+            }
             byte[] pixels = GC.AllocateUninitializedArray<byte>(checked(stride * size.Height), pinned: true);
             BitmapSource converted = source.Format == PixelFormats.Pbgra32
                 ? source : new FormatConvertedBitmap(source, PixelFormats.Pbgra32, null, 0);
             cancellationToken.ThrowIfCancellationRequested();
             converted.CopyPixels(pixels, stride, 0);
             cancellationToken.ThrowIfCancellationRequested();
-            return new PixelBuffer(size, stride, pixels, metadata);
+            return new PixelBuffer(size, stride, pixels, metadata, orientedSize);
         }
         catch (ImageDecodeException)
         {

@@ -17,6 +17,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged, IDisposable
     private readonly ILocalizationService _localization;
     private readonly ImageOpenCoordinator _coordinator;
     private readonly ImageBrowseSession _browseSession;
+    private CancellationTokenSource? _refinementCancellation;
     private CancellationTokenSource? _folderCancellation;
     private CancellationTokenSource? _refreshCancellation;
     private CancellationTokenSource? _fileInformationCancellation;
@@ -73,7 +74,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged, IDisposable
 
     public string DimensionsText => CurrentImage is null
         ? string.Empty
-        : string.Format(_localization.CurrentCulture, Text("Status_DimensionsFormat"), CurrentImage.Size.Width, CurrentImage.Size.Height);
+        : string.Format(_localization.CurrentCulture, Text("Status_DimensionsFormat"), CurrentImage.SourceSize.Width, CurrentImage.SourceSize.Height);
 
     public string ZoomText => string.Format(_localization.CurrentCulture, Text("Status_ZoomFormat"), _scale);
 
@@ -177,6 +178,39 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged, IDisposable
             OnPropertyChanged(nameof(IsFilmstripVisible));
         }
     }
+
+    public ImageOpenState Presentation => _coordinator.State;
+    public bool ShowPreviewStatus => HasImage && Presentation.IsPreview && Presentation.Status != ImageOpenStatus.Loading;
+    public bool IsRefining => Presentation.IsRefining;
+    public bool CanRefine => ShowPreviewStatus && !IsRefining;
+    public string RefineLabel => Text("Preview_Refine");
+    public string CancelLabel => Text("Preview_Cancel");
+    public string PreviewStatusText => Text(IsRefining ? "Preview_Refining"
+        : Presentation.RefinementError == ImageOpenError.ImageTooLarge ? "Preview_BudgetLimit"
+        : Presentation.RefinementError != ImageOpenError.None ? "Preview_DetailFailed" : "Preview_Ready");
+
+    public async Task RefineImageAsync()
+    {
+        if (_disposed || !CanRefine)
+        {
+            return;
+        }
+        using CancellationTokenSource cancellation = new();
+        _refinementCancellation = cancellation;
+        try
+        {
+            await _coordinator.RefineAsync(cancellation.Token);
+        }
+        finally
+        {
+            if (ReferenceEquals(_refinementCancellation, cancellation))
+            {
+                _refinementCancellation = null;
+            }
+        }
+    }
+
+    public void CancelRefinement() => _refinementCancellation?.Cancel();
 
     public PixelBuffer? CurrentImage => _coordinator.State.Image;
     public bool HasImage => CurrentImage is not null;
@@ -363,6 +397,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged, IDisposable
     public void Dispose()
     {
         _disposed = true;
+        _refinementCancellation?.Cancel();
         CancelFolderWork();
         _refreshCancellation?.Cancel();
         _refreshCancellation?.Dispose();

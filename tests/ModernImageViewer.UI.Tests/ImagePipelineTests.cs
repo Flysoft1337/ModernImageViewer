@@ -123,6 +123,8 @@ public sealed class ImagePipelineTests
                 Assert.InRange(thumbnail.Size.Width, 1, 20);
                 Assert.InRange(thumbnail.Size.Height, 1, 12);
                 Assert.Equal(orientation, thumbnail.Metadata.Orientation);
+                Assert.Equal(image.Size, thumbnail.SourceSize);
+                Assert.Equal(image.Size, image.SourceSize);
                 Assert.Equal("Canon Test camera", image.Metadata.Camera);
                 Assert.Equal((uint)200, image.Metadata.Iso);
                 Assert.Equal(1.0 / 125, image.Metadata.ExposureSeconds);

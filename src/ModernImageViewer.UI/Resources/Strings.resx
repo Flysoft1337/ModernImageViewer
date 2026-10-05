@@ -100,4 +100,10 @@
   <data name="Activation_Failed" xml:space="preserve"><value>The running app could not receive this request. Try again, or close it if it is not responding.</value></data>
   <data name="Activation_StartFailed" xml:space="preserve"><value>The application could not start. Close any unresponsive instance and try again.</value></data>
   <data name="Association_Partial" xml:space="preserve"><value>Registration needs repair</value></data>
+  <data name="Preview_Ready" xml:space="preserve"><value>Preview · zoom in for detail</value></data>
+  <data name="Preview_Refine" xml:space="preserve"><value>Load detail</value></data>
+  <data name="Preview_Cancel" xml:space="preserve"><value>Cancel</value></data>
+  <data name="Preview_Refining" xml:space="preserve"><value>Loading detail…</value></data>
+  <data name="Preview_BudgetLimit" xml:space="preserve"><value>Preview retained · full detail exceeds the memory budget</value></data>
+  <data name="Preview_DetailFailed" xml:space="preserve"><value>Detail could not be loaded · preview retained</value></data>
 </root>

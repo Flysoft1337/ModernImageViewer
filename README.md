@@ -8,9 +8,9 @@
 
 ## 安装与分发
 
-0.3.0 提供 Windows x64 EXE 安装器与便携 ZIP，面向 Windows 10 22H2 或 Windows 11。两种分发均包含 .NET 10 和实际 native 运行依赖，用户无需另装 .NET。
+0.4.0 提供 Windows x64 EXE 安装器与便携 ZIP，面向 Windows 10 22H2 或 Windows 11。两种分发均包含 .NET 10 和实际 native 运行依赖，用户无需另装 .NET。
 
-- 安装器：`ModernImageViewer-0.3.0-win-x64-Setup.exe`。默认安装到当前用户的 `%LOCALAPPDATA%\Programs\ModernImageViewer`，无需管理员权限；提供开始菜单入口、可选桌面快捷方式、升级和卸载。
+- 安装器：`ModernImageViewer-0.4.0-win-x64-Setup.exe`。默认安装到当前用户的 `%LOCALAPPDATA%\Programs\ModernImageViewer`，无需管理员权限；提供开始菜单入口、可选桌面快捷方式、升级和卸载。
 - 安装时可选注册上述 9 个扩展名的打开方式；安装后在 Windows 默认应用中选择 `Modern Image Viewer`，按需要选择上述扩展名，随后资源管理器双击即可打开。安装器不会自动修改默认应用。
 - 便携 ZIP 解压后运行 `ModernImageViewer.App.exe`，需要时在应用设置里注册 `Modern Image Viewer (Portable)`。安装版与便携版使用独立关联身份，可共存；卸载安装版不撤销便携版候选。
 - 当前 EXE **未签名**；可信签名发布与 MSIX 继续规划。构建产物和校验清单由 Windows CI 上传，实际安装/卸载验证结果以对应运行记录为准；系统默认选择和 Shell 双击仍需人工验收。
@@ -23,7 +23,9 @@ pwsh .\scripts\build-installer.ps1
 pwsh .\scripts\build-installer.ps1 -SkipPublish
 ```
 
-脚本使用固定版本、校验 SHA-256 的 Inno Setup 编译器。发布输入位于 `artifacts/publish/win-x64`，安装器输出位于 `artifacts/installer/ModernImageViewer-0.3.0-win-x64-Setup.exe`。安装、修复、升级与卸载说明见 [Windows 文件关联方案](docs/windows-file-association.md)。
+脚本使用固定版本、校验 SHA-256 的 Inno Setup 编译器。发布输入位于 `artifacts/publish/win-x64`，安装器输出位于 `artifacts/installer/ModernImageViewer-0.4.0-win-x64-Setup.exe`。安装、修复、升级与卸载说明见 [Windows 文件关联方案](docs/windows-file-association.md)。
+
+需要安装时，从 [GitHub Releases](https://github.com/Flysoft1337/ModernImageViewer/releases) 下载对应版本的安装器或便携包。需要发布新版本时，在 **Actions → CI → Run workflow** 选择 **master**，勾选 **publish_release**；构建和安装检查通过后，自动创建 `v<Version>` Release，上传 EXE、ZIP 与两份 SHA256。版本来自 `Directory.Build.props`，已发布版本不会覆盖；普通 CI 只上传 artifacts。完整操作与失败恢复见 [GitHub 手动发版](docs/github-releases.md)。
 
 ## 语言
 
@@ -52,7 +54,11 @@ pwsh .\scripts\build-installer.ps1 -SkipPublish
 
 主画布直接使用解码缓冲，不再保留另一份完整 Skia 像素副本。按 `宽 × 高 × 4` 计算，24MP（6000×4000）图片可少一份 96MB（约 91.6MiB）像素副本；这不是进程整体工作集的测量结果。WIC 按需解码，先验证尺寸再分配，全尺寸解码最多并发 1 个；过期排队请求会取消。目录枚举、排序与刷新在后台执行。直接打开单张图片时，先显示已解码主图，再后台建立同目录导航，首图不等待完整目录索引；索引期间不提供依赖目录的跳转。打开文件夹仍需先枚举候选文件，多选序列不展开目录。
 
-缩略图先按 224×140 目标降采样，不走完整主图像素缓冲；但当前主图仍然全尺寸解码，没有渐进主图预览、超限降采样回退或整个进程的内存预算。2MiB 限制仅针对缓存中的缩略图像素，不包含正在解码或显示的缩略图、原生 codec 与主画布。
+主图先按最大 2560×1600 包围盒解码，不放大原图；预览像素最多 16,384,000 字节（约 15.6MiB）。小图直接显示完整细节，大图先显示预览，放大超过预览可提供的分辨率或切到实际像素时才请求原尺寸细节。浮层提供“加载细节”和“取消”，细化完成保持缩放和平移；取消、失败或超出预算时保留预览。尺寸信息与 100% 缩放始终按原图尺寸计算，不改写原文件。
+
+主图输出采用 128MiB 预算，原尺寸细化保守预留两份最大预览用于跨图与取消交接；真实 codec 在分配输出前重新检查目标尺寸和预算。原尺寸细节超过约 96.75MiB（约 25.36MP）时继续显示预览，不尝试分配完整图；区域/分块细化仍未实现。源文件原有的 32,768 单边与 100MP 限制仍有效，预览不会绕过安全尺寸检查。这是输出像素预算，不是整个进程、native codec、渲染 surface 或尚未回收内存的上限。
+
+缩略图先按 224×140 目标降采样，不走完整主图像素缓冲。2MiB 限制仅针对缓存中的缩略图像素，不包含正在解码或显示的缩略图、原生 codec 与主画布。
 
 可在同一台 Windows 机器上比较前后两个 Release self-contained 包（PowerShell 7）：
 
@@ -96,9 +102,9 @@ dotnet run --project .\benchmarks\ModernImageViewer.Benchmarks\ModernImageViewer
 
 ## 后续开发
 
-应用端外部打开、窗口复用和便携关联已实现，新增当前用户 EXE 安装路径；可信签名、MSIX 和 Windows Shell 人工验收继续推进。0.3.0 增加静态格式与缩略图字节缓存、单图先显示后索引；仍需补齐以下能力：
+应用端外部打开、窗口复用和便携关联已实现，新增当前用户 EXE 安装路径；可信签名、MSIX 和 Windows Shell 人工验收继续推进。0.3.0 增加静态格式与缩略图字节缓存、单图先显示后索引；0.4.0 增加主图预览、按需细化和手动 Release 发布流程。仍需补齐以下能力：
 
-- **近期 P1：** 主图渐进预览、按需细化、全管线字节预算与预算内相邻预取；排序、剪贴板打开/复制图片、资源管理器定位、会话旋转/翻转；紧凑高 DPI 布局与全屏自动隐藏。
+- **近期 P1：** 窗口/DPI 自适应解码、区域细化、全管线字节预算与预算内相邻预取；排序、剪贴板打开/复制图片、资源管理器定位、会话旋转/翻转；紧凑高 DPI 布局与全屏自动隐藏。
 - **随后 P2：** GIF/WebP 动画与 TIFF 多页；HEIF/AVIF、RAW、SVG；非破坏性裁剪/尺寸调整、撤销/重做与另存为；ICC 色彩管理、高位深与签名发布。
 
 性能目标仍需固定 Windows 机器实测，当前不承诺整进程内存上限或速度提升百分比。

@@ -3,6 +3,7 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 
+using ModernImageViewer.Application.Images;
 using ModernImageViewer.Imaging;
 using ModernImageViewer.UI.Rendering;
 
@@ -15,6 +16,17 @@ namespace ModernImageViewer.UI.Controls;
 public partial class ImageViewport : UserControl, IDisposable
 {
     public event EventHandler<double>? ScaleChanged;
+    public event EventHandler? DetailRequested;
+
+    public static readonly DependencyProperty PresentationProperty = DependencyProperty.Register(
+        nameof(Presentation), typeof(ImageOpenState), typeof(ImageViewport),
+        new PropertyMetadata(null, OnPresentationChanged));
+
+    public ImageOpenState? Presentation
+    {
+        get => (ImageOpenState?)GetValue(PresentationProperty);
+        set => SetValue(PresentationProperty, value);
+    }
 
     public static readonly DependencyProperty ImageProperty = DependencyProperty.Register(
         nameof(Image),
@@ -40,6 +52,8 @@ public partial class ImageViewport : UserControl, IDisposable
     private readonly ViewportTransform _transform = new();
     private SKBitmap? _bitmap;
     private Point? _lastPointer;
+    private bool _preserveTransform;
+    private bool _detailRequested;
 
     public ImageViewport()
     {
@@ -62,7 +76,7 @@ public partial class ImageViewport : UserControl, IDisposable
             return;
         }
 
-        _transform.Fit(Image.Size, Canvas.ActualWidth, Canvas.ActualHeight);
+        _transform.Fit(Image.SourceSize, Canvas.ActualWidth, Canvas.ActualHeight);
         NotifyTransformChanged();
     }
 
@@ -73,8 +87,22 @@ public partial class ImageViewport : UserControl, IDisposable
             return;
         }
 
-        _transform.ActualSize(Image.Size, Canvas.ActualWidth, Canvas.ActualHeight, 1 / VisualTreeHelper.GetDpi(Canvas).DpiScaleX);
+        _transform.ActualSize(Image.SourceSize, Canvas.ActualWidth, Canvas.ActualHeight, 1 / VisualTreeHelper.GetDpi(Canvas).DpiScaleX);
         NotifyTransformChanged();
+    }
+
+    private static void OnPresentationChanged(DependencyObject dependencyObject, DependencyPropertyChangedEventArgs e)
+    {
+        ImageViewport viewport = (ImageViewport)dependencyObject;
+        ImageOpenState? previous = (ImageOpenState?)e.OldValue;
+        ImageOpenState? current = (ImageOpenState?)e.NewValue;
+        // A single binding carries path and pixels together, so a late refinement cannot reset
+        // zoom or accidentally preserve the position when switching to another same-size image.
+        viewport._preserveTransform = previous?.Image is not null && current?.Image is not null
+            && string.Equals(previous.FilePath, current.FilePath, StringComparison.OrdinalIgnoreCase)
+            && previous.Image.SourceSize == current.Image.SourceSize;
+        viewport.Image = current?.Image;
+        viewport._preserveTransform = false;
     }
 
     private static void OnImageChanged(DependencyObject dependencyObject, DependencyPropertyChangedEventArgs e)
@@ -100,7 +128,15 @@ public partial class ImageViewport : UserControl, IDisposable
             Canvas.Children.Add(_surface);
         }
         _bitmap = SharedPixelBitmap.Create(image);
-        Fit();
+        _detailRequested = false;
+        if (_preserveTransform)
+        {
+            NotifyTransformChanged();
+        }
+        else
+        {
+            Fit();
+        }
     }
 
     private void OnPaintSurface(object? sender, SKPaintSurfaceEventArgs e)
@@ -116,12 +152,14 @@ public partial class ImageViewport : UserControl, IDisposable
         canvas.Save();
         canvas.Scale((float)dpiScale);
         EnsureCheckerPaint();
+        PixelSize sourceSize = Image!.SourceSize;
         canvas.DrawRect(new SKRect((float)_transform.OffsetX, (float)_transform.OffsetY,
-            (float)(_transform.OffsetX + (_bitmap.Width * _transform.Scale)),
-            (float)(_transform.OffsetY + (_bitmap.Height * _transform.Scale))), _checkerPaint!);
+            (float)(_transform.OffsetX + (sourceSize.Width * _transform.Scale)),
+            (float)(_transform.OffsetY + (sourceSize.Height * _transform.Scale))), _checkerPaint!);
         canvas.Translate((float)_transform.OffsetX, (float)_transform.OffsetY);
         canvas.Scale((float)_transform.Scale);
-        canvas.DrawBitmap(_bitmap, 0, 0, new SKSamplingOptions(SKFilterMode.Linear));
+        canvas.DrawBitmap(_bitmap, new SKRect(0, 0, sourceSize.Width, sourceSize.Height),
+            new SKSamplingOptions(SKFilterMode.Linear));
         canvas.Restore();
     }
 
@@ -219,7 +257,15 @@ public partial class ImageViewport : UserControl, IDisposable
     private void NotifyTransformChanged()
     {
         _surface?.InvalidateVisual();
-        ScaleChanged?.Invoke(this, _transform.Scale * VisualTreeHelper.GetDpi(Canvas).DpiScaleX);
+        double pixelScale = _transform.Scale * VisualTreeHelper.GetDpi(Canvas).DpiScaleX;
+        ScaleChanged?.Invoke(this, pixelScale);
+        if (!_detailRequested && Image is { } image && image.Size != image.SourceSize
+            && pixelScale > Math.Min((double)image.Size.Width / image.SourceSize.Width,
+                (double)image.Size.Height / image.SourceSize.Height))
+        {
+            _detailRequested = true;
+            DetailRequested?.Invoke(this, EventArgs.Empty);
+        }
     }
 
     protected override void OnDpiChanged(DpiScale oldDpi, DpiScale newDpi)
