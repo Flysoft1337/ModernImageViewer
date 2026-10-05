@@ -150,6 +150,8 @@ public sealed class MainWindowViewModelTests
                 window.Arrange(new System.Windows.Rect(0, 0, 1280, 820));
                 Controls.ImageViewport viewport = (Controls.ImageViewport)window.FindName("Viewport");
                 Assert.Empty(((System.Windows.Controls.Grid)viewport.FindName("Canvas")).Children.Cast<object>());
+                window.Show();
+                DrainBindings(window);
                 foreach (Themes.AppTheme theme in Enum.GetValues<Themes.AppTheme>())
                 {
                     themes.Apply(theme);
@@ -159,7 +161,7 @@ public sealed class MainWindowViewModelTests
                 }
                 Assert.True(coordinator.OpenAsync("preview.png").GetAwaiter().GetResult());
                 DrainBindings(window);
-                Assert.Equal(new PixelSize(400, 300), viewModel.CurrentImage!.SourceSize);
+                Assert.Equal(new PixelSize(4000, 3000), viewModel.CurrentImage!.SourceSize);
                 Assert.True(viewModel.ShowPreviewStatus);
                 double scale = 0;
                 viewport.ScaleChanged += (_, value) => scale = value;
@@ -231,12 +233,12 @@ public sealed class MainWindowViewModelTests
 
     private sealed class PreviewDecoder : IPreviewImageDecoder
     {
-        private static readonly PixelSize SourceSize = new(400, 300);
+        private static readonly PixelSize SourceSize = new(4000, 3000);
         public Task<PixelBuffer> DecodeAsync(string path, CancellationToken cancellationToken) =>
             Task.FromResult(CreateImage(SourceSize));
 
         public Task<PixelBuffer> DecodePreviewAsync(string path, PixelSize maximumSize, CancellationToken cancellationToken) =>
-            Task.FromResult(CreateImage(new PixelSize(100, 75)));
+            Task.FromResult(CreateImage(new PixelSize(2000, 1500)));
 
         private static PixelBuffer CreateImage(PixelSize size)
         {
