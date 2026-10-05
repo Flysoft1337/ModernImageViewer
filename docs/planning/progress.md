@@ -192,3 +192,15 @@
 
 - [PR #28](https://github.com/Flysoft1337/ModernImageViewer/pull/28)功能提交d501ac2的[Windows CI 37341778600](https://github.com/Flysoft1337/ModernImageViewer/actions/runs/37341778600)成功：完整恢复/格式、Release构建0警告0错误，核心65+UI/codec174=239通过、1项本机真实RAW样本跳过；依赖审计、100MP观察、便携启动/12类格式激活、安装版激活及当前用户安装/同版本重装迁移/卸载检查通过。Release job明确跳过，公开版仍v0.4.0。
 - CI format仍有workspace加载warning，不宣称全部工具零告警。最终只补Markdown验收记录，功能源/测试/流程与已通过d501ac2保持一致；最终合并状态见PR。外部应用剪贴板互通/Alpha、持久剪贴板与native峰值仍未人工验收，不将N3代码交付标成所有设备验收完成。
+
+## 2026-10-06：完善编辑功能
+
+- 基于已合并N3的master 42de42a开始比例裁剪/WebP小批；主任务负责裁剪/编辑UI，独立代理负责导出契约/codec/回归。任意角度、调整/标注及完整元数据/ICC继续留后续，不把本批视为完整M2。
+
+- 已接入显示方向的居中比例预设及锁定拖选，预设先写参数草稿，应用/保存才进入历史；同一批预设选择基于已应用crop，避免切换预设反复收缩。旋转/翻转坐标沿用N2矩阵，原比例拖选按当前方向计算。WebP UI共享品质输入，PNG隐藏品质；几何与既有STA窗口回归已补，等待统一构建。
+
+- 第一轮核心回归发现测试对已是4:3的crop再次应用同一比例仍期待新增历史；现有会话正确忽略无变化recipe，修正断言。格式检查要求switch各臂分行，采用既有format修复；未改变历史实现。
+
+- 本地标准Release构建0警告/0错误，最终编辑核心6项通过、相关UI/codec34项通过；截图用既有STA窗口case再通过，不累加计数。深中文/浅英文720×480裁剪与WebP导出面板已查看，发现原品质标签限定JPEG，改双语通用品质；补成功WebP内存来源案例，最后统一验证后再计数。
+
+- 最终标准Release构建0警告/0错误；编辑核心6/6、相关UI/codec35/35通过（包含成功内存WebP），230双语资源键一致、Markdown链接和git diff检查通过，完整dotnet format --verify-no-changes --no-restore退出0。深中文/浅英文裁剪与导出截图已查看，最终英文品质标签已复查。准备PR复用既有Windows CI，不发Release。

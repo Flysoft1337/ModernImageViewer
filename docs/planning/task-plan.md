@@ -87,3 +87,9 @@ N1/N2已合并，本批按用户优先完成N5现代格式/RAW预览与N6文件�
 - [x] STA快照、PNG透明/兼容位图输入输出、方向与复制预览/受限原尺寸。
 - [x] 内存来源安全编辑/PNG-JPEG另存为，禁止假路径与覆盖已有目标。
 - [x] 关键回归、主题双语与已有Windows CI：本地核心65/相关UI52通过；[PR #28](https://github.com/Flysoft1337/ModernImageViewer/pull/28)功能提交[Windows CI](https://github.com/Flysoft1337/ModernImageViewer/actions/runs/37341778600)239通过/1本机RAW样本skip，启动/激活/安装通过；外部剪贴板互通人工验收待补，不发布。
+
+## 2026-10-06：编辑小批次——比例裁剪与WebP
+
+- [x] 以显示方向提供自由/原比例/1:1/4:3/3:2/16:9/9:16裁剪，拖选与预设复用原图坐标，不复制像素。
+- [x] WebP品质导出接入现有PNG/JPEG安全新文件管线，支持透明和内存来源。
+- [ ] 双语/主题UI、关键坐标与导出回归、截图和既有Windows CI；同步实际验证后交付，不发布。

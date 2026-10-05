@@ -176,7 +176,7 @@
   <data name="Edit_Redo" xml:space="preserve"><value>重做</value></data>
   <data name="Edit_Reset" xml:space="preserve"><value>重置</value></data>
   <data name="Edit_Crop" xml:space="preserve"><value>裁剪</value></data>
-  <data name="Edit_CropHint" xml:space="preserve"><value>坐标基于 EXIF 校正后的原图，不随查看旋转改变。</value></data>
+  <data name="Edit_CropHint" xml:space="preserve"><value>预设居中取景并锁定拖选比例；应用后预览，数字可微调。</value></data>
   <data name="Edit_SelectCrop" xml:space="preserve"><value>在图片上选择</value></data>
   <data name="Edit_DragCrop" xml:space="preserve"><value>拖动选择区域后应用裁剪；Esc 返回编辑预览。</value></data>
   <data name="Edit_CropX" xml:space="preserve"><value>裁剪左侧坐标</value></data>
@@ -193,7 +193,7 @@
   <data name="Edit_ApplySize" xml:space="preserve"><value>应用尺寸</value></data>
   <data name="Edit_Export" xml:space="preserve"><value>保存副本</value></data>
   <data name="Edit_SaveAs" xml:space="preserve"><value>另存为…</value></data>
-  <data name="Edit_Quality" xml:space="preserve"><value>JPEG 质量（1–100）</value></data>
+  <data name="Edit_Quality" xml:space="preserve"><value>品质（1–100）</value></data>
   <data name="Edit_PngHint" xml:space="preserve"><value>PNG 保留透明度，编码无损。</value></data>
   <data name="Edit_JpegHint" xml:space="preserve"><value>JPEG 将透明区域合成为白底，有损编码。</value></data>
   <data name="Edit_PreviewNotice" xml:space="preserve"><value>预览可能经过降采样；导出按输出所需分辨率读取源像素。</value></data>
@@ -229,4 +229,9 @@
   <data name="Clipboard_PreviewCopied" xml:space="preserve"><value>已复制图片预览（含查看方向）</value></data>
   <data name="Clipboard_OriginalCopied" xml:space="preserve"><value>已复制原尺寸图片（含查看方向）</value></data>
   <data name="Edit_ClipboardNotice" xml:space="preserve"><value>正在编辑剪贴板图片，保存会创建新文件</value></data>
+  <data name="Edit_CropRatio" xml:space="preserve"><value>裁剪比例</value></data>
+  <data name="Edit_CropFree" xml:space="preserve"><value>自由</value></data>
+  <data name="Edit_CropOriginal" xml:space="preserve"><value>原比例</value></data>
+  <data name="Edit_ApplyCropHint" xml:space="preserve"><value>点击应用裁剪以预览此比例。</value></data>
+  <data name="Edit_WebpHint" xml:space="preserve"><value>有损 WebP，支持透明；品质 100 不代表无损。</value></data>
 </root>

@@ -115,25 +115,28 @@ public sealed class ImageExportServiceTests
         Assert.Empty(Directory.GetFiles(files.Directory, ".miv-export-*.tmp"));
     }
 
-    [Fact]
-    public async Task MemoryExistingTargetAndCancellationNeverOverwriteOrLeaveTemporary()
+    [Theory]
+    [InlineData(ImageExportFormat.Png, ".png")]
+    [InlineData(ImageExportFormat.Webp, ".webp")]
+    public async Task MemoryExistingTargetAndCancellationNeverOverwriteOrLeaveTemporary(ImageExportFormat format, string extension)
     {
         using Files files = new();
         ImageExportService exporter = new(new ForbiddenDecoder());
-        ImageExportRequest request = new(null, files.Output, ImageEditRecipe.Create(new(1, 1)),
+        string output = Path.ChangeExtension(files.Output, extension);
+        ImageExportRequest request = new(null, output, ImageEditRecipe.Create(new(1, 1)), Format: format,
             SourcePixels: new(new(1, 1), 4, new byte[] { 0, 0, 255, 255 }), MemorySourceIdentity: Guid.NewGuid());
-        File.WriteAllBytes(files.Output, [9, 8, 7]);
+        File.WriteAllBytes(output, [9, 8, 7]);
         ImageExportException existing = await Assert.ThrowsAsync<ImageExportException>(() => exporter.ExportAsync(request,
             TestContext.Current.CancellationToken));
         Assert.Equal(ImageExportError.DestinationExists, existing.Error);
-        Assert.Equal(new byte[] { 9, 8, 7 }, File.ReadAllBytes(files.Output));
-        File.Delete(files.Output);
+        Assert.Equal(new byte[] { 9, 8, 7 }, File.ReadAllBytes(output));
+        File.Delete(output);
         using CancellationTokenSource cancellation = new();
         await cancellation.CancelAsync();
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => exporter.ExportAsync(request, cancellation.Token));
-        Assert.False(File.Exists(files.Output));
+        Assert.False(File.Exists(output));
         // Failure opening a temporary file must not create a partial destination.
-        string missing = Path.Combine(files.Directory, "missing", "output.png");
+        string missing = Path.Combine(files.Directory, "missing", "output" + extension);
         ImageExportException failed = await Assert.ThrowsAsync<ImageExportException>(() => exporter.ExportAsync(
             request with { DestinationPath = missing }, TestContext.Current.CancellationToken));
         Assert.Equal(ImageExportError.WriteFailed, failed.Error);
@@ -284,27 +287,30 @@ public sealed class ImageExportServiceTests
         Assert.Empty(Directory.GetFiles(files.Directory, ".miv-export-*.tmp"));
     }
 
-    [Fact]
-    public async Task SameSourcePathExistingDestinationStaleSourceBudgetAndCancellationNeverWrite()
+    [Theory]
+    [InlineData(ImageExportFormat.Png, ".png")]
+    [InlineData(ImageExportFormat.Webp, ".webp")]
+    public async Task SameSourcePathExistingDestinationStaleSourceBudgetAndCancellationNeverWrite(ImageExportFormat format, string extension)
     {
         using Files files = new();
         File.WriteAllBytes(files.Source, [1]);
         ImageExportService exporter = new(new ForbiddenDecoder());
         ImageEditRecipe recipe = ImageEditRecipe.Create(new(1, 1));
-        ImageExportException same = await Assert.ThrowsAsync<ImageExportException>(() => exporter.ExportAsync(new(files.Source, files.Source, recipe), TestContext.Current.CancellationToken));
+        string output = Path.ChangeExtension(files.Output, extension);
+        ImageExportException same = await Assert.ThrowsAsync<ImageExportException>(() => exporter.ExportAsync(new(files.Source, files.Source, recipe, Format: format), TestContext.Current.CancellationToken));
         Assert.Equal(ImageExportError.InvalidDestination, same.Error);
-        File.WriteAllBytes(files.Output, [2]);
-        ImageExportException existing = await Assert.ThrowsAsync<ImageExportException>(() => exporter.ExportAsync(new(files.Source, files.Output, recipe), TestContext.Current.CancellationToken));
+        File.WriteAllBytes(output, [2]);
+        ImageExportException existing = await Assert.ThrowsAsync<ImageExportException>(() => exporter.ExportAsync(new(files.Source, output, recipe, Format: format), TestContext.Current.CancellationToken));
         Assert.Equal(ImageExportError.DestinationExists, existing.Error);
-        File.Delete(files.Output);
-        ImageExportException stale = await Assert.ThrowsAsync<ImageExportException>(() => exporter.ExportAsync(new(files.Source, files.Output, recipe, ExpectedSourceLength: 2), TestContext.Current.CancellationToken));
+        File.Delete(output);
+        ImageExportException stale = await Assert.ThrowsAsync<ImageExportException>(() => exporter.ExportAsync(new(files.Source, output, recipe, Format: format, ExpectedSourceLength: 2), TestContext.Current.CancellationToken));
         Assert.Equal(ImageExportError.SourceChanged, stale.Error);
-        ImageExportException budget = await Assert.ThrowsAsync<ImageExportException>(() => exporter.ExportAsync(new(files.Source, files.Output, recipe.WithSize(new(5000, 5000))), TestContext.Current.CancellationToken));
+        ImageExportException budget = await Assert.ThrowsAsync<ImageExportException>(() => exporter.ExportAsync(new(files.Source, output, recipe.WithSize(new(5000, 5000)), Format: format), TestContext.Current.CancellationToken));
         Assert.Equal(ImageExportError.BudgetExceeded, budget.Error);
         using CancellationTokenSource cancellation = new();
         await cancellation.CancelAsync();
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => exporter.ExportAsync(new(files.Source, files.Output, recipe), cancellation.Token));
-        Assert.False(File.Exists(files.Output));
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => exporter.ExportAsync(new(files.Source, output, recipe, Format: format), cancellation.Token));
+        Assert.False(File.Exists(output));
         Assert.Empty(Directory.GetFiles(files.Directory, ".miv-export-*.tmp"));
     }
 

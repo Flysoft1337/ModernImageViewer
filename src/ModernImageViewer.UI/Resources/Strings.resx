@@ -176,7 +176,7 @@
   <data name="Edit_Redo" xml:space="preserve"><value>Redo</value></data>
   <data name="Edit_Reset" xml:space="preserve"><value>Reset</value></data>
   <data name="Edit_Crop" xml:space="preserve"><value>Crop</value></data>
-  <data name="Edit_CropHint" xml:space="preserve"><value>Coordinates use the EXIF-corrected original, before viewing rotations.</value></data>
+  <data name="Edit_CropHint" xml:space="preserve"><value>Presets center within the crop and lock the drag ratio. Apply to preview; numeric values allow fine adjustment.</value></data>
   <data name="Edit_SelectCrop" xml:space="preserve"><value>Select on image</value></data>
   <data name="Edit_DragCrop" xml:space="preserve"><value>Drag a rectangle, then apply crop. Esc returns to the edited preview.</value></data>
   <data name="Edit_CropX" xml:space="preserve"><value>Crop left coordinate</value></data>
@@ -193,7 +193,7 @@
   <data name="Edit_ApplySize" xml:space="preserve"><value>Apply size</value></data>
   <data name="Edit_Export" xml:space="preserve"><value>Save a copy</value></data>
   <data name="Edit_SaveAs" xml:space="preserve"><value>Save as…</value></data>
-  <data name="Edit_Quality" xml:space="preserve"><value>JPEG quality (1–100)</value></data>
+  <data name="Edit_Quality" xml:space="preserve"><value>Quality (1–100)</value></data>
   <data name="Edit_PngHint" xml:space="preserve"><value>PNG preserves transparency. Lossless encoding.</value></data>
   <data name="Edit_JpegHint" xml:space="preserve"><value>JPEG uses a white background for transparency. Lossy encoding.</value></data>
   <data name="Edit_PreviewNotice" xml:space="preserve"><value>The preview may be downsampled. Export uses source pixels at the resolution needed for your output.</value></data>
@@ -229,4 +229,9 @@
   <data name="Clipboard_PreviewCopied" xml:space="preserve"><value>Image preview copied with viewing orientation.</value></data>
   <data name="Clipboard_OriginalCopied" xml:space="preserve"><value>Original-size image copied with viewing orientation.</value></data>
   <data name="Edit_ClipboardNotice" xml:space="preserve"><value>Editing a clipboard image. Saving creates a new file.</value></data>
+  <data name="Edit_CropRatio" xml:space="preserve"><value>Crop ratio</value></data>
+  <data name="Edit_CropFree" xml:space="preserve"><value>Free</value></data>
+  <data name="Edit_CropOriginal" xml:space="preserve"><value>Original</value></data>
+  <data name="Edit_ApplyCropHint" xml:space="preserve"><value>Apply the crop to preview this ratio.</value></data>
+  <data name="Edit_WebpHint" xml:space="preserve"><value>Lossy WebP with transparency. Quality 100 is not lossless.</value></data>
 </root>

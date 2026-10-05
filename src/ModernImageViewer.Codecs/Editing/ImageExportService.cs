@@ -120,8 +120,13 @@ public sealed class ImageExportService(IImageDecoder decoder) : IImageExportServ
             temporary = Path.Combine(Path.GetDirectoryName(destination)!, $".miv-export-{Guid.NewGuid():N}.tmp");
             using (FileStream stream = new(temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None))
             {
-                if (!bitmap.Encode(stream, request.Format == ImageExportFormat.Png ? SKEncodedImageFormat.Png : SKEncodedImageFormat.Jpeg,
-                    request.JpegQuality))
+                using SKPixmap pixels = bitmap.PeekPixels();
+                // Encode fresh raster pixels only: source EXIF/XMP/ICC metadata is not copied.
+                bool encoded = request.Format == ImageExportFormat.Webp
+                    ? pixels.Encode(stream, new SKWebpEncoderOptions(SKWebpEncoderCompression.Lossy, request.JpegQuality))
+                    : bitmap.Encode(stream, request.Format == ImageExportFormat.Png ? SKEncodedImageFormat.Png : SKEncodedImageFormat.Jpeg,
+                        request.JpegQuality);
+                if (!encoded)
                 {
                     throw new ImageExportException(ImageExportError.WriteFailed);
                 }
@@ -221,9 +226,15 @@ public sealed class ImageExportService(IImageDecoder decoder) : IImageExportServ
             throw new ImageExportException(ImageExportError.InvalidDestination);
         }
         string extension = Path.GetExtension(request.DestinationPath);
-        if (!Enum.IsDefined(request.Format) || (request.Format == ImageExportFormat.Png
-            ? !extension.Equals(".png", StringComparison.OrdinalIgnoreCase)
-            : !extension.Equals(".jpg", StringComparison.OrdinalIgnoreCase) && !extension.Equals(".jpeg", StringComparison.OrdinalIgnoreCase)))
+        bool matchingExtension = request.Format switch
+        {
+            ImageExportFormat.Png => extension.Equals(".png", StringComparison.OrdinalIgnoreCase),
+            ImageExportFormat.Jpeg => extension.Equals(".jpg", StringComparison.OrdinalIgnoreCase)
+                || extension.Equals(".jpeg", StringComparison.OrdinalIgnoreCase),
+            ImageExportFormat.Webp => extension.Equals(".webp", StringComparison.OrdinalIgnoreCase),
+            _ => false,
+        };
+        if (!matchingExtension)
         {
             throw new ImageExportException(ImageExportError.InvalidDestination);
         }

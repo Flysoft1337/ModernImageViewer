@@ -30,6 +30,7 @@ public partial class EditWindow : Window
     private bool _sizeDirty;
     private bool _selectingCrop;
     private (double X, double Y)? _cropStart;
+    private PixelSize? _cropRatio;
     private CancellationTokenSource? _exportCancellation;
     private bool _closeAfterExport;
 
@@ -177,23 +178,54 @@ public partial class EditWindow : Window
     {
         if (_cropStart is not { } start || e.LeftButton != MouseButtonState.Pressed) { return; }
         var end = SourcePoint(e.GetPosition(Preview));
-        int x = (int)Math.Floor(Math.Min(start.X, end.X));
-        int y = (int)Math.Floor(Math.Min(start.Y, end.Y));
-        int right = (int)Math.Ceiling(Math.Max(start.X, end.X));
-        int bottom = (int)Math.Ceiling(Math.Max(start.Y, end.Y));
-        if (right <= x || bottom <= y) { return; }
-        CropX.Text = x.ToString(CultureInfo.InvariantCulture);
-        CropY.Text = y.ToString(CultureInfo.InvariantCulture);
-        CropWidth.Text = (right - x).ToString(CultureInfo.InvariantCulture);
-        CropHeight.Text = (bottom - y).ToString(CultureInfo.InvariantCulture);
-        Point first = Preview.ToCanvasPoint(x, y);
-        Point last = Preview.ToCanvasPoint(right, bottom);
+        if (ImageCropGeometry.Drag(Recipe.SourceSize, Recipe.Orientation, start, end, CropRatioOriginal.IsChecked == true
+            ? Recipe.Orientation.GetDisplaySize(Recipe.SourceSize) : _cropRatio) is not { } crop)
+        {
+            SelectionRectangle.Visibility = Visibility.Collapsed;
+            return;
+        }
+        WriteCropValues(crop);
+        ShowCropRectangle(crop);
+        e.Handled = true;
+    }
+
+    private void WriteCropValues(PixelRect crop)
+    {
+        CropX.Text = crop.X.ToString(CultureInfo.InvariantCulture);
+        CropY.Text = crop.Y.ToString(CultureInfo.InvariantCulture);
+        CropWidth.Text = crop.Width.ToString(CultureInfo.InvariantCulture);
+        CropHeight.Text = crop.Height.ToString(CultureInfo.InvariantCulture);
+    }
+
+    private void ShowCropRectangle(PixelRect crop)
+    {
+        Point first = Preview.ToCanvasPoint(crop.X, crop.Y);
+        Point last = Preview.ToCanvasPoint(crop.Right, crop.Bottom);
         Canvas.SetLeft(SelectionRectangle, Math.Min(first.X, last.X));
         Canvas.SetTop(SelectionRectangle, Math.Min(first.Y, last.Y));
         SelectionRectangle.Width = Math.Abs(last.X - first.X);
         SelectionRectangle.Height = Math.Abs(last.Y - first.Y);
         SelectionRectangle.Visibility = Visibility.Visible;
-        e.Handled = true;
+    }
+
+    private void OnCropRatioChanged(object sender, RoutedEventArgs e)
+    {
+        if (_refreshing || CropX is null || sender is not RadioButton { Tag: string tag }) { return; }
+        _cropRatio = tag switch
+        {
+            "Original" => Recipe.Orientation.GetDisplaySize(Recipe.SourceSize),
+            "1:1" => new(1, 1),
+            "4:3" => new(4, 3),
+            "3:2" => new(3, 2),
+            "16:9" => new(16, 9),
+            "9:16" => new(9, 16),
+            _ => null,
+        };
+        if (_cropRatio is not { } ratio) { return; }
+        PixelRect crop = ImageCropGeometry.Fit(Recipe.Crop, Recipe.Orientation, ratio);
+        WriteCropValues(crop);
+        if (_selectingCrop) { ShowCropRectangle(crop); }
+        StatusText.Text = Text("Edit_ApplyCropHint");
     }
 
     private void OnCropUp(object sender, MouseButtonEventArgs e)
@@ -273,8 +305,9 @@ public partial class EditWindow : Window
     {
         if (FormatHint is null || QualityPanel is null) { return; }
         bool jpeg = JpegFormat?.IsChecked == true;
-        FormatHint.Text = Text(jpeg ? "Edit_JpegHint" : "Edit_PngHint");
-        QualityPanel.Visibility = jpeg ? Visibility.Visible : Visibility.Collapsed;
+        bool webp = WebpFormat?.IsChecked == true;
+        FormatHint.Text = Text(webp ? "Edit_WebpHint" : jpeg ? "Edit_JpegHint" : "Edit_PngHint");
+        QualityPanel.Visibility = jpeg || webp ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private async void OnSaveClick(object sender, RoutedEventArgs e)
@@ -288,16 +321,22 @@ public partial class EditWindow : Window
         }
         _session.Apply(next);
         RefreshEditor();
-        ImageExportFormat format = JpegFormat.IsChecked == true ? ImageExportFormat.Jpeg : ImageExportFormat.Png;
+        ImageExportFormat format = WebpFormat.IsChecked == true ? ImageExportFormat.Webp
+            : JpegFormat.IsChecked == true ? ImageExportFormat.Jpeg : ImageExportFormat.Png;
         int quality = 90;
-        if (format == ImageExportFormat.Jpeg && !ReadInteger(JpegQuality, 1, 100, out quality)) { return; }
-        string extension = format == ImageExportFormat.Png ? ".png" : ".jpg";
+        if (format != ImageExportFormat.Png && !ReadInteger(JpegQuality, 1, 100, out quality)) { return; }
+        string extension = format switch { ImageExportFormat.Png => ".png", ImageExportFormat.Webp => ".webp", _ => ".jpg" };
         SaveFileDialog dialog = new()
         {
             Title = Text("Edit_SaveAs"),
             AddExtension = true,
             DefaultExt = extension,
-            Filter = format == ImageExportFormat.Png ? "PNG (*.png)|*.png" : "JPEG (*.jpg;*.jpeg)|*.jpg;*.jpeg",
+            Filter = format switch
+            {
+                ImageExportFormat.Png => "PNG (*.png)|*.png",
+                ImageExportFormat.Webp => "WebP (*.webp)|*.webp",
+                _ => "JPEG (*.jpg;*.jpeg)|*.jpg;*.jpeg",
+            },
             FileName = (_sourcePath is null ? "clipboard" : Path.GetFileNameWithoutExtension(_sourcePath)) + "-edited" + extension,
             OverwritePrompt = false,
         };
