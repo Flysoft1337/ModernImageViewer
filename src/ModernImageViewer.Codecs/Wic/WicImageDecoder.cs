@@ -22,6 +22,7 @@ public sealed class WicImageDecoder : IImageDecoder
         new("1F8A5601-7D4D-4CBD-9C82-1BC8D4EEB9A5"), // GIF
         new("163BCC30-E2E9-4F0B-961D-A3E9FDB788A3"), // TIFF
         new("A3A860C4-338F-4C17-919A-FBA4B5628F21"), // ICO
+        new("57A37CAA-367A-4540-916B-F183C5093A4B"), // JPEG XR / HD Photo
     ];
 
     public async Task<PixelBuffer> DecodeAsync(string path, CancellationToken cancellationToken)

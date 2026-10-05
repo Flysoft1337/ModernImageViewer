@@ -111,6 +111,7 @@ public sealed partial class MainWindowViewModel : INotifyPropertyChanged, IDispo
         set { _isFullScreen = value; OnPropertyChanged(); }
     }
     public string AppName => Text("MainWindow_Title");
+    public string SupportedFormatsOverview => Text("SupportedFormats_Overview");
     public string WelcomeTitle => Text("Welcome_Title");
     public string WelcomeHint => Text("Welcome_Hint");
     public string FullScreenLabel => Text("Command_FullScreen");

@@ -58,7 +58,7 @@ try {
     if ($FixtureDirectory) {
         $fixturePath = (Resolve-Path $FixtureDirectory).Path
         $fixtures = @(Get-ChildItem -LiteralPath $fixturePath -File | Sort-Object Name)
-        foreach ($group in @(".jpg;.jpeg", ".png", ".bmp", ".gif", ".tif;.tiff", ".ico", ".webp")) {
+        foreach ($group in @(".jpg;.jpeg", ".png", ".bmp", ".gif", ".tif;.tiff", ".ico", ".webp", ".jxr;.wdp;.hdp", ".svg")) {
             $extensions = $group.Split(';')
             if (@($fixtures | Where-Object { $_.Extension.ToLowerInvariant() -in $extensions }).Count -eq 0) {
                 throw "The fixture directory is missing a required format: $group."
@@ -70,7 +70,7 @@ try {
             Wait-ForImage $primary $fixture.Name
             $currentName = $fixture.Name
         }
-        Write-Output "Published application opened real JPEG, PNG, BMP, GIF, TIFF, ICO and WebP fixtures."
+        Write-Output "Published application opened real JPEG, PNG, BMP, GIF, TIFF, ICO, WebP, JPEG XR and restricted SVG fixtures."
     }
     $activation = Start-Viewer @()
     Assert-Forwarded $activation

@@ -31,6 +31,7 @@ public sealed class FormatDecoderTests
                 ("jpg", () => new JpegBitmapEncoder()), ("png", () => new PngBitmapEncoder()),
                 ("bmp", () => new BmpBitmapEncoder()), ("gif", () => new GifBitmapEncoder()),
                 ("tiff", () => new TiffBitmapEncoder()),
+                ("jxr", () => new WmpBitmapEncoder()),
             ];
             ImageDecoder decoder = new();
             foreach (var (extension, create) in encoders)

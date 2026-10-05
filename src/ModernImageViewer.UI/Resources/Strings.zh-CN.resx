@@ -14,7 +14,8 @@
   <data name="Status_Loading" xml:space="preserve"><value>正在加载图片…</value></data>
   <data name="Error_FileNotFound" xml:space="preserve"><value>找不到该文件。</value></data>
   <data name="Error_AccessDenied" xml:space="preserve"><value>没有权限访问该文件。</value></data>
-  <data name="Error_UnsupportedFormat" xml:space="preserve"><value>不支持这种图片格式。</value></data>
+  <data name="Error_UnsupportedFormat" xml:space="preserve"><value>不支持这种图片格式或其中的特性。</value></data>
+  <data name="SupportedFormats_Overview" xml:space="preserve"><value>JPEG · PNG · WebP · BMP · GIF · TIFF · ICO · JPEG XR · SVG（受限）</value></data>
   <data name="Error_CorruptFile" xml:space="preserve"><value>图片文件已损坏或不完整。</value></data>
   <data name="Error_ImageTooLarge" xml:space="preserve"><value>图片过大，无法安全打开。</value></data>
   <data name="Error_DecodeFailed" xml:space="preserve"><value>无法打开该图片。</value></data>

@@ -1,6 +1,7 @@
 using System.IO;
 
 using ModernImageViewer.Application.Images;
+using ModernImageViewer.Codecs.Svg;
 using ModernImageViewer.Codecs.Wic;
 using ModernImageViewer.Imaging;
 
@@ -52,6 +53,12 @@ public sealed class ImageDecoder : IPreviewImageDecoder, IThumbnailDecoder, IReg
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 using FileStream stream = new(path, FileMode.Open, FileAccess.Read, FileShare.Read);
+                if (string.Equals(Path.GetExtension(path), ".svg", StringComparison.OrdinalIgnoreCase))
+                {
+                    // Skia's curve antialiasing changes at local clip edges. Keep preview/full output
+                    // until a region path can guarantee consistent compositing at those boundaries.
+                    throw new ImageDecodeException(ImageOpenError.UnsupportedFormat);
+                }
                 if (IsWebP(stream))
                 {
                     // Skia's WebP path cannot guarantee bounded region output without a full decode.
@@ -84,6 +91,10 @@ public sealed class ImageDecoder : IPreviewImageDecoder, IThumbnailDecoder, IReg
     {
         cancellationToken.ThrowIfCancellationRequested();
         using FileStream stream = new(path, FileMode.Open, FileAccess.Read, FileShare.Read);
+        if (string.Equals(Path.GetExtension(path), ".svg", StringComparison.OrdinalIgnoreCase))
+        {
+            return RestrictedSvgImageDecoder.Decode(stream, maximumSize, maximumDecodedBytes, cancellationToken);
+        }
         if (!IsWebP(stream))
         {
             // Do not initialize Skia's native codec on the JPEG/PNG startup path.
@@ -115,14 +126,18 @@ public sealed class ImageDecoder : IPreviewImageDecoder, IThumbnailDecoder, IReg
         }
         PixelSize original = new(codec.Info.Width, codec.Info.Height);
         ImageDecodeLimits.Default.ValidateAndGetStride(original);
+        ushort orientation = (ushort)codec.EncodedOrigin;
+        if (orientation is < 1 or > 8) { orientation = 1; }
+        PixelSize orientedSource = orientation >= 5 ? new(original.Height, original.Width) : original;
         PixelSize size = original;
         if (maximumSize is PixelSize maximum)
         {
-            float scale = Math.Min(1, Math.Min((float)maximum.Width / original.Width,
-                (float)maximum.Height / original.Height));
+            PixelSize rawMaximum = orientation >= 5 ? new(maximum.Height, maximum.Width) : maximum;
+            float scale = Math.Min(1, Math.Min((float)rawMaximum.Width / original.Width,
+                (float)rawMaximum.Height / original.Height));
             SKSizeI scaled = codec.GetScaledDimensions(scale);
             size = new PixelSize(scaled.Width, scaled.Height);
-            if (size.Width > maximum.Width || size.Height > maximum.Height)
+            if (size.Width > rawMaximum.Width || size.Height > rawMaximum.Height)
             {
                 // A codec must honor the requested output bound; never silently decode full-size.
                 throw new ImageDecodeException(ImageOpenError.UnsupportedFormat);
@@ -134,7 +149,8 @@ public sealed class ImageDecoder : IPreviewImageDecoder, IThumbnailDecoder, IReg
             throw new ImageSizeLimitExceededException();
         }
         byte[] pixels = GC.AllocateUninitializedArray<byte>(checked(stride * size.Height), pinned: true);
-        SKImageInfo info = new(size.Width, size.Height, SKColorType.Bgra8888, SKAlphaType.Premul);
+        using SKColorSpace srgb = SKColorSpace.CreateSrgb();
+        SKImageInfo info = new(size.Width, size.Height, SKColorType.Bgra8888, SKAlphaType.Premul, srgb);
         cancellationToken.ThrowIfCancellationRequested();
         SKCodecResult result = codec.GetPixels(info, pixels);
         cancellationToken.ThrowIfCancellationRequested();
@@ -142,6 +158,8 @@ public sealed class ImageDecoder : IPreviewImageDecoder, IThumbnailDecoder, IReg
         {
             throw new ImageDecodeException(ImageOpenError.CorruptFile);
         }
-        return new PixelBuffer(size, stride, pixels, sourceSize: original);
+        PixelSize orientedSize = PixelOrientation.ApplyInPlace(pixels, size, orientation, cancellationToken);
+        return new PixelBuffer(orientedSize, checked(orientedSize.Width * 4), pixels,
+            metadata: ImageMetadata.Empty with { Orientation = orientation }, sourceSize: orientedSource);
     }
 }

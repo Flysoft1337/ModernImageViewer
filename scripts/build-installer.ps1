@@ -55,25 +55,87 @@ $assetsPath = Join-Path $repository "src/ModernImageViewer.App/obj/project.asset
 if (-not (Test-Path $assetsPath -PathType Leaf)) { throw "Resolved project.assets.json is required to include dependency licenses." }
 $assets = Get-Content $assetsPath -Raw | ConvertFrom-Json
 $packageRoots = @($assets.packageFolders.PSObject.Properties.Name)
+if ($assets.libraries.PSObject.Properties.Name -like 'Svg.Custom/*') {
+    $sourceNotices = Join-Path $repository 'third_party/licenses'
+    $destinationNotices = Join-Path $PublishDirectory 'licenses/svg-source-notices'
+    [IO.Directory]::CreateDirectory($destinationNotices) | Out-Null
+    foreach ($name in @('Svg.Skia-MIT.txt', 'Svg.Custom-MS-PL.txt', 'ExCSS-MIT.txt', 'THIRD-PARTY-NOTICES.txt', 'README.md')) {
+        $sourceNotice = Join-Path $sourceNotices $name
+        if (-not (Test-Path $sourceNotice -PathType Leaf)) { throw "Required SVG dependency notice is missing: $name" }
+        Copy-Item -LiteralPath $sourceNotice -Destination (Join-Path $destinationNotices $name) -Force
+    }
+}
+$packageInventory = [Collections.Generic.List[object]]::new()
 foreach ($library in $assets.libraries.PSObject.Properties) {
     if ($library.Value.type -ne "package") { continue }
     foreach ($packageRoot in $packageRoots) {
         $packageDirectory = Join-Path $packageRoot $library.Value.path
         if (-not (Test-Path $packageDirectory -PathType Container)) { continue }
-        $notices = @(Get-ChildItem $packageDirectory -File | Where-Object {
-            $_.Name -match '^(LICENSE(\.txt)?|THIRD-PARTY-NOTICES\.txt|ThirdPartyNotices\.txt)$'
+        $notices = @(Get-ChildItem -LiteralPath $packageDirectory -File -Recurse | Where-Object {
+            $_.Name -match '^(LICEN[CS]E([._-].*)?|COPYING([._-].*)?|NOTICE([._-].*)?|THIRD[-_]?PARTY[-_]?NOTICES([._-].*)?)$'
         })
         if ($notices.Count -gt 0) {
             $noticeDirectory = Join-Path $PublishDirectory ("licenses/" + $library.Name.Replace("/", "-"))
             [IO.Directory]::CreateDirectory($noticeDirectory) | Out-Null
-            foreach ($notice in $notices) { Copy-Item $notice.FullName (Join-Path $noticeDirectory $notice.Name) -Force }
+            foreach ($notice in $notices) {
+                $relativeNotice = [IO.Path]::GetRelativePath($packageDirectory, $notice.FullName)
+                $noticeDestination = Join-Path $noticeDirectory $relativeNotice
+                [IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($noticeDestination)) | Out-Null
+                Copy-Item -LiteralPath $notice.FullName -Destination $noticeDestination -Force
+            }
         }
+        $specPath = Get-ChildItem -LiteralPath $packageDirectory -Filter '*.nuspec' -File | Select-Object -First 1
+        $licenseIdentifier = $null
+        $licenseKind = $null
+        $sourceRepository = $null
+        $sourceCommit = $null
+        if ($specPath) {
+            $settings = [Xml.XmlReaderSettings]::new()
+            $settings.DtdProcessing = [Xml.DtdProcessing]::Prohibit
+            $settings.XmlResolver = $null
+            $reader = [Xml.XmlReader]::Create($specPath.FullName, $settings)
+            try {
+                $spec = [Xml.XmlDocument]::new()
+                $spec.XmlResolver = $null
+                $spec.Load($reader)
+                $metadata = $spec.GetElementsByTagName('metadata') | Select-Object -First 1
+                $licenseIdentifier = $metadata.license.InnerText
+                $licenseKind = $metadata.license.type
+                $sourceRepository = $metadata.repository.url
+                $sourceCommit = $metadata.repository.commit
+            }
+            finally { $reader.Dispose() }
+        }
+        $packageInventory.Add([pscustomobject]@{
+            Package = $library.Name
+            PackageSha512 = $library.Value.sha512
+            LicenseKind = $licenseKind
+            License = $licenseIdentifier
+            Repository = $sourceRepository
+            Commit = $sourceCommit
+            NoticeFiles = @($notices | ForEach-Object { [IO.Path]::GetRelativePath($packageDirectory, $_.FullName).Replace('\', '/') })
+        })
         break
     }
 }
 $skiaNotices = Get-ChildItem (Join-Path $PublishDirectory "licenses") -Directory -Filter "SkiaSharp.NativeAssets.Win32-*" |
     Where-Object { (Test-Path (Join-Path $_.FullName "LICENSE.txt")) -and (Test-Path (Join-Path $_.FullName "THIRD-PARTY-NOTICES.txt")) }
 if (-not $skiaNotices) { throw "SkiaSharp native LICENSE.txt and THIRD-PARTY-NOTICES.txt must be included in the distribution." }
+$nativeInventory = @(Get-ChildItem -LiteralPath $PublishDirectory -Recurse -File | Where-Object {
+    $_.Name -match '^(libSkiaSharp|libHarfBuzzSharp|Magick\.Native).*\.dll$'
+} | ForEach-Object {
+    [pscustomobject]@{
+        File = [IO.Path]::GetRelativePath($PublishDirectory, $_.FullName).Replace('\', '/')
+        Bytes = $_.Length
+        Sha256 = (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash
+    }
+})
+[pscustomobject]@{
+    SchemaVersion = 1
+    Scope = 'Resolved NuGet package declarations and actual published image native files; not a certification or complete OS/.NET SBOM'
+    Packages = $packageInventory
+    NativeFiles = $nativeInventory
+} | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $PublishDirectory 'dependencies.json') -Encoding utf8
 
 # Pin both the official compiler release and its GitHub asset checksum.
 $compilerVersion = "7.1.0"

@@ -16,7 +16,7 @@ $applicationKey = "Software\ModernImageViewer\Installed"
 $progId = "ModernImageViewer.Installed.Image"
 $progIdKey = "Software\Classes\$progId"
 $registeredApplicationsKey = "Software\RegisteredApplications"
-$extensions = @(".jpg", ".jpeg", ".png", ".bmp", ".gif", ".tif", ".tiff", ".ico", ".webp")
+$extensions = @(".jpg", ".jpeg", ".png", ".bmp", ".gif", ".tif", ".tiff", ".ico", ".webp", ".jxr", ".wdp", ".hdp", ".svg")
 $foreignCandidate = "ModernImageViewer.InstallerSmoke." + [Guid]::NewGuid().ToString("N")
 $currentUser = [Microsoft.Win32.Registry]::CurrentUser
 $candidateKeys = [Collections.Generic.List[string]]::new()
@@ -227,7 +227,7 @@ try {
         finally { if ($null -ne $key) { $key.Dispose() } }
     }
     foreach ($path in $protected.Keys) {
-        $actual = if ($path -match '^Software\\Classes\\\.(jpg|jpeg|png|bmp|gif|tif|tiff|ico|webp)$') { Read-RegistryValue $path "" } else { Read-RegistrySnapshot $path }
+        $actual = if ($path -match '^Software\\Classes\\\.(jpg|jpeg|png|bmp|gif|tif|tiff|ico|webp|jxr|wdp|hdp|svg)$') { Read-RegistryValue $path "" } else { Read-RegistrySnapshot $path }
         Assert-Equal $actual $protected[$path] "Installation changed an existing default choice or portable identity."
     }
     Assert-Equal (Read-RegistryValue $registeredApplicationsKey "ModernImageViewer.Portable") $portableRegistration "Installation changed the portable RegisteredApplications value."

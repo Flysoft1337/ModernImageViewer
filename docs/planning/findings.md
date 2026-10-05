@@ -1,5 +1,14 @@
 # 发现记录
 
+## 2026-10-05：M0 更多格式核对
+
+- 本轮起点为 master `58e3d7b`（N2 / PR #24），工作区干净；当前源码是 0.5.0 开发基线，继续不触发 Release。
+- 仓库未定义 N0，已询问是否指 M0；在确认期间先推进格式能力的独立验证，不将整个 M0 退出条件提前标为完成。
+- M0 尚包括 HEIF/AVIF、RAW 内嵌预览、ICC 原型、100MP/native 预算/基准及 MSIX；现代 codec 与受限 SVG 的实际能力、分发和许可证先并行查证。
+- 现有随包 SkiaSharp 4.153.1 win-x64 对官方 libheif example.avif/example.heic 均返回 Unimplemented；同一 probe 的 PNG control 成功。不能仅新增 AVIF/HEIF 扩展名，正在验证独立 codec。
+- Windows WIC 原生 JPEG XR 实测生成/解码通过，容器 GUID 为 57a37caa-367a-4540-916b-f183c5093a4b，主图/预览/缩略图/ROI 回归已通过；启用 .jxr/.wdp/.hdp，HDR仍不保证。
+- WebP EXIF 1–8 本地样本证实只读方向但不自动应用；已接入原地像素置换和方向感知目标盒，2项真实WebP回归通过，不新增整图像素副本。ICC目标sRGB原型仍需正式样本/发布包记录，不代表完整显示器色彩管理。
+
 ## 2026-10-05：N2 接入核对
 
 - 起点为 master `bb5fab0`（PR #23），工作区干净；0.5.0 为开发基线，公开 Release 仍为 v0.4.0。

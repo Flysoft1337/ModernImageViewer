@@ -1,5 +1,19 @@
 # 进度日志
 
+## 2026-10-05：M0 格式与必备基线开始
+
+- 已读取最新 AGENTS、功能方案、路线图、项目计划、支持矩阵和规划记录；N1/N2 已合并。用户要求更多格式及完善 N0，仓库对应项为 M0，已提出异步范围核对。
+- 使用 `codex/m0-format-baseline` 分支；延续提交/推送/PR/检查后合并授权及不发版要求。先查实际随包 codec 与受限 SVG，再确定启用目录；未验证项保留待实现状态。
+
+## 2026-10-05：M0首批格式与资源/分发基线
+
+- WIC JPEG XR真实容器及主图/预览/缩略图/ROI已通过既有格式回归，接入.jxr/.wdp/.hdp。受限SVG固定Svg.Skia5.2.3，直接完整目标 raster；1MiB、2048元素、depth32、65536几何项，禁止主动/外部与递归资源，坏语法不静默截断，最多2透明层/32MiB辅助层像素。同源SVG63项通过，组合入口/正式依赖待现有Windows CI。
+- WebP六色无损样本EXIF1–8真实回归通过，原地BGRA置换只增加有界bitset；源/目标维度一致。自行生成线性RGB ICC的4×2灰128 WebP，sRGB实际输出约188、原文件不变；ICC回归通过，不复制系统profile。6项核心方向回归和既有格式/2项WebP回归通过。
+- CodecProbe Release构建0警告/0错误；流式100MP PNG和独立preview/thumbnail进程完成开发观察，原始条件、hash和数据见[M0验证](../m0-validation.md)。预览输出1600×1600/10,240,000B，thumbnail140×140/78,400B；单次进程峰值不等于native专用分配、固定机P95或全管线cap。复用现有Windows CI上传观察JSON。
+- 新SVG包没有完整许可证，仅SPDX；已从固定源码提交补MS-PL/MIT原文与原作者版权到third_party/licenses，安装器强制携带并生成解析包/native清单与hash。没有将HarfBuzz的Info/名义依赖冒充真实随包验证。
+- 本机官方NuGet传输多次TLS/CDN断连；已下载的官方SVG托管包通过ZIP验证，本地正式restore还缺HarfBuzz.NativeAssets Linux/Win32。局部测试用同一生产源和真实官方托管DLL运行，不能说成正式整体构建通过；正式Windows CI保留原源/审计和全管线验收。
+- 固定SkiaSharp4.153.1 Windows native对官方libheif AVIF/HEIC样本Create=Unimplemented，PNG control成功。Magick.NET14.17.2候选已核对API/NOTICE，但native包下载缺尾/Core，未实际运行，不启用AVIF/HEIF。RAW/完整显示器颜色/MSIX仍待关闭；本轮不发布新版本，公开下载仍v0.4.0。
+
 ## 2026-10-05：N2 开始
 
 - 已读取协作约定、功能方案、路线图及现有计划/进度。会话绘制方向与设置快照并行实现，主任务负责菜单、窗口恢复、整体验证和交付。
@@ -125,3 +139,5 @@
 - F1/更多菜单打开按需创建的帮助窗口，六组卡片与右对齐键说明共用实际键处理目录，支持中英文/主题、窄窗滚动、Esc 关闭与焦点恢复；输入控件保留自身按键，全屏可打开帮助。细滚动条模板在帮助/信息面板复用。
 - 同步 README、实施方案、路线图与任务状态。补关键排序取消/稳定性、Shell 原生资源/单 worker、排序保留像素、定位过期反馈和帮助目录回归，复用既有 STA 窗口/截图检查；实际构建与 Windows 运行结果以交付 PR/CI 为准，不预写通过数或性能收益。N2–N6 仍待实现。
 - 云端本地验证：全解决方案 Release 交叉构建 0 警告/0 错误，核心 47 项通过，格式、资源键与文档链接检查通过；WPF/Shell 回归、深浅主题帮助截图及安装/激活沿用 Windows CI，最终结果见本轮 PR。
+
+- 最终入口同源Release验证68/68通过（SVG62、SVG文件管线1、格式2、WebP方向2、ICC1），核心正式项目58项通过。统一入口发现SVG曲线ROI边界AA差异后已撤掉SVG区域API及宣称，暂保留有界完整目标/预算内细化；原始发现与约束见M0记录。正式Windows CI仍待完整NuGet/native与发布包验收。
