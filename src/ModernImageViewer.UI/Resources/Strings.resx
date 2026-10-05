@@ -15,7 +15,7 @@
   <data name="Error_FileNotFound" xml:space="preserve"><value>The file could not be found.</value></data>
   <data name="Error_AccessDenied" xml:space="preserve"><value>Access to the file was denied.</value></data>
   <data name="Error_UnsupportedFormat" xml:space="preserve"><value>This image format or its features are not supported.</value></data>
-  <data name="SupportedFormats_Overview" xml:space="preserve"><value>JPEG · PNG · WebP · BMP · GIF · TIFF · ICO · JPEG XR · SVG (restricted)</value></data>
+  <data name="SupportedFormats_Overview" xml:space="preserve"><value>JPEG · PNG · WebP · AVIF · HEIF · BMP · GIF · TIFF · ICO · JPEG XR · SVG (restricted) · RAW (embedded preview)</value></data>
   <data name="Error_CorruptFile" xml:space="preserve"><value>The image file is damaged or incomplete.</value></data>
   <data name="Error_ImageTooLarge" xml:space="preserve"><value>The image is too large to open safely.</value></data>
   <data name="Error_DecodeFailed" xml:space="preserve"><value>The image could not be opened.</value></data>
@@ -73,7 +73,7 @@
   <data name="Status_ScanningFolder" xml:space="preserve"><value>Scanning folder…</value></data>
   <data name="Association_Title" xml:space="preserve"><value>Open images with this app</value></data>
   <data name="Association_Intro" xml:space="preserve"><value>Add supported image types to Windows Open with, then choose this app as your default image viewer.</value></data>
-  <data name="Association_Formats" xml:space="preserve"><value>Supported image types · GIF, TIFF and WebP show the first frame</value></data>
+  <data name="Association_Formats" xml:space="preserve"><value>Supported image types · animations/TIFF show the first frame/page; RAW uses embedded previews</value></data>
   <data name="Association_Registered" xml:space="preserve"><value>Ready in Windows Open with</value></data>
   <data name="Association_NotRegistered" xml:space="preserve"><value>Not registered yet</value></data>
   <data name="Association_OtherLocation" xml:space="preserve"><value>Registered from another location</value></data>
@@ -169,4 +169,49 @@
   <data name="Preferences_Browsing" xml:space="preserve"><value>Browsing preferences</value></data>
   <data name="Shortcut_Action_RotateRight" xml:space="preserve"><value>Rotate view right 90°</value></data>
   <data name="Shortcut_Action_RotateLeft" xml:space="preserve"><value>Rotate view left 90°</value></data>
+  <data name="Shortcut_Action_EditImage" xml:space="preserve"><value>Crop, resize and save a copy</value></data>
+  <data name="Edit_Title" xml:space="preserve"><value>Edit image</value></data>
+  <data name="Edit_NonDestructive" xml:space="preserve"><value>Original stays unchanged</value></data>
+  <data name="Edit_Undo" xml:space="preserve"><value>Undo</value></data>
+  <data name="Edit_Redo" xml:space="preserve"><value>Redo</value></data>
+  <data name="Edit_Reset" xml:space="preserve"><value>Reset</value></data>
+  <data name="Edit_Crop" xml:space="preserve"><value>Crop</value></data>
+  <data name="Edit_CropHint" xml:space="preserve"><value>Coordinates use the EXIF-corrected original, before viewing rotations.</value></data>
+  <data name="Edit_SelectCrop" xml:space="preserve"><value>Select on image</value></data>
+  <data name="Edit_DragCrop" xml:space="preserve"><value>Drag a rectangle, then apply crop. Esc returns to the edited preview.</value></data>
+  <data name="Edit_CropX" xml:space="preserve"><value>Crop left coordinate</value></data>
+  <data name="Edit_CropY" xml:space="preserve"><value>Crop top coordinate</value></data>
+  <data name="Edit_CropWidth" xml:space="preserve"><value>Crop width in source pixels</value></data>
+  <data name="Edit_CropHeight" xml:space="preserve"><value>Crop height in source pixels</value></data>
+  <data name="Edit_Width" xml:space="preserve"><value>Width (px)</value></data>
+  <data name="Edit_Height" xml:space="preserve"><value>Height (px)</value></data>
+  <data name="Edit_ApplyCrop" xml:space="preserve"><value>Apply crop</value></data>
+  <data name="Edit_Resize" xml:space="preserve"><value>Output size</value></data>
+  <data name="Edit_OutputWidth" xml:space="preserve"><value>Output width in pixels</value></data>
+  <data name="Edit_OutputHeight" xml:space="preserve"><value>Output height in pixels</value></data>
+  <data name="Edit_KeepRatio" xml:space="preserve"><value>Keep aspect ratio</value></data>
+  <data name="Edit_ApplySize" xml:space="preserve"><value>Apply size</value></data>
+  <data name="Edit_Export" xml:space="preserve"><value>Save a copy</value></data>
+  <data name="Edit_SaveAs" xml:space="preserve"><value>Save as…</value></data>
+  <data name="Edit_Quality" xml:space="preserve"><value>JPEG quality (1–100)</value></data>
+  <data name="Edit_PngHint" xml:space="preserve"><value>PNG preserves transparency. Lossless encoding.</value></data>
+  <data name="Edit_JpegHint" xml:space="preserve"><value>JPEG uses a white background for transparency. Lossy encoding.</value></data>
+  <data name="Edit_PreviewNotice" xml:space="preserve"><value>The preview may be downsampled. Export uses source pixels at the resolution needed for your output.</value></data>
+  <data name="Edit_ExportNotice" xml:space="preserve"><value>Choose a new filename; existing files cannot be replaced. 8-bit output, up to 16 megapixels. Source EXIF/ICC metadata is not copied.</value></data>
+  <data name="Edit_OutputSummary" xml:space="preserve"><value>Applied output · {0} × {1} px</value></data>
+  <data name="Edit_Ready" xml:space="preserve"><value>Ctrl+Z undo · Ctrl+Shift+Z redo · Ctrl+S save a copy</value></data>
+  <data name="Edit_InvalidValues" xml:space="preserve"><value>Enter whole numbers within the image bounds.</value></data>
+  <data name="Edit_Saving" xml:space="preserve"><value>Preparing and saving the copy…</value></data>
+  <data name="Edit_Saved" xml:space="preserve"><value>Saved: {0}</value></data>
+  <data name="Edit_Cancelled" xml:space="preserve"><value>Export cancelled. Original unchanged.</value></data>
+  <data name="Edit_Cancelling" xml:space="preserve"><value>Cancelling export…</value></data>
+  <data name="Edit_Error_InvalidDestination" xml:space="preserve"><value>Choose a new PNG/JPEG filename, different from the original.</value></data>
+  <data name="Edit_Error_DestinationExists" xml:space="preserve"><value>The destination already exists. Choose a new filename.</value></data>
+  <data name="Edit_Error_SourceChanged" xml:space="preserve"><value>The source changed or is unavailable. Reopen it before editing.</value></data>
+  <data name="Edit_Error_BudgetExceeded" xml:space="preserve"><value>This size/crop combination cannot be exported. Reduce the output size or export the whole image.</value></data>
+  <data name="Edit_Error_DecodeFailed" xml:space="preserve"><value>Could not read the source pixels. The original is unchanged.</value></data>
+  <data name="Edit_Error_WriteFailed" xml:space="preserve"><value>Could not save the copy. Check the folder and free space.</value></data>
+  <data name="Edit_EmbeddedPreviewNotice" xml:space="preserve"><value>Editing the RAW file's embedded preview, at its preview dimensions. Sensor pixels and full RAW development are not used.</value></data>
+  <data name="Error_RawNoPreview" xml:space="preserve"><value>This RAW file has no supported embedded preview.</value></data>
+  <data name="Raw_EmbeddedPreview" xml:space="preserve"><value>Embedded preview</value></data>
 </root>

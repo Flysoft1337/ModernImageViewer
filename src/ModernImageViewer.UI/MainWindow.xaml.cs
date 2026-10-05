@@ -12,6 +12,7 @@ using System.Windows.Threading;
 using Microsoft.Win32;
 
 using ModernImageViewer.Application.Browsing;
+using ModernImageViewer.Application.Editing;
 using ModernImageViewer.Application.Images;
 using ModernImageViewer.Application.Integration;
 using ModernImageViewer.UI.Controls;
@@ -36,12 +37,13 @@ public partial class MainWindow : Window
 
     public MainWindow(MainWindowViewModel viewModel, ThemeService themes,
         Func<IFileAssociationService>? fileAssociations = null, ILocalizationService? localization = null,
-        IThumbnailDecoder? thumbnailDecoder = null)
+        IThumbnailDecoder? thumbnailDecoder = null, IImageExportService? imageExporter = null)
     {
         _viewModel = viewModel;
         _themes = themes;
         _fileAssociations = fileAssociations;
         _localization = localization;
+        _imageExporter = imageExporter;
         ThumbnailDecoder = thumbnailDecoder;
         _themes.Initialize();
         InitializeComponent();
@@ -410,6 +412,7 @@ public partial class MainWindow : Window
             case ViewerAction.RevealInExplorer: OnRevealClick(this, e); break;
             case ViewerAction.RotateRight: Viewport.RotateRight(); break;
             case ViewerAction.RotateLeft: Viewport.RotateLeft(); break;
+            case ViewerAction.EditImage: OnEditClick(this, e); break;
             case ViewerAction.DismissOverlay: _viewModel.ShowInformation = false; break;
         }
     }

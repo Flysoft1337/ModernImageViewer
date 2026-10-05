@@ -168,7 +168,10 @@ public sealed partial class MainWindowViewModel : INotifyPropertyChanged, IDispo
     public string DirectoryPath => Path.GetDirectoryName(CurrentFilePath) ?? string.Empty;
     public string DirectoryName => _browseSession.IsSelection ? Text("Browsing_Selection")
         : Path.GetFileName(DirectoryPath) is { Length: > 0 } name ? name : DirectoryPath;
-    public string FormatText => HasImage ? Path.GetExtension(CurrentFilePath).TrimStart('.').ToUpperInvariant() : "—";
+    public string FormatText => HasImage
+        ? Path.GetExtension(CurrentFilePath).TrimStart('.').ToUpperInvariant()
+            + (CurrentImage?.Metadata.IsEmbeddedPreview == true ? $" · {Text("Raw_EmbeddedPreview")}" : string.Empty)
+        : "—";
     public string FileSizeText => _fileLength is { } length ? FormatFileSize(length) : "—";
     public string ModifiedText => _modified?.ToString("g", _localization.CurrentCulture) ?? "—";
     public string FolderImagesText => string.Format(_localization.CurrentCulture, Text(_browseSession.IsSelection ? "Browsing_SelectionCountFormat" : "Browsing_CountFormat"), _browseSession.Count);

@@ -1,6 +1,9 @@
 using System.IO;
+using System.Runtime.InteropServices;
 
 using ModernImageViewer.Application.Images;
+using ModernImageViewer.Codecs.Modern;
+using ModernImageViewer.Codecs.Raw;
 using ModernImageViewer.Codecs.Svg;
 using ModernImageViewer.Codecs.Wic;
 using ModernImageViewer.Imaging;
@@ -53,6 +56,10 @@ public sealed class ImageDecoder : IPreviewImageDecoder, IThumbnailDecoder, IReg
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 using FileStream stream = new(path, FileMode.Open, FileAccess.Read, FileShare.Read);
+                if (SupportedImageFormats.IsRawExtension(Path.GetExtension(path)))
+                {
+                    throw new ImageDecodeException(ImageOpenError.UnsupportedFormat);
+                }
                 if (string.Equals(Path.GetExtension(path), ".svg", StringComparison.OrdinalIgnoreCase))
                 {
                     // Skia's curve antialiasing changes at local clip edges. Keep preview/full output
@@ -62,6 +69,10 @@ public sealed class ImageDecoder : IPreviewImageDecoder, IThumbnailDecoder, IReg
                 if (IsWebP(stream))
                 {
                     // Skia's WebP path cannot guarantee bounded region output without a full decode.
+                    throw new ImageDecodeException(ImageOpenError.UnsupportedFormat);
+                }
+                if (HeifContainer.TryDetect(stream, out _))
+                {
                     throw new ImageDecodeException(ImageOpenError.UnsupportedFormat);
                 }
                 return _wic.DecodeRegion(stream, region, expectedSourceSize, maximumDecodedBytes, cancellationToken);
@@ -91,9 +102,30 @@ public sealed class ImageDecoder : IPreviewImageDecoder, IThumbnailDecoder, IReg
     {
         cancellationToken.ThrowIfCancellationRequested();
         using FileStream stream = new(path, FileMode.Open, FileAccess.Read, FileShare.Read);
+        ImageFileStamp stamp = new(stream.Length, File.GetLastWriteTimeUtc(path));
+        using PixelBuffer decoded = DecodeStream(path, stream, maximumSize, maximumDecodedBytes, cancellationToken);
+        if (!MemoryMarshal.TryGetArray(decoded.Pixels, out ArraySegment<byte> pixels) || pixels.Array is null || pixels.Offset != 0)
+        {
+            throw new ImageDecodeException(ImageOpenError.DecodeFailed);
+        }
+        // Transfer the same immutable storage into the published result; no pixel-array copy.
+        return new PixelBuffer(decoded.Size, decoded.Stride, pixels.Array, decoded.Metadata, decoded.SourceSize, stamp);
+    }
+
+    private PixelBuffer DecodeStream(string path, Stream stream, PixelSize? maximumSize,
+        long? maximumDecodedBytes, CancellationToken cancellationToken)
+    {
+        if (SupportedImageFormats.IsRawExtension(Path.GetExtension(path)))
+        {
+            return RawPreviewImageDecoder.Decode(path, maximumSize, maximumDecodedBytes, cancellationToken);
+        }
         if (string.Equals(Path.GetExtension(path), ".svg", StringComparison.OrdinalIgnoreCase))
         {
             return RestrictedSvgImageDecoder.Decode(stream, maximumSize, maximumDecodedBytes, cancellationToken);
+        }
+        if (HeifContainer.TryDetect(stream, out bool avif))
+        {
+            return HeifImageDecoder.Decode(stream, avif, maximumSize, maximumDecodedBytes, cancellationToken);
         }
         if (!IsWebP(stream))
         {

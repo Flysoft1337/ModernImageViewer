@@ -146,3 +146,16 @@
 - 取回实际CI包核对：libSkiaSharp.dll 12,875,576B，SHA256 935EF4A00462E6B0C4DADB870F734FA43679B4F561287FE0D28CBE2BA147E832；libHarfBuzzSharp.dll 2,065,248B，SHA256 3E47DCF6E42ADA1ADA2202BFBAB1A804C0C98EDDD6989145E27AF6588FED90AF。HarfBuzz.Win32实际LICENSE/THIRD-PARTY-NOTICES与SVG三个源许可/署名均已入包，dependencies.json按真实解析记录；本地missing包不再作为正式分发未验证状态。
 - CI观察为Windows10.0.26100 x64/.NET10.0.12、4逻辑CPU（宿主AMD EPYC9V74）、17,174,360,064B RAM，PR测试合并快照bca660b、工作区干净。相同100MP生成样本preview1600²/10,240,000B，288.15ms/PeakWS57,782,272B；thumbnail140²/78,400B，222.98ms/PeakWS39,280,640B。单次虚拟runner不作为固定机P95/提升或全部nativecap证明；JSON已上传。深浅主题/紧凑画布截图已查看。
 - 安装主要断言通过后，既有finally二次调用已卸载的临时卸载器返回1并保留临时目录，CI有warning；单独记录，不说成零告警验收。M0更多现代codec/RAW/显示器ICC/MSIX和固定机验收仍待推进；最终文档提交检查见PR #25，本轮不触发Release。
+
+## 2026-10-05：RAW、AVIF/HEIF 与基础编辑开始
+
+- 用户指定下一批完成 RAW、AVIF/HEIF 和编辑。master 6738cf4 已同步、工作区干净，使用 codex/raw-modern-formats-editor 分支。
+- 编辑范围沿用 N6：裁剪/尺寸调整/撤销重做/另存为；RAW 读取内嵌预览，不以完整显影冒充轻量首屏。
+- codec、编辑实现并行；共享格式目录、依赖打包和验收由主代理整合。0.5.0、不触发 Release 约束继续生效。
+- 全解决方案NuGet/native通过本机既有代理完整恢复，随后离线feed恢复通过；首次build检查发现modern过时API警告提升为错误，codec代理已修正，整体编译待实现收敛。
+- 编辑局部回归完成：操作历史3项、导出/绘制8项及既有STA窗口检查通过；主代理已查看720×480深中文/浅英文编辑截图。全解决方案Release构建0警告0错误（此时RAW统一路由/样本验收仍在收敛）。
+- 新增解码时的SourceFileStamp（长度/修改时间），只读handle内观察并复用同一像素数组；编辑器比对已加载版本，外部替换时要求重新打开。属性相同但内容改动仍需F5，不把属性当内容hash。
+- 默认沙箱对部分仓库文件报reparse point/写权限拒绝，改用已授权的提升写入；没有改系统权限或全局Git设置。
+- RAW最终实现5项统一入口回归通过：自有DNG JPEG/RGB8/ImaconRGB16、独立预览flip与EXIF一次纠正、无预览/损坏/取消恢复及真实Canon EOS40D CR2/Nikon D3S NEF，源hash不变。/MT bridge1,170,432B仅importsKERNEL32/WS2_32；完整固定源码ZIP与CDDL/版权/备选LGPL随包。
+- 全量本地验证核心61+UI/codec146通过；3项旧文件关联仅因沙箱隔离HKCU拒绝，提升权限只补跑该3项全部通过。合计210项验证通过；最终微调后核心编辑3与导出/RAW关键12项再通过，Release全方案0警告0错误。正式分发/安装验收以本PR Windows CI为准，不预写结果。
+- 210个双语资源键一致；25扩展名与安装/撤销声明一致，文档链接与git diff检查通过。文档长命令审批超时，改短脚本完成；脚本定位N6两条相同前缀时停下，改唯一定位仅完成未执行部分，未重复修改已完成文档。

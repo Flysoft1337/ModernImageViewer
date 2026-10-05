@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
     <ProjectReference Include="..\ModernImageViewer.Application\ModernImageViewer.Application.csproj" />
@@ -9,6 +9,7 @@
     <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
     <PackageReference Include="SkiaSharp" />
     <PackageReference Include="Svg.Skia" />
+    <PackageReference Include="Magick.NET-Q8-x64" />
   </ItemGroup>
 
   <PropertyGroup>
@@ -18,4 +19,9 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <ItemGroup Label="RAW preview native assets">
+    <Content Include="..\..\artifacts\raw-native\ModernImageViewer.RawBridge.dll" Link="ModernImageViewer.RawBridge.dll" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="..\..\artifacts\raw-native\raw-native.json" Link="raw-native.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="..\..\artifacts\raw-native\licenses\*" Link="licenses\raw-native\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
 </Project>

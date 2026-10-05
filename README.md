@@ -2,11 +2,11 @@
 
 面向 Windows 10/11 的本地图片查看器，目标是快速打开、流畅浏览、完成常用编辑，并确保原图安全。
 
-当前正在推进 **M1 图片浏览体验**，M0 的扩展解码器与性能验证仍待完成。已接入 WIC 解码和 SkiaSharp 画布，支持 JPEG、PNG、BMP、GIF、TIFF、ICO 和 WebP 静态图片打开、拖放、同目录自然排序浏览、文件夹打开、循环幻灯片、邻近图片缩略图、适应窗口、实际像素大小、缩放、平移和全屏。采用深色画廊界面，支持浅色与跟随系统主题，文件信息面板默认收起，支持常见 JPEG EXIF 信息和拍摄方向自动纠正。libvips、LibRaw、编辑和完整相邻图片预取尚未实现。
+当前推进 **M1 浏览体验与 M2 文件编辑首批**。已有常见静态格式、文件夹/多选浏览、缩放/平移/全屏、幻灯片、缩略图、排序和文件关联；支持中英文、深浅/系统主题、常见 EXIF 和方向纠正。开发代码已补 RAW 内嵌预览、静态 AVIF/HEIF，以及非破坏性裁剪、尺寸调整、撤销/重做和 PNG/JPEG 安全另存为。完整 RAW 显影、动画/多页、剪贴板、WebP 导出与完整色彩管理仍待实现。
 
-**当前开发格式：JPEG、PNG、BMP、GIF、TIFF、ICO、WebP、JPEG XR、受限 SVG，共 13 个扩展名。** 原有9个扩展名之外增加 `.jxr`、`.wdp`、`.hdp`、`.svg`；v0.4.0 下载包仍只有原有格式。GIF/WebP仅首帧，TIFF仅首页，ICO仅首个图标帧；动画、多页/多尺寸、HEIF/HEIC、AVIF和RAW未实现。WIC解码7类栅格容器，Skia解码WebP，固定Svg.Skia按目标尺寸绘制受限SVG。SVG支持形状、路径、变换和本地渐变，拒绝文字、图片、脚本、外部资源、use/clip/mask/filter/动画等特性，不代表完整SVG支持。详细边界见[格式支持](docs/decoder-support.md)和[M0验证](docs/m0-validation.md)。
+**当前开发格式：12 类、25 个扩展名。** 常见静态格式、JPEG XR、受限 SVG、AVIF、HEIF，以及 RAW 内嵌预览（DNG/CR2/CR3/NEF/ARW/RAF/RW2/ORF/PEF）。AVIF/HEIF 使用随包 Magick.NET，静态首图、最大32MP/128MiB输入；RAW使用固定LibRaw0.22.2桥接，最大256MiB输入/32MiB预览，尺寸代表内嵌预览，不是传感器；没有可读预览时反馈，不进行完整显影。GIF/WebP仅首帧、TIFF仅首页、ICO仅首个图标；受限SVG不支持文字、外部资源、复杂合成和动画。详细边界见[格式支持](docs/decoder-support.md)与[本批验证](docs/raw-modern-editing.md)。公开v0.4.0仍只有原9扩展名。
 
-当前使用 **0.5.0 未发布开发基线**，N1/N2已合并，本轮补JPEG XR、受限SVG、WebP方向/ICC及M0可复现观察和依赖声明。本轮不发布新版本；最新公开下载仍为 [v0.4.0](https://github.com/Flysoft1337/ModernImageViewer/releases/tag/v0.4.0)。下面能力以当前源码为准，实际验证见交付PR/CI。
+当前使用 **0.5.0 未发布开发基线**，N1/N2已合并，本批接入N5现代格式/RAW预览及N6文件编辑首批。本轮不发布新版本；最新公开下载仍为[v0.4.0](https://github.com/Flysoft1337/ModernImageViewer/releases/tag/v0.4.0)。实际验证见[进度记录](docs/planning/progress.md)及交付PR/CI。
 
 ## 安装与分发
 
@@ -20,6 +20,8 @@
 从 Windows 开发环境打包（PowerShell 7）：
 
 ```powershell
+# 源码构建需 MSVC x64 Build Tools；发布包运行不需要它
+pwsh .\scripts\build-raw-native.ps1
 pwsh .\scripts\build-installer.ps1
 # 已完成 win-x64 self-contained publish 时复用发布输出
 pwsh .\scripts\build-installer.ps1 -SkipPublish
@@ -42,6 +44,7 @@ pwsh .\scripts\build-installer.ps1 -SkipPublish
 - `F6` 开始/暂停循环幻灯片，菜单可选 2/5/10 秒；加载期间和最小化时暂停计时，解码失败时停止播放。`Esc` 停止播放；画布聚焦时也支持空格。
 - `← / →` 切换，`Home / End` 跳到目录首尾。更多菜单支持名称、修改时间、文件大小排序及升降序；排序保留当前图与视口，多选图片保持选择顺序，排序偏好跨启动保存。
 - “更多 → 查看方向”支持向左/右旋转 90°、水平/垂直翻转与恢复方向；`Ctrl+R` 向右旋转，`Ctrl+Shift+R` 向左旋转。作用于 EXIF 校正后的图像，只改变绘制矩阵，不复制整图像素、不修改原文件；细化保留方向，切换图片重置方向。
+- “更多→编辑图片”或`Ctrl+E`打开编辑窗口：拖动/数值裁剪、按比例缩放或解锁拉伸、方向操作，`Ctrl+Z`撤销、`Ctrl+Shift+Z`/`Ctrl+Y`重做、`Ctrl+S`另存为。PNG保留透明，JPEG白底且质量可调；只创建新文件，不覆盖原图或已有目标。关闭丢弃未导出历史，保存后仍可撤销；RAW编辑的是内嵌预览。[预算与边界](docs/raw-modern-editing.md)。
 - 滚轮围绕鼠标缩放，拖动平移，双击切换适应窗口与实际大小。
 - `0` 适应窗口，`1` 实际像素大小，`+ / -` 缩放。
 - `F11` 全屏，`Esc` 退出全屏或收起信息面板；全屏会恢复此前窗口位置与状态及面板选择。闲置 2.5 秒隐藏浮层与光标，鼠标移动或键盘操作唤回；菜单、控件焦点与拖拽期间保持可见。

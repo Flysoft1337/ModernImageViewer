@@ -59,6 +59,10 @@ jobs:
       - name: Restore
         run: dotnet restore .\ModernImageViewer.slnx
 
+      - name: Build bundled RAW preview bridge
+        shell: pwsh
+        run: .\scripts\build-raw-native.ps1
+
       - name: Verify formatting
         run: dotnet format .\ModernImageViewer.slnx --verify-no-changes --no-restore
 

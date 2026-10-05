@@ -21,6 +21,33 @@ public partial class ImageViewport : UserControl, IDisposable
     public event EventHandler<PixelRect>? RegionDetailRequested;
     public event EventHandler? OrientationChanged;
     public ViewOrientation Orientation { get; private set; }
+    public ImageEditRecipe? EditRecipe { get; private set; }
+
+    public void SetEditRecipe(ImageEditRecipe? recipe)
+    {
+        if (recipe is not null && Image?.SourceSize != recipe.SourceSize)
+        {
+            throw new ArgumentException("The recipe must match the displayed source.", nameof(recipe));
+        }
+        EditRecipe = recipe;
+        _lastRequestedRegion = null;
+        Fit();
+    }
+
+    private PixelSize DisplaySize => EditRecipe?.OutputSize ?? Orientation.GetDisplaySize(Image!.SourceSize);
+
+    public (double X, double Y) ToSourcePoint(Point position)
+    {
+        double x = (position.X - _transform.OffsetX) / _transform.Scale;
+        double y = (position.Y - _transform.OffsetY) / _transform.Scale;
+        return EditRecipe?.ToSource(x, y) ?? Orientation.ToSourcePoint(Image!.SourceSize, x, y);
+    }
+
+    public Point ToCanvasPoint(double x, double y)
+    {
+        var point = EditRecipe?.ToOutput(x, y) ?? Orientation.ToDisplayPoint(Image!.SourceSize, x, y);
+        return new Point((point.X * _transform.Scale) + _transform.OffsetX, (point.Y * _transform.Scale) + _transform.OffsetY);
+    }
     public PixelRect? VisibleDetailRegion => CalculateVisibleDetailRegion();
 
     public static readonly DependencyProperty PresentationProperty = DependencyProperty.Register(
@@ -86,7 +113,7 @@ public partial class ImageViewport : UserControl, IDisposable
             return;
         }
 
-        _transform.Fit(Orientation.GetDisplaySize(Image.SourceSize), Canvas.ActualWidth, Canvas.ActualHeight);
+        _transform.Fit(DisplaySize, Canvas.ActualWidth, Canvas.ActualHeight);
         NotifyTransformChanged();
     }
 
@@ -97,7 +124,7 @@ public partial class ImageViewport : UserControl, IDisposable
             return;
         }
 
-        _transform.ActualSize(Orientation.GetDisplaySize(Image.SourceSize), Canvas.ActualWidth, Canvas.ActualHeight, 1 / VisualTreeHelper.GetDpi(Canvas).DpiScaleX);
+        _transform.ActualSize(DisplaySize, Canvas.ActualWidth, Canvas.ActualHeight, 1 / VisualTreeHelper.GetDpi(Canvas).DpiScaleX);
         NotifyTransformChanged();
     }
 
@@ -133,6 +160,7 @@ public partial class ImageViewport : UserControl, IDisposable
             && previous.Image.SourceSize == current.Image.SourceSize;
         if (!viewport._preserveTransform)
         {
+            viewport.EditRecipe = null;
             viewport.ClearOrientation();
         }
         viewport.Image = current?.Image;
@@ -193,15 +221,19 @@ public partial class ImageViewport : UserControl, IDisposable
         canvas.Scale((float)dpiScale);
         EnsureCheckerPaint();
         PixelSize sourceSize = Image!.SourceSize;
-        PixelSize displaySize = Orientation.GetDisplaySize(sourceSize);
+        PixelSize displaySize = DisplaySize;
         canvas.DrawRect(new SKRect((float)_transform.OffsetX, (float)_transform.OffsetY,
             (float)(_transform.OffsetX + (displaySize.Width * _transform.Scale)),
             (float)(_transform.OffsetY + (displaySize.Height * _transform.Scale))), _checkerPaint!);
         canvas.Translate((float)_transform.OffsetX, (float)_transform.OffsetY);
         canvas.Scale((float)_transform.Scale);
-        var orientation = Orientation.GetMatrix(sourceSize);
+        var orientation = EditRecipe?.GetMatrix() ?? Orientation.GetMatrix(sourceSize);
         canvas.Concat(new SKMatrix((float)orientation.M11, (float)orientation.M21, (float)orientation.OffsetX,
             (float)orientation.M12, (float)orientation.M22, (float)orientation.OffsetY, 0, 0, 1));
+        if (EditRecipe is { } recipe)
+        {
+            canvas.ClipRect(ToSkRect(recipe.Crop));
+        }
         // Exclude the detailed rectangle from the preview, so translucent pixels are composited once.
         canvas.Save();
         if (_regionBitmap is not null && _displayedRegion is { } detailed)
@@ -340,6 +372,10 @@ public partial class ImageViewport : UserControl, IDisposable
 
     private PixelRect? CalculateVisibleDetailRegion()
     {
+        if (EditRecipe is { } recipe)
+        {
+            return recipe.GetVisibleSourceRegion(_transform, Canvas.ActualWidth, Canvas.ActualHeight);
+        }
         return Image is { } image
             ? _transform.GetVisibleSourceRegion(image.SourceSize, Orientation, Canvas.ActualWidth, Canvas.ActualHeight)
             : null;
