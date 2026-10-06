@@ -292,4 +292,23 @@
   <data name="Edit_ModeExport" xml:space="preserve"><value>导出</value></data>
   <data name="Edit_AnnotationSelect" xml:space="preserve"><value>选择标注</value></data>
   <data name="Edit_AnnotationDeleteSelected" xml:space="preserve"><value>删除选中标注</value></data>
+  <data name="Frames_Play" xml:space="preserve"><value>播放动画（Ctrl+Space）</value></data>
+  <data name="Frames_Pause" xml:space="preserve"><value>暂停动画（Ctrl+Space）</value></data>
+  <data name="Frames_Restart" xml:space="preserve"><value>重新播放动画</value></data>
+  <data name="Frames_Previous" xml:space="preserve"><value>上一帧或页（Ctrl+PageUp）</value></data>
+  <data name="Frames_Next" xml:space="preserve"><value>下一帧或页（Ctrl+PageDown）</value></data>
+  <data name="Frames_Frame" xml:space="preserve"><value>帧</value></data>
+  <data name="Frames_Page" xml:space="preserve"><value>页</value></data>
+  <data name="Frames_FramePosition" xml:space="preserve"><value>第 {0} / {1} 帧</value></data>
+  <data name="Frames_PagePosition" xml:space="preserve"><value>第 {0} / {1} 页</value></data>
+  <data name="Frames_Duration" xml:space="preserve"><value>时长</value></data>
+  <data name="Frames_Loop" xml:space="preserve"><value>循环方式</value></data>
+  <data name="Frames_InfiniteLoop" xml:space="preserve"><value>无限循环</value></data>
+  <data name="Frames_FiniteLoop" xml:space="preserve"><value>共播放 {0} 次</value></data>
+  <data name="Shortcut_Action_PreviousFrame" xml:space="preserve"><value>上一帧 / 页</value></data>
+  <data name="Shortcut_Action_NextFrame" xml:space="preserve"><value>下一帧 / 页</value></data>
+  <data name="Shortcut_Action_FirstFrame" xml:space="preserve"><value>第一帧 / 页</value></data>
+  <data name="Shortcut_Action_LastFrame" xml:space="preserve"><value>最后一帧 / 页</value></data>
+  <data name="Shortcut_Action_ToggleAnimation" xml:space="preserve"><value>播放 / 暂停动画</value></data>
+  <data name="Frames_IndexHint" xml:space="preserve"><value>跳到指定帧或页</value></data>
 </root>

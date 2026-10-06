@@ -2,11 +2,24 @@
 
 面向 Windows 10/11 的本地图片查看器，目标是快速打开、流畅浏览、完成常用编辑，并确保原图安全。
 
-当前重点为 **0.5 浏览核心收口**。已有常见静态格式、文件夹/多选浏览、缩放/平移/全屏、幻灯片、缩略图、排序和文件关联；支持中英文、深浅/系统主题、常见 EXIF 和方向纠正。开发代码支持 RAW 内嵌预览、静态 AVIF/HEIF、剪贴板图片，以及已有日常编辑和安全导出。本轮只完善首图、切图、DPI、取消和资源回收，不扩展编辑能力。完整 RAW 显影、动画/多页与显示器/高位深色彩管理仍待实现；边界见[编辑能力](docs/editing-improvements.md)与[浏览收口记录](docs/browsing-core-closeout.md)。
+当前重点为 **0.6 动画与多页浏览**：GIF/WebP 动画播放、暂停、重播、逐帧定位及 TIFF 多页浏览已接入当前开发代码，待最终 CI 和实际验收。已有常见静态格式、文件夹/多选浏览、缩放/平移/全屏、幻灯片、缩略图、排序和文件关联；支持中英文、深浅/系统主题、常见 EXIF 和方向纠正。RAW 仍仅内嵌预览，AVIF/HEIF 仍仅静态首图；本批不扩编辑或完整 RAW 显影。显示器/高位深色彩管理仍待完成。0.5 历史验证见[浏览收口记录](docs/browsing-core-closeout.md)，本批方案见[动画与多页方案](docs/animation-multipage-plan.md)。
 
-**当前开发格式：12 类、25 个扩展名。** 常见静态格式、JPEG XR、受限 SVG、AVIF、HEIF，以及 RAW 内嵌预览（DNG/CR2/CR3/NEF/ARW/RAF/RW2/ORF/PEF）。AVIF/HEIF 使用随包 Magick.NET，静态首图、最大32MP/128MiB输入；RAW使用固定LibRaw0.22.2桥接，最大256MiB输入/32MiB预览，尺寸代表内嵌预览，不是传感器；没有可读预览时反馈，不进行完整显影。GIF/WebP仅首帧、TIFF仅首页、ICO仅首个图标；受限SVG不支持文字、外部资源、复杂合成和动画。详细边界见[格式支持](docs/decoder-support.md)与[本批验证](docs/raw-modern-editing.md)。公开v0.4.0仍只有原9扩展名。
+**当前开发格式：12 类、25 个扩展名。** 常见静态格式、JPEG XR、受限 SVG、AVIF、HEIF，以及 RAW 内嵌预览（DNG/CR2/CR3/NEF/ARW/RAF/RW2/ORF/PEF）。AVIF/HEIF 使用随包 Magick.NET，静态首图、最大32MP/128MiB输入；RAW使用固定LibRaw0.22.2桥接，最大256MiB输入/32MiB预览，尺寸代表内嵌预览，不是传感器；没有可读预览时反馈，不进行完整显影。GIF/WebP 动画与 TIFF 分页已实现；ICO仍仅首个图标，受限SVG不支持文字、外部资源、复杂合成和动画。缩略图与邻图缓存继续只保存代表帧/首页，不持有播放会话。详细边界见[格式支持](docs/decoder-support.md)；[格式与编辑记录](docs/raw-modern-editing.md)是此前批次的验收记录。公开v0.4.0仍只有原9扩展名。
 
-当前使用 **0.5.0 未发布开发基线**，N1/N2已合并，本批接入N5现代格式/RAW预览及N6文件编辑首批。本轮不发布新版本；最新公开下载仍为[v0.4.0](https://github.com/Flysoft1337/ModernImageViewer/releases/tag/v0.4.0)。实际验证见[进度记录](docs/planning/progress.md)及交付PR/CI。
+**0.6.0 尚未发布**，当前源码版本号为 0.6.0，本批能力处于已实现、待最终 CI 的状态。本轮不发布新版本，最新公开下载仍为[v0.4.0](https://github.com/Flysoft1337/ModernImageViewer/releases/tag/v0.4.0)。最终实际验收由主任务补入[进度记录](docs/planning/progress.md)及交付 PR/CI，本页不将历史结果用作本批通过证明。
+
+### 开发能力矩阵
+
+以下是当前代码能力，均受格式和预算限制；完整逐格式矩阵见[格式支持](docs/decoder-support.md#当前能力矩阵)。ICC 指嵌入 profile 的处理，不代表显示器色彩管理；EXIF 方向与摄影信息展示分开记录。
+
+| 格式/路径 | Static 静态 | Animation 动画 | Pages 多页 | Transparency 透明 | ICC | EXIF | Region 区域 | Edit 编辑 |
+|---|---|---|---|---|---|---|---|---|
+| GIF | 单帧/代表帧 | 播放、暂停、定位、循环 | 无 | 支持帧透明与合成 | 输出 sRGB；嵌入 ICC 不承诺 | 动画取 codec 方向；无摄影字段 | 单帧静态路径可用；动画无 | 仅单帧，动画禁用 |
+| WebP | 支持 | 播放、暂停、定位、循环 | 无 | 支持 Alpha 与合成 | RGB ICC→sRGB | 方向 1–8；无摄影字段 | 无 | 仅静态，动画禁用 |
+| TIFF | 单页/代表首页 | 无 | 持久会话，按页尺寸/方向 | 依 WIC 支持的变体 | 浏览未显式转换 | 单页可读字段；多页只读逐页方向 | 当前页，2048×2048/16MiB | 仅单页，多页禁用 |
+| 其他静态格式 | 既有支持范围 | 无 | 无；ICO 只取首个图标 | 依格式/codec | 依静态路径，非完整色彩管理 | 依格式；RAW 为预览方向 | WIC 支持格式可用，其余见完整表 | 既有静态编辑；RAW 仅预览 |
+
+单帧 GIF、静态 WebP、单页 TIFF 和常规静态图不显示帧控件、不启动动画时钟。`F6` 文件幻灯片独立计时，内部播放/翻页不重置它，也不等待动画播完。多帧/多页不进入编辑窗口；剪贴板仅复制当前已显示的不可变快照，不复制整段动画或自动读取未显示的页。原尺寸复制仍要求当前完整像素已加载且在原有预算内。
 
 ## 安装与分发
 
@@ -27,7 +40,7 @@ pwsh .\scripts\build-installer.ps1
 pwsh .\scripts\build-installer.ps1 -SkipPublish
 ```
 
-脚本使用固定版本、校验 SHA-256 的 Inno Setup 编译器。发布输入位于 `artifacts/publish/win-x64`，安装器输出位于 `artifacts/installer/ModernImageViewer-<Version>-win-x64-Setup.exe`（当前源码构建为 0.5.0）。安装、修复、升级与卸载说明见 [Windows 文件关联方案](docs/windows-file-association.md)。
+脚本使用固定版本、校验 SHA-256 的 Inno Setup 编译器。发布输入位于 `artifacts/publish/win-x64`，安装器输出位于 `artifacts/installer/ModernImageViewer-<Version>-win-x64-Setup.exe`（当前源码构建为 0.6.0 未发布开发版）。安装、修复、升级与卸载说明见 [Windows 文件关联方案](docs/windows-file-association.md)。
 
 需要安装时，从 [GitHub Releases](https://github.com/Flysoft1337/ModernImageViewer/releases) 下载对应版本的安装器或便携包。需要发布新版本时，在 **Actions → CI → Run workflow** 选择 **master**，勾选 **publish_release**；构建和安装检查通过后，自动创建 `v<Version>` Release，上传 EXE、ZIP 与两份 SHA256。版本来自 `Directory.Build.props`，已发布版本不会覆盖；普通 CI 只上传 artifacts。完整操作与失败恢复见 [GitHub 手动发版](docs/github-releases.md)。
 
@@ -45,6 +58,7 @@ pwsh .\scripts\build-installer.ps1 -SkipPublish
 - `Ctrl+V`也支持剪贴板PNG/兼容位图，文件列表优先、PNG透明数据优先于位图。内存来源没有文件路径，不提供目录导航、排序、定位或复制路径；可用`Ctrl+E`编辑并安全另存为PNG/JPEG/WebP。
 - `Ctrl+C`复制整图预览（最大2560×1600），包含会话旋转/翻转与PNG透明，不包含界面和局部细化区域。“更多 → 文件 → 复制原尺寸图片”仅在完整像素已加载且不超过64MiB时可用。源单边32768、BGRA等价64MiB、PNG编码32MiB；暂不接受高位深剪贴板输入。[边界与验证](docs/clipboard-images.md)。
 - `F6` 开始/暂停循环幻灯片，菜单可选 2/5/10 秒；加载期间和最小化时暂停计时，解码失败时停止播放。`Esc` 停止播放；画布聚焦时也支持空格。
+- GIF/WebP 动画按需显示播放/暂停、重播与帧定位；TIFF 显示上一页、页码输入和下一页。`Ctrl+PageUp/PageDown` 切换帧/页，`Ctrl+Home/End` 定位首尾，`Ctrl+Space` 控制动画；手动定位暂停自动播放。内部翻页不改变目录位置，换页清除旧页区域。
 - `← / →` 切换，`Home / End` 跳到目录首尾。更多菜单支持名称、修改时间、文件大小排序及升降序；排序保留当前图与视口，多选图片保持选择顺序，排序偏好跨启动保存。
 - “更多 → 查看方向”支持向左/右旋转 90°、水平/垂直翻转与恢复方向；`Ctrl+R` 向右旋转，`Ctrl+Shift+R` 向左旋转。作用于 EXIF 校正后的图像，只改变绘制矩阵，不复制整图像素、不修改原文件；细化保留方向，切换图片重置方向。
 - “更多→编辑图片”或`Ctrl+E`打开裁剪、调整、标注、导出四组编辑：支持任意角度、八项色彩/空间调整、七种标注与选择修改，`Ctrl+Z`撤销、`Ctrl+Shift+Z`/`Ctrl+Y`重做、`Ctrl+S`另存为。PNG/WebP保留透明，JPEG白底；WebP可选有损品质或无损，导出可保留安全摄影信息、明确转换/声明sRGB，尺寸/比例/导出参数可存预设。只创建新文件；关闭保护未导出修改，失败/取消保留编辑，保存后仍可撤销。RAW仅编辑内嵌预览；[编辑能力与预算](docs/editing-improvements.md)。
@@ -68,6 +82,8 @@ pwsh .\scripts\build-installer.ps1 -SkipPublish
 开发版首屏按画布可见 DIP 与当前 DPI 计算物理像素目标，单边不超过4096、BGRA不超过32MiB，不放大原图；未布局时回退2560×1600。3840×2160可完整覆盖4K首屏目标，超出预算继续降采样。窗口稳定350ms后才升级预览，小于15%的分辨率变化复用旧像素，不主动解码更小的替换图；邻图预取进入画布后按实际目标升级。新的像素就绪前保留画面，同来源升级保留缩放、平移和方向，换来源重置。Fit不自动读取整图；放大或实际像素才按需请求完整/区域细节，取消、失败或超限仍保留预览，不改写原文件。
 
 主图输出预算为160MiB，为两份32MiB预览交接和4MiB邻图保守预留，完整细节上限92MiB。此调整保留此前约92MiB完整细节能力，同时允许有界4K首图。WIC仍提供最多2048×2048/16MiB中心区域，160ms去抖、过期释放；WebP暂无区域。SVG直接绘制目标，最多两层透明合成另限32MiB。源边长32768/100MP限制仍适用。native工作区、绘制surface、临时方向标记和其它资源未全部计入，不能将其当整个进程硬上限。
+
+动画单输出最多8MiB，应用掌控的帧、参考像素和交接按32MiB边界处理，并纳入已有主图交接范围；不预展开全部帧。动画 source 的 `宽×高×4` 必须不超过92MiB才能建立播放会话，这是源尺寸 native 工作区的准入规则，不是实测 native 内存或进程 cap；超限时尝试保留有反馈的静态代表预览。静态代表帧路径不因此获得 native 峰值上限。TIFF 每页沿用静态32MiB预览/92MiB完整细节及2048×2048/16MiB区域预算，完整页不被会话强制截到4096。会话输入最多256MiB、帧/页最多10,000、元信息政策上限2MiB。已执行 native 在真正返回后才完成取消和释放，`Dispose` 不阻塞 UI，释放观测等待 `ReleaseCompletion`。
 
 同目录索引完成后按导航方向预取一张邻图，最多1280×800、4MiB缓存；延迟250ms，前台/细化/缩略图忙时跳过。主图打开优先于排队细化，新低优先级工作在前台忙时不入场；已经运行的native必须等待真实返回，取消后释放过期结果再归还槽。连续导航累计待打开位置，只允许最新请求提交。F5开始即失效主图/区域/预取和缩略图代次，切换会话阻止旧缓存回填；解码前后复核文件版本，外部修改/删除失败保留画面。
 
@@ -125,12 +141,13 @@ dotnet run --project .\benchmarks\ModernImageViewer.Benchmarks\ModernImageViewer
 
 ## 后续开发
 
-本轮M0验证与未关闭风险见[M0技术验证与格式基线](docs/m0-validation.md)：记录100MP单进程观察、实际现代codec样本、ICC原型、固定许可证与native清单；AVIF/HEIF、RAW、显示器profile和MSIX仍待完成，不将局部证据冒充整个M0退出。
+此前M0验证与未关闭风险见[M0技术验证与格式基线](docs/m0-validation.md)：记录100MP单进程观察、实际codec样本、ICC原型、固定许可证与native清单；最新静态AVIF/HEIF和RAW预览范围以支持矩阵为准。完整RAW、显示器profile和MSIX仍待完成，不将局部证据冒充整个M0退出。
 
-应用端外部打开、窗口复用和便携关联已实现，新增当前用户 EXE 安装路径；可信签名、MSIX 和 Windows Shell 人工验收继续推进。0.3.0 增加静态格式与缩略图字节缓存、单图先显示后索引；0.4.0 增加主图预览、按需细化和手动 Release 发布流程。PR #21 已合并区域细节、邻图预取与紧凑/全屏交互。N1 排序、文件定位和快捷键帮助已合并；本轮开发代码补齐 N2 会话旋转/翻转、区域逆变换和偏好保存，N3 文件/位图打开与复制图片已接入，N4 帧能力留后续，详细完成条件见 [下一批功能实施方案](docs/feature-expansion-plan.md)。仍需补齐以下能力：
+应用端外部打开、窗口复用和便携关联已实现，新增当前用户 EXE 安装路径；可信签名、MSIX 和 Windows Shell 人工验收继续推进。0.3.0 增加静态格式与缩略图字节缓存、单图先显示后索引；0.4.0 增加主图预览、按需细化和手动 Release 发布流程。PR #21 已合并区域细节、邻图预取与紧凑/全屏交互。N1 排序、文件定位和快捷键帮助已合并；开发代码已接入 N2 会话方向与偏好、N3 剪贴板及 N4 GIF/WebP 动画与 TIFF 分页，N4 本批待最终 CI；ICO 多尺寸仍待实现。详细完成条件见 [下一批功能实施方案](docs/feature-expansion-plan.md)。仍需补齐以下能力：
 
 - **近期 P1：** 固定机器长期/多格式浏览与混合DPI多屏验收；完整分块缓存、WebP区域与native/surface全管线预算；剪贴板外部应用互通实机验收。自适应预览、优先级和阶段观察已接入本轮开发代码。
-- **随后 P2：** GIF/WebP 动画与 TIFF 多页、完整SVG、专业RAW；显示器ICC、原profile保留、高位深与签名发布。静态AVIF/HEIF、RAW内嵌预览及日常编辑已进入开发代码，不代表公开v0.4.0已包含。
+- **本批收口：** GIF/WebP 动画与 TIFF 多页最终 CI、固定样本/生命周期、长期混合浏览、UI 与安装验收；本页不记录尚未完成的通过数字或性能改善。
+- **随后 P2：** ICO 多尺寸、完整SVG、专业RAW；显示器ICC、原profile保留、高位深与签名发布。开发能力不代表公开v0.4.0已包含；本批不扩大编辑范围。
 
 性能目标仍需固定 Windows 机器实测，当前不承诺整进程内存上限或速度提升百分比。
 

@@ -29,6 +29,11 @@ public enum ViewerAction
     RotateRight,
     RotateLeft,
     EditImage,
+    PreviousFrame,
+    NextFrame,
+    FirstFrame,
+    LastFrame,
+    ToggleAnimation,
 }
 
 public readonly record struct ViewerShortcutGesture(Key Key, ModifierKeys Modifiers = ModifierKeys.None);
@@ -63,6 +68,11 @@ public static class ShortcutCatalog
         Define(ViewerAction.RotateRight, "Canvas", "RotateRight", new ViewerShortcutGesture(Key.R, ModifierKeys.Control)),
         Define(ViewerAction.RotateLeft, "Canvas", "RotateLeft", new ViewerShortcutGesture(Key.R, ModifierKeys.Control | ModifierKeys.Shift)),
         Define(ViewerAction.ToggleSlideshow, "Playback", "ToggleSlideshow", new ViewerShortcutGesture(Key.F6), new ViewerShortcutGesture(Key.Space)),
+        Define(ViewerAction.PreviousFrame, "Playback", "PreviousFrame", new ViewerShortcutGesture(Key.PageUp, ModifierKeys.Control)),
+        Define(ViewerAction.NextFrame, "Playback", "NextFrame", new ViewerShortcutGesture(Key.PageDown, ModifierKeys.Control)),
+        Define(ViewerAction.FirstFrame, "Playback", "FirstFrame", new ViewerShortcutGesture(Key.Home, ModifierKeys.Control)),
+        Define(ViewerAction.LastFrame, "Playback", "LastFrame", new ViewerShortcutGesture(Key.End, ModifierKeys.Control)),
+        Define(ViewerAction.ToggleAnimation, "Playback", "ToggleAnimation", new ViewerShortcutGesture(Key.Space, ModifierKeys.Control)),
         Define(ViewerAction.ToggleInformation, "Window", "ToggleInformation", new ViewerShortcutGesture(Key.I, ModifierKeys.Control)),
         Define(ViewerAction.ToggleFilmstrip, "Window", "ToggleFilmstrip", new ViewerShortcutGesture(Key.T, ModifierKeys.Control)),
         Define(ViewerAction.ToggleFullScreen, "Window", "ToggleFullScreen", new ViewerShortcutGesture(Key.F11)),

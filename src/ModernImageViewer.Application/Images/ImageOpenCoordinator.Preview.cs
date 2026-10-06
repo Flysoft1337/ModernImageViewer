@@ -20,6 +20,10 @@ public sealed partial class ImageOpenCoordinator
         SetPreviewTarget(target);
         ImageOpenState current = State;
         PixelSize decodeTarget = orientation.QuarterTurns % 2 == 0 ? _previewTarget : new(_previewTarget.Height, _previewTarget.Width);
+        if (current.Sequence is not null)
+        {
+            return await UpgradeFramePreviewAsync(decodeTarget, cancellationToken);
+        }
         if (current is not { Status: ImageOpenStatus.Loaded, IsPreview: true, Image: { } preview }
             || current.IsRefining || current.IsRegionLoading || !PreviewDecodePolicy.NeedsUpgrade(preview, decodeTarget, _previewNeedsTarget)
             || (!current.IsMemorySource && decoder is not IPreviewImageDecoder))

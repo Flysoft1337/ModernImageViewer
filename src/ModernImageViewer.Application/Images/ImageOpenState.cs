@@ -34,7 +34,10 @@ public sealed record ImageOpenState(
     DecodedImageRegion? Region = null,
     bool IsRegionLoading = false,
     ImageSource? Source = null,
-    long RequestId = 0)
+    long RequestId = 0,
+    ImageSequenceInfo? Sequence = null,
+    int FrameIndex = 0,
+    bool IsSequenceUnavailable = false)
 {
     public bool IsMemorySource => Source?.Kind == ImageSourceKind.Memory;
 }

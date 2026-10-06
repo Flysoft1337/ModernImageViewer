@@ -1,6 +1,7 @@
 #Requires -Version 7.0
 param(
     [Parameter(Mandatory)][string]$InstallerPath,
+    [string]$BaselineInstallerPath,
     [string]$FixtureDirectory,
     [string]$LogDirectory = (Join-Path $PSScriptRoot "../artifacts/installer-smoke")
 )
@@ -8,6 +9,10 @@ param(
 $ErrorActionPreference = "Stop"
 if (-not $IsWindows) { throw "Installer verification requires Windows." }
 $installer = (Resolve-Path $InstallerPath).Path
+$baselineInstaller = if ($BaselineInstallerPath) { (Resolve-Path -LiteralPath $BaselineInstallerPath).Path } else { $null }
+if ($baselineInstaller -and (Get-FileHash -LiteralPath $baselineInstaller).Hash -eq (Get-FileHash -LiteralPath $installer).Hash) {
+    throw 'Baseline and target installers must be different packages.'
+}
 $logs = [IO.Path]::GetFullPath($LogDirectory)
 $directory = Join-Path ([IO.Path]::GetTempPath()) ("ModernImageViewer 安装验证 " + [Guid]::NewGuid().ToString("N"))
 $executable = Join-Path $directory "ModernImageViewer.App.exe"
@@ -21,6 +26,8 @@ $foreignCandidate = "ModernImageViewer.InstallerSmoke." + [Guid]::NewGuid().ToSt
 $currentUser = [Microsoft.Win32.Registry]::CurrentUser
 $candidateKeys = [Collections.Generic.List[string]]::new()
 $uninstallCompleted = $false
+$lifecycle = [Collections.Generic.List[object]]::new()
+$verificationSucceeded = $false
 
 function Assert-Equal($Actual, $Expected, [string]$Message) {
     if ($Actual -cne $Expected) { throw $Message }
@@ -139,8 +146,39 @@ function Read-UninstallIdentity {
     finally { $parent.Dispose() }
 }
 
+function Read-InstalledVersion([string]$Stage) {
+    $identity = Read-UninstallIdentity
+    $displayVersion = [string](Read-RegistryValue "Software\Microsoft\Windows\CurrentVersion\Uninstall\$identity" 'DisplayVersion')
+    $assemblyPath = Join-Path $directory 'ModernImageViewer.App.dll'
+    if (-not [IO.File]::Exists($assemblyPath)) { throw 'The installed application assembly is missing.' }
+    $versionInfo = [Diagnostics.FileVersionInfo]::GetVersionInfo($assemblyPath)
+    $fileVersion = [version]::new($versionInfo.FileMajorPart, $versionInfo.FileMinorPart, $versionInfo.FileBuildPart)
+    $registeredVersion = [version]$displayVersion
+    if ($registeredVersion.Major -ne $fileVersion.Major -or $registeredVersion.Minor -ne $fileVersion.Minor -or
+        $registeredVersion.Build -ne $fileVersion.Build) { throw 'Installed assembly and uninstall DisplayVersion disagree.' }
+    $lifecycle.Add([pscustomobject]@{
+        Stage = $Stage
+        FileVersion = $fileVersion.ToString()
+        DisplayVersion = $displayVersion
+        AssemblySha256 = (Get-FileHash -LiteralPath $assemblyPath -Algorithm SHA256).Hash
+        UninstallIdentity = $identity
+    })
+    return $fileVersion
+}
+
+function Assert-InstalledPayload {
+    if (-not [IO.File]::Exists($executable)) { throw 'The installed executable is missing.' }
+    foreach ($native in @('libSkiaSharp.dll', 'Magick.Native-Q8-x64.dll', 'ModernImageViewer.RawBridge.dll')) {
+        if (@(Get-ChildItem -LiteralPath $directory -Recurse -File -Filter $native).Count -ne 1) {
+            throw 'A required installed native dependency is missing or ambiguous.'
+        }
+    }
+    $marker = Get-Content (Join-Path $directory 'ModernImageViewer.install.json') -Raw | ConvertFrom-Json
+    Assert-Equal $marker.distribution 'installer' 'The installed distribution marker is incorrect.'
+}
+
 # Refuse to overwrite a real installed copy when this script is run outside CI.
-foreach ($path in @($applicationKey, $progIdKey)) {
+foreach ($path in @($applicationKey, $progIdKey, 'Software\Microsoft\Windows\CurrentVersion\Uninstall\{A2E8F5A0-6526-4C87-ADE1-04DE4A7F41C0}_is1')) {
     $key = $currentUser.OpenSubKey($path)
     if ($null -ne $key) { $key.Dispose(); throw "An installed application identity already exists; use a disposable Windows account." }
 }
@@ -175,18 +213,33 @@ try {
         $candidateKeys.Add($path)
     }
     $common = @("/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/SP-", "/DIR=$directory", "/TASKS=fileassoc")
-    Invoke-Setup $installer ($common + @("/LOG=$(Join-Path $logs 'install.log')"))
-    if (-not [IO.File]::Exists($executable)) { throw "The installed executable is missing." }
-    if (@(Get-ChildItem $directory -Recurse -File -Filter "libSkiaSharp.dll").Count -ne 1) { throw "The native Skia library is missing or ambiguous." }
-    $marker = Get-Content (Join-Path $directory "ModernImageViewer.install.json") -Raw | ConvertFrom-Json
-    Assert-Equal $marker.distribution "installer" "The installed distribution marker is incorrect."
+    $firstInstaller = if ($baselineInstaller) { $baselineInstaller } else { $installer }
+    $firstLog = if ($baselineInstaller) { 'baseline-install.log' } else { 'install.log' }
+    Invoke-Setup $firstInstaller ($common + @("/LOG=$(Join-Path $logs $firstLog)"))
+    Assert-InstalledPayload
     Assert-Registration
     $uninstallIdentity = Read-UninstallIdentity
+    $initialVersion = Read-InstalledVersion $(if ($baselineInstaller) { 'BaselineInstall' } else { 'Install' })
+    if ($baselineInstaller -and $initialVersion -ne [version]'0.5.0') { throw 'The actual installed baseline must be version 0.5.0.' }
     & (Join-Path $PSScriptRoot "check-file-activation.ps1") -AppPath $executable -FixtureDirectory $FixtureDirectory
 
     $preferences = Join-Path $directory "custom-user-preferences.json"
     [IO.File]::WriteAllText($preferences, '{"keep":"user data"}')
-    # Reproduce the previous JPEG/PNG-only registry state before repairing it via upgrade.
+    if ($baselineInstaller) {
+        Invoke-Setup $installer ($common + @("/LOG=$(Join-Path $logs 'upgrade-0.5-to-0.6.log')"))
+        Assert-InstalledPayload
+        Assert-Registration
+        $upgradedVersion = Read-InstalledVersion 'CrossVersionUpgrade'
+        if ($upgradedVersion -ne [version]'0.6.0' -or $upgradedVersion -le $initialVersion) {
+            throw 'The actual cross-version upgrade must replace 0.5.0 with 0.6.0.'
+        }
+        if ($lifecycle[0].AssemblySha256 -eq $lifecycle[1].AssemblySha256) { throw 'Upgrade did not replace the application assembly.' }
+        Assert-Equal (Read-UninstallIdentity) $uninstallIdentity 'Upgrade created a different uninstall identity.'
+        Assert-Equal ([IO.File]::ReadAllText($preferences)) '{"keep":"user data"}' 'Upgrade modified a custom user file.'
+        & (Join-Path $PSScriptRoot 'check-file-activation.ps1') -AppPath $executable -FixtureDirectory $FixtureDirectory
+    }
+    else { $upgradedVersion = $initialVersion }
+    # Registry migration remains a separate same-version reinstall check.
     $capabilities = $currentUser.OpenSubKey("$applicationKey\Capabilities", $true)
     try { $capabilities.SetValue("ApplicationDescription", "Browse JPEG and PNG images with Modern Image Viewer.") }
     finally { $capabilities.Dispose() }
@@ -200,10 +253,14 @@ try {
         }
     }
     finally { $formats.Dispose() }
-    Invoke-Setup $installer ($common + @("/LOG=$(Join-Path $logs 'upgrade.log')"))
+    $beforeReinstallHash = $lifecycle[-1].AssemblySha256
+    Invoke-Setup $installer ($common + @("/LOG=$(Join-Path $logs 'same-version-reinstall.log')"))
+    Assert-InstalledPayload
     Assert-Registration
-    Assert-Equal (Read-UninstallIdentity) $uninstallIdentity "Upgrade created a different uninstall identity."
-    Assert-Equal ([IO.File]::ReadAllText($preferences)) '{"keep":"user data"}' "Upgrade modified a custom user file."
+    Assert-Equal (Read-InstalledVersion 'SameVersionReinstall') $upgradedVersion 'Same-version reinstall changed the installed version.'
+    Assert-Equal $lifecycle[-1].AssemblySha256 $beforeReinstallHash 'Same-version reinstall changed the application assembly.'
+    Assert-Equal (Read-UninstallIdentity) $uninstallIdentity "Reinstall created a different uninstall identity."
+    Assert-Equal ([IO.File]::ReadAllText($preferences)) '{"keep":"user data"}' "Reinstall modified a custom user file."
 
     # An older description must also be removed; unrelated custom values remain protected.
     $capabilities = $currentUser.OpenSubKey("$applicationKey\Capabilities", $true)
@@ -233,7 +290,9 @@ try {
         Assert-Equal $actual $protected[$path] "Installation changed an existing default choice or portable identity."
     }
     Assert-Equal (Read-RegistryValue $registeredApplicationsKey "ModernImageViewer.Portable") $portableRegistration "Installation changed the portable RegisteredApplications value."
-    Write-Output "Installer verification passed: current-user install, quoted file activation, same-version reinstall with legacy JPEG/PNG registry migration and clean uninstall; defaults, other candidates and user files were preserved."
+    $verificationSucceeded = $true
+    $upgradeResult = if ($baselineInstaller) { 'verified actual 0.5.0 -> 0.6.0 upgrade' } else { 'cross-version upgrade not requested or verified' }
+    Write-Output "Installer verification passed: current-user install, $upgradeResult, same-version reinstall, installed file activation and clean uninstall."
 }
 finally {
     # Only run the uninstaller from our exclusively owned temporary directory.
@@ -253,5 +312,18 @@ finally {
         }
     }
     if ($cleanupSucceeded -and [IO.Directory]::Exists($directory)) { [IO.Directory]::Delete($directory, $true) }
+    if ([IO.Directory]::Exists($logs)) {
+        [pscustomobject]@{
+            SchemaVersion = 1
+            Success = $verificationSucceeded
+            CrossVersionUpgradeRequested = [bool]$baselineInstaller
+            CrossVersionUpgradeVerified = $verificationSucceeded -and [bool]$baselineInstaller
+            BaselineInstallerSha256 = if ($baselineInstaller) { (Get-FileHash -LiteralPath $baselineInstaller -Algorithm SHA256).Hash } else { $null }
+            TargetInstallerSha256 = (Get-FileHash -LiteralPath $installer -Algorithm SHA256).Hash
+            Lifecycle = $lifecycle
+            UninstallVerified = $uninstallCompleted -and $verificationSucceeded
+            CleanupSucceeded = $cleanupSucceeded
+        } | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $logs 'lifecycle.json') -Encoding utf8
+    }
     Write-Output "Installer smoke-test logs: $logs"
 }

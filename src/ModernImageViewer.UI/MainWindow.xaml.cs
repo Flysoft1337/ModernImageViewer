@@ -15,6 +15,7 @@ using ModernImageViewer.Application.Browsing;
 using ModernImageViewer.Application.Editing;
 using ModernImageViewer.Application.Images;
 using ModernImageViewer.Application.Integration;
+using ModernImageViewer.Application.Observations;
 using ModernImageViewer.UI.Controls;
 using ModernImageViewer.UI.Localization;
 using ModernImageViewer.UI.Themes;
@@ -37,7 +38,8 @@ public partial class MainWindow : Window
 
     public MainWindow(MainWindowViewModel viewModel, ThemeService themes,
         Func<IFileAssociationService>? fileAssociations = null, ILocalizationService? localization = null,
-        IThumbnailDecoder? thumbnailDecoder = null, IImageExportService? imageExporter = null)
+        IThumbnailDecoder? thumbnailDecoder = null, IImageExportService? imageExporter = null,
+        Func<AnimationResourceSnapshot>? animationResources = null)
     {
         _viewModel = viewModel;
         _themes = themes;
@@ -52,7 +54,9 @@ public partial class MainWindow : Window
         Viewport.DetailRequested += OnDetailRequested;
         InitializeRegionDetail();
         InitializeAdaptivePreview();
+        InitializeFrameControls();
         InitializeBrowsingObservation();
+        InitializeAnimationObservation(animationResources);
         InitializeImmersiveControls();
         InitializeWindowPreferences();
         Viewport.OrientationChanged += OnOrientationChanged;
@@ -73,12 +77,14 @@ public partial class MainWindow : Window
             _viewModel.PropertyChanged -= OnViewModelChanged;
             _messageTimer.Stop();
             _slideshowTimer.Stop();
+            DisposeFrameControls();
             DisposeImmersiveControls();
             DisposeRegionDetail();
             DisposeAdaptivePreview();
             DisposeBrowsingObservation();
             Viewport.DetailRequested -= OnDetailRequested;
             Viewport.Dispose();
+            DisposeAnimationObservation();
         };
     }
 
@@ -173,7 +179,9 @@ public partial class MainWindow : Window
 
     private void OnViewModelChanged(object? sender, PropertyChangedEventArgs e)
     {
-        UpdateSlideshowTimer();
+        if (e.PropertyName is null or "" or nameof(MainWindowViewModel.IsSlideshowPlaying)
+            or nameof(MainWindowViewModel.SlideshowSeconds) or nameof(MainWindowViewModel.IsLoading)
+            or nameof(MainWindowViewModel.CanPlaySlideshow)) { UpdateSlideshowTimer(); }
         if (e.PropertyName == nameof(MainWindowViewModel.IsFullScreen))
         {
             UpdateImmersiveMode();
@@ -422,6 +430,11 @@ public partial class MainWindow : Window
             case ViewerAction.RotateRight: Viewport.RotateRight(); break;
             case ViewerAction.RotateLeft: Viewport.RotateLeft(); break;
             case ViewerAction.EditImage: OnEditClick(this, e); break;
+            case ViewerAction.PreviousFrame: await _viewModel.MoveFrameAsync(-1); break;
+            case ViewerAction.NextFrame: await _viewModel.MoveFrameAsync(1); break;
+            case ViewerAction.FirstFrame: await _viewModel.SeekFrameAsync(0); break;
+            case ViewerAction.LastFrame: await _viewModel.SeekFrameAsync((_viewModel.Presentation.Sequence?.Count ?? 1) - 1); break;
+            case ViewerAction.ToggleAnimation: await _viewModel.ToggleAnimationAsync(); break;
             case ViewerAction.DismissOverlay: _viewModel.ShowInformation = false; break;
         }
     }

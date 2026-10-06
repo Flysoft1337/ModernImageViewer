@@ -73,6 +73,7 @@ public sealed partial class ImageOpenCoordinator(IImageFilePicker filePicker, II
         }
 
         (browsing ?? browseSession)?.CancelSorting();
+        StopFrameSession();
         CancelPendingIndexing();
         CancelPendingRefinement();
         CancelPendingPreviewUpgrade();
@@ -110,12 +111,22 @@ public sealed partial class ImageOpenCoordinator(IImageFilePicker filePicker, II
         foreach (string path in paths)
         {
             PixelBuffer? decoded = null;
+            IImageFrameSession? frameSession = null;
+            bool frameBudgetLimited = false;
             try
             {
                 token.ThrowIfCancellationRequested();
-                decoded = _neighborCache is null ? null : await _neighborCache.TryTakeAsync(path, token);
+                if (decoder is IImageFrameDecoder frameDecoder)
+                {
+                    try { frameSession = await frameDecoder.TryOpenFrameSessionAsync(path, token); }
+                    catch (ImageSizeLimitExceededException) { frameBudgetLimited = true; }
+                }
+                decoded = frameSession is not null || _neighborCache is null ? null : await _neighborCache.TryTakeAsync(path, token);
                 bool cached = decoded is not null;
-                decoded ??= decoder is IPreviewImageDecoder previewDecoder
+                decoded ??= frameSession is not null
+                    ? await frameSession.DecodeFrameAsync(0, previewTarget,
+                        frameSession.Info.Kind == ImageSequenceKind.Animation ? ImageFrameLimits.MaximumFrameBytes : PreviewReservedBytes, token)
+                    : decoder is IPreviewImageDecoder previewDecoder
                     ? await previewDecoder.DecodePreviewAsync(path, previewTarget, token)
                     : await decoder.DecodeAsync(path, token);
                 if (_disposed || version != Volatile.Read(ref _requestVersion) || token.IsCancellationRequested)
@@ -125,6 +136,8 @@ public sealed partial class ImageOpenCoordinator(IImageFilePicker filePicker, II
                 }
                 if (decoded.Pixels.Length > PreviewReservedBytes || decoded.Size.Width > decoded.SourceSize.Width
                     || decoded.Size.Height > decoded.SourceSize.Height
+                    || (frameSession is not null && (decoded.SourceSize != frameSession.Info.Frames[0].CanvasSize
+                        || (frameSession.Info.Kind == ImageSequenceKind.Animation && decoded.Pixels.Length > ImageFrameLimits.MaximumFrameBytes)))
                     || (!cached && decoder is IPreviewImageDecoder
                         && (decoded.Size.Width > previewTarget.Width || decoded.Size.Height > previewTarget.Height)))
                 {
@@ -144,8 +157,12 @@ public sealed partial class ImageOpenCoordinator(IImageFilePicker filePicker, II
                     }
                 }
                 _previewNeedsTarget = cached;
+                _frameSession = frameSession;
+                frameSession = null;
                 State = new(ImageOpenStatus.Loaded, decoded, Path.GetFullPath(path), IsPreview: decoded.Size != decoded.SourceSize,
-                    Source: new ImageSource(Guid.NewGuid(), ImageSourceKind.File), RequestId: version);
+                    Source: new ImageSource(Guid.NewGuid(), ImageSourceKind.File), RequestId: version, Sequence: _frameSession?.Info,
+                    RefinementError: frameBudgetLimited ? ImageOpenError.ImageTooLarge : ImageOpenError.None,
+                    IsSequenceUnavailable: frameBudgetLimited);
                 previous.Region?.Dispose();
                 previous.Image?.Dispose();
                 if (session is not null && indexingRevision is { } revision
@@ -178,6 +195,10 @@ public sealed partial class ImageOpenCoordinator(IImageFilePicker filePicker, II
                 failedPath = path;
                 SkippedCandidateCount++;
             }
+            finally
+            {
+                frameSession?.Dispose();
+            }
         }
         if (version == Volatile.Read(ref _requestVersion))
         {
@@ -189,6 +210,10 @@ public sealed partial class ImageOpenCoordinator(IImageFilePicker filePicker, II
     public async Task<bool> RefineAsync(CancellationToken cancellationToken = default)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
+        if (State.Sequence is not null)
+        {
+            return await RefineFrameAsync(cancellationToken);
+        }
         ImageOpenState current = State;
         if (current.Status != ImageOpenStatus.Loaded || !current.IsPreview || current.IsRefining
             || current.Image is null || (current.IsMemorySource ? current.Source?.Memory is null
@@ -343,6 +368,7 @@ public sealed partial class ImageOpenCoordinator(IImageFilePicker filePicker, II
     public void CancelPendingOpen()
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
+        StopFrameSession();
         _neighborCache?.CancelPending();
         CancelPendingIndexing();
         CancelPendingRefinement();
@@ -363,6 +389,7 @@ public sealed partial class ImageOpenCoordinator(IImageFilePicker filePicker, II
         }
 
         _disposed = true;
+        StopFrameSession();
         CancelPendingIndexing();
         CancelPendingRefinement();
         CancelPendingPreviewUpgrade();

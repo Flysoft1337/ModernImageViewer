@@ -292,4 +292,23 @@
   <data name="Edit_ModeExport" xml:space="preserve"><value>Export</value></data>
   <data name="Edit_AnnotationSelect" xml:space="preserve"><value>Select annotation</value></data>
   <data name="Edit_AnnotationDeleteSelected" xml:space="preserve"><value>Delete selected annotation</value></data>
+  <data name="Frames_Play" xml:space="preserve"><value>Play animation (Ctrl+Space)</value></data>
+  <data name="Frames_Pause" xml:space="preserve"><value>Pause animation (Ctrl+Space)</value></data>
+  <data name="Frames_Restart" xml:space="preserve"><value>Restart animation</value></data>
+  <data name="Frames_Previous" xml:space="preserve"><value>Previous frame or page (Ctrl+PageUp)</value></data>
+  <data name="Frames_Next" xml:space="preserve"><value>Next frame or page (Ctrl+PageDown)</value></data>
+  <data name="Frames_Frame" xml:space="preserve"><value>Frame</value></data>
+  <data name="Frames_Page" xml:space="preserve"><value>Page</value></data>
+  <data name="Frames_FramePosition" xml:space="preserve"><value>Frame {0} / {1}</value></data>
+  <data name="Frames_PagePosition" xml:space="preserve"><value>Page {0} / {1}</value></data>
+  <data name="Frames_Duration" xml:space="preserve"><value>Duration</value></data>
+  <data name="Frames_Loop" xml:space="preserve"><value>Playback</value></data>
+  <data name="Frames_InfiniteLoop" xml:space="preserve"><value>Repeat indefinitely</value></data>
+  <data name="Frames_FiniteLoop" xml:space="preserve"><value>{0} total plays</value></data>
+  <data name="Shortcut_Action_PreviousFrame" xml:space="preserve"><value>Previous frame / page</value></data>
+  <data name="Shortcut_Action_NextFrame" xml:space="preserve"><value>Next frame / page</value></data>
+  <data name="Shortcut_Action_FirstFrame" xml:space="preserve"><value>First frame / page</value></data>
+  <data name="Shortcut_Action_LastFrame" xml:space="preserve"><value>Last frame / page</value></data>
+  <data name="Shortcut_Action_ToggleAnimation" xml:space="preserve"><value>Play / pause animation</value></data>
+  <data name="Frames_IndexHint" xml:space="preserve"><value>Go to frame or page</value></data>
 </root>

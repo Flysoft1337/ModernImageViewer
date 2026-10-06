@@ -17,6 +17,10 @@ public sealed partial class ImageOpenCoordinator
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         ImageOpenState current = State;
+        if (current.Sequence is not null)
+        {
+            return await RequestFrameRegionAsync(bounds, cancellationToken);
+        }
         if (current.Status != ImageOpenStatus.Loaded || !current.IsPreview || current.Image is null
             || current.FilePath is null || CanRefineWholeImage || decoder is not IRegionImageDecoder regionDecoder)
         {
@@ -89,6 +93,7 @@ public sealed partial class ImageOpenCoordinator
 
     public void CancelPendingRegion()
     {
+        CancelPendingFrame();
         Interlocked.Increment(ref _regionVersion);
         _regionCancellation?.Cancel();
         _regionCancellation = null;

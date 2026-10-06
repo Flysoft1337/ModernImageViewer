@@ -227,6 +227,7 @@ public sealed class MainWindowViewModelTests
                 Assert.Equal(normalPlacement, preferences.Current.WindowPlacement);
                 Assert.True(preferences.FlushCount > 0);
                 associations.Close();
+                FrameBrowsingUiTests.VerifyCompactWindowScreenshotsAndTimers();
             }
             catch (Exception exception)
             {

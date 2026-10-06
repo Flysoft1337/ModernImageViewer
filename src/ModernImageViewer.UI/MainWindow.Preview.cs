@@ -9,6 +9,7 @@ namespace ModernImageViewer.UI;
 public partial class MainWindow
 {
     private readonly DispatcherTimer _previewTimer = new() { Interval = TimeSpan.FromMilliseconds(350) };
+    private Guid? _previewSourceIdentity;
 
     private void InitializeAdaptivePreview()
     {
@@ -29,7 +30,12 @@ public partial class MainWindow
 
     private void OnPreviewPresentationChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName is null or "" or nameof(MainWindowViewModel.Presentation)) { QueuePreviewUpgrade(); }
+        if (e.PropertyName is not (null or "" or nameof(MainWindowViewModel.Presentation))) { return; }
+        Guid? identity = _viewModel.Presentation.Source?.Identity;
+        bool sameAnimation = identity is not null && identity == _previewSourceIdentity
+            && _viewModel.Presentation.Sequence?.Kind == ImageSequenceKind.Animation;
+        _previewSourceIdentity = identity;
+        if (!sameAnimation) { QueuePreviewUpgrade(); }
     }
 
     private void QueuePreviewUpgrade()
