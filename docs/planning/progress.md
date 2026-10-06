@@ -2,6 +2,7 @@
 
 ## 2026-10-06：0.6 动画与多页方案分析
 
+- PR #33 首轮 CI 37458958549：格式、Release构建、569通过/1跳过、依赖审计、100MP、self-contained发布和启动成功；文件激活脚本将样本目录新增README/sha256当图片打开导致超时。按既有格式组筛选图片扩展名后，本地真实12类格式及GIF/WebP/TIFF动画/多页样本激活通过；后续CI继续验证，不将跳过的安装步骤记为通过。
 - 最终本地Release构建0警告/0错误；核心187+UI/codec382=569通过、1本机RAW样本跳过，format verify和diff检查通过。NuGet在线审计本机TLS失败，正式CI待验收。8张双语深浅帧/页截图已核对，页码白底与浮层间距修复。
 - 动画专项smoke及10轮/50输入混合格式+180秒无限WebP压力观察成功，未强制GC；采样主帧/参考各≤8,294,400B，停止/静态切换释放帧资源，清来源/空闲/关闭wrapper、pin、timer、session、native计数全归零。过程WS/private允许波动，不宣称进程不泄漏或P95。详见[验收记录](../animation-multipage-validation.md)。
 

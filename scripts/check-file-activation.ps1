@@ -57,8 +57,11 @@ try {
     $currentName = $secondName
     if ($FixtureDirectory) {
         $fixturePath = (Resolve-Path $FixtureDirectory).Path
-        $fixtures = @(Get-ChildItem -LiteralPath $fixturePath -File | Sort-Object Name)
-        foreach ($group in @(".jpg;.jpeg", ".png", ".bmp", ".gif", ".tif;.tiff", ".ico", ".webp", ".jxr;.wdp;.hdp", ".svg", ".avif", ".heif;.heic", ".dng;.cr2;.cr3;.nef;.arw;.raf;.rw2;.orf;.pef")) {
+        $formatGroups = @(".jpg;.jpeg", ".png", ".bmp", ".gif", ".tif;.tiff", ".ico", ".webp", ".jxr;.wdp;.hdp", ".svg", ".avif", ".heif;.heic", ".dng;.cr2;.cr3;.nef;.arw;.raf;.rw2;.orf;.pef")
+        $imageExtensions = @($formatGroups | ForEach-Object { $_.Split(';') })
+        $fixtures = @(Get-ChildItem -LiteralPath $fixturePath -File |
+            Where-Object { $_.Extension.ToLowerInvariant() -in $imageExtensions } | Sort-Object Name)
+        foreach ($group in $formatGroups) {
             $extensions = $group.Split(';')
             if (@($fixtures | Where-Object { $_.Extension.ToLowerInvariant() -in $extensions }).Count -eq 0) {
                 throw "The fixture directory is missing a required format: $group."
