@@ -47,7 +47,9 @@
 - 本地最终Release构建零警告零错误；完整测试核心136与Windows UI/codec315，共451通过，1项未提供真实RAW样本跳过。相较基线332通过，增加119个通过用例，含参数化DPI/取消场景；format与diff检查通过。
 - 500个独立生成PNG文件/500次相邻切换、20次快速请求、每50次F5、每25次实际像素、空闲30秒成功，所有所需细节完成，无强制GC。环境Windows10 19045、i7-11800H、约32GiB、150%DPI/1836×723目标；Release framework-dependent、25b9424加本轮未提交功能。报告在`artifacts/browsing-core/500-image-observation.json`，不是self-contained性能对照或P95。该观察在末次复审防护修正前执行；其后的自动细化需求、内存调度和区域状态修正由专项回归与发布包浏览smoke验证，不重新比较压力数字。
 - 该运行主像素最多16MiB、pin始终1，缩略图最多24项/1,137,408字节（约1.09MiB），快速连续请求期间邻图缓存未命中；因此不以本组结果宣称预取加速。单次切换首图约7.82–106.20ms，均值29.51ms，无旧版本同阶段数据，不宣称改善百分比。空闲private约123.94→121.09MiB、handle749→748，WS约172.60→174.16MiB（范围172.60–175.80MiB），末尾稳定；全程观察峰值WS约197.48MiB。缓存/pin有界与短期回落不证明所有格式长期无泄漏。
-- 正式Windows CI的发布包/启动/文件激活/安装/100MP结果待本轮CI完成后补充。
+- [PR #32](https://github.com/Flysoft1337/ModernImageViewer/pull/32)功能提交`6bbdd7a`的[Windows CI 37446139400](https://github.com/Flysoft1337/ModernImageViewer/actions/runs/37446139400)通过：完整恢复/格式、Release构建0警告0错误，136核心+315 UI/codec=451通过/1真实RAW样本跳过；依赖审计无已知漏洞。格式工具仍有既有workspace加载warning，不称全部工具零告警。
+- self-contained win-x64发布包启动、12类真实格式激活、同一窗口PNG/WebP二次激活、当前用户安装/同版本重装旧注册迁移/安装版激活/卸载全部通过；Release job明确跳过，开发0.5.0/公开v0.4.0不变。单次启动WindowInputIdle约805.30ms、1秒观察WS104.90MiB，不是冷启动或P95。100MP codec独立观察预览1600×1600/10,240,000字节、缩略图140×140/78,400字节；该脚本沿用固定probe目标，不能冒充主窗口自适应阶段测量或native专用内存。
+- CI新增发布包8文件/8切换、4快速请求、每4次F5/实际像素、空闲2秒smoke通过；阶段齐全、所需细节均已绘制，0预算受限/0丢请求，pin最大1，JSON无完整路径。环境Windows Server2025 26100、4逻辑核/约16GiB虚拟机、100%DPI/968×383目标；相邻首图约24.47–69.66ms。2秒空闲WS133.69→141.36MiB/private61.09→62.31MiB、句柄549不变，短观察尚在增长，只作为功能smoke，不能替代本地500图/长期回收验收。报告为CI的`browsing-observation` artifact，已核对。
 
 ## 剩余边界
 
