@@ -51,6 +51,7 @@
     <Style TargetType="ScrollBar" BasedOn="{StaticResource PanelScrollBarStyle}" />
   </Window.Resources>
   <Grid>
+  <Grid x:Name="EditorContent">
     <Grid.RowDefinitions><RowDefinition Height="54" /><RowDefinition Height="*" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
     <Border BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1" Padding="20,0,10,0">
       <Grid>
@@ -130,5 +131,25 @@
         <Button x:Name="SaveButton" Grid.Column="2" Style="{StaticResource PrimaryButtonStyle}" Click="OnSaveClick" Content="{Binding [Edit_SaveAs]}" />
       </Grid>
     </Border>
+  </Grid>
+    <Grid x:Name="CloseConfirmation" Visibility="Collapsed" Background="#99000000"
+          KeyboardNavigation.TabNavigation="Cycle" KeyboardNavigation.ControlTabNavigation="Cycle">
+      <Border MaxWidth="480" Margin="24" Padding="24" CornerRadius="8" VerticalAlignment="Center"
+              Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1">
+        <StackPanel>
+          <TextBlock Text="{Binding [Edit_UnsavedTitle]}" FontSize="18" FontWeight="SemiBold" TextWrapping="Wrap" />
+          <TextBlock Text="{Binding [Edit_UnsavedMessage]}" Foreground="{DynamicResource SecondaryTextBrush}"
+                     TextWrapping="Wrap" Margin="0,12,0,20" />
+          <WrapPanel HorizontalAlignment="Right">
+            <Button x:Name="ContinueEditingButton" Content="{Binding [Edit_Continue]}" Click="OnContinueEditingClick"
+                    Style="{StaticResource ToolbarButtonStyle}" Margin="0,0,8,8" BorderBrush="{DynamicResource BorderBrush}" />
+            <Button x:Name="DiscardChangesButton" Content="{Binding [Edit_Discard]}" Click="OnDiscardClick"
+                    Style="{StaticResource ToolbarButtonStyle}" Margin="0,0,8,8" BorderBrush="{DynamicResource BorderBrush}" />
+            <Button x:Name="SaveAndCloseButton" Content="{Binding [Edit_SaveAndClose]}" Click="OnSaveAndCloseClick"
+                    Style="{StaticResource PrimaryButtonStyle}" Margin="0,0,0,8" />
+          </WrapPanel>
+        </StackPanel>
+      </Border>
+    </Grid>
   </Grid>
 </Window>

@@ -33,15 +33,19 @@ public partial class EditWindow : Window
     private PixelSize? _cropRatio;
     private CancellationTokenSource? _exportCancellation;
     private bool _closeAfterExport;
+    private bool _discardChanges;
+    private readonly Func<ImageExportFormat, string?>? _pickExportPath;
+    private IInputElement? _confirmationFocus;
 
     public EditWindow(ImageOpenState presentation, ViewOrientation orientation, ILocalizationService localization,
         IImageExportService exporter, long? sourceLength = null, DateTime? sourceModifiedUtc = null,
-        ImageExportPixels? sourcePixels = null)
+        ImageExportPixels? sourcePixels = null, Func<ImageExportFormat, string?>? pickExportPath = null)
     {
         ArgumentNullException.ThrowIfNull(presentation);
         if (presentation.Image is null) { throw new ArgumentException("An image is required.", nameof(presentation)); }
         _localization = localization;
         _exporter = exporter;
+        _pickExportPath = pickExportPath;
         _sourcePath = presentation.FilePath;
         if (presentation.IsMemorySource)
         {
@@ -106,6 +110,14 @@ public partial class EditWindow : Window
 
     public ImageEditRecipe Recipe => _session.Current;
     public bool IsExporting => _exportCancellation is not null;
+    public bool HasUnexportedChanges => _session.HasUnexportedChanges || HasDraftChanges;
+
+    private bool HasDraftChanges => !Matches(CropX, Recipe.Crop.X) || !Matches(CropY, Recipe.Crop.Y)
+        || !Matches(CropWidth, Recipe.Crop.Width) || !Matches(CropHeight, Recipe.Crop.Height)
+        || !Matches(OutputWidth, Recipe.OutputSize.Width) || !Matches(OutputHeight, Recipe.OutputSize.Height);
+
+    private static bool Matches(TextBox input, int value) => int.TryParse(input.Text,
+        NumberStyles.None, CultureInfo.InvariantCulture, out int parsed) && parsed == value;
 
     private void RefreshEditor()
     {
@@ -310,9 +322,11 @@ public partial class EditWindow : Window
         QualityPanel.Visibility = jpeg || webp ? Visibility.Visible : Visibility.Collapsed;
     }
 
-    private async void OnSaveClick(object sender, RoutedEventArgs e)
+    private async void OnSaveClick(object sender, RoutedEventArgs e) => await SaveAsync();
+
+    private async Task SaveAsync(bool closeAfterSuccess = false)
     {
-        if (IsExporting || !TryReadCrop(out PixelRect crop)) { return; }
+        if (IsExporting || CloseConfirmation.Visibility == Visibility.Visible || !TryReadCrop(out PixelRect crop)) { return; }
         ImageEditRecipe next = crop == Recipe.Crop ? Recipe : Recipe.WithCrop(crop);
         if (_sizeDirty)
         {
@@ -325,6 +339,47 @@ public partial class EditWindow : Window
             : JpegFormat.IsChecked == true ? ImageExportFormat.Jpeg : ImageExportFormat.Png;
         int quality = 90;
         if (format != ImageExportFormat.Png && !ReadInteger(JpegQuality, 1, 100, out quality)) { return; }
+        string? destination = _pickExportPath is null ? PickExportPath(format) : _pickExportPath(format);
+        if (string.IsNullOrWhiteSpace(destination)) { return; }
+        if (File.Exists(destination))
+        {
+            StatusText.Text = Text("Edit_Error_DestinationExists");
+            return;
+        }
+        CancellationTokenSource cancellation = new();
+        _exportCancellation = cancellation;
+        SetExporting(true);
+        StatusText.Text = Text("Edit_Saving");
+        bool saved = false;
+        try
+        {
+            await _exporter.ExportAsync(new(_sourcePath, destination, Recipe, format,
+                quality, _sourceLength, _sourceModified, _sourcePixels, _memorySourceIdentity), cancellation.Token);
+            // A successful commit is authoritative even if cancellation raced after File.Move.
+            _session.MarkExported();
+            saved = true;
+            StatusText.Text = string.Format(_localization.CurrentCulture, Text("Edit_Saved"), Path.GetFileName(destination));
+        }
+        catch (OperationCanceledException) { StatusText.Text = Text("Edit_Cancelled"); }
+        catch (ImageExportException exception) { StatusText.Text = Text($"Edit_Error_{exception.Error}"); }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or ArgumentException or InvalidOperationException)
+        {
+            StatusText.Text = Text("Edit_Error_WriteFailed");
+        }
+        finally
+        {
+            _exportCancellation = null;
+            cancellation.Dispose();
+            SetExporting(false);
+            bool requestedClose = _closeAfterExport;
+            _closeAfterExport = false;
+            if (requestedClose) { _ = Dispatcher.BeginInvoke(new Action(Close)); }
+            else if (closeAfterSuccess && saved) { Close(); }
+        }
+    }
+
+    private string? PickExportPath(ImageExportFormat format)
+    {
         string extension = format switch { ImageExportFormat.Png => ".png", ImageExportFormat.Webp => ".webp", _ => ".jpg" };
         SaveFileDialog dialog = new()
         {
@@ -340,35 +395,7 @@ public partial class EditWindow : Window
             FileName = (_sourcePath is null ? "clipboard" : Path.GetFileNameWithoutExtension(_sourcePath)) + "-edited" + extension,
             OverwritePrompt = false,
         };
-        if (dialog.ShowDialog(this) != true) { return; }
-        if (File.Exists(dialog.FileName))
-        {
-            StatusText.Text = Text("Edit_Error_DestinationExists");
-            return;
-        }
-        CancellationTokenSource cancellation = new();
-        _exportCancellation = cancellation;
-        SetExporting(true);
-        StatusText.Text = Text("Edit_Saving");
-        try
-        {
-            await _exporter.ExportAsync(new(_sourcePath, dialog.FileName, Recipe, format,
-                quality, _sourceLength, _sourceModified, _sourcePixels, _memorySourceIdentity), cancellation.Token);
-            StatusText.Text = string.Format(_localization.CurrentCulture, Text("Edit_Saved"), Path.GetFileName(dialog.FileName));
-        }
-        catch (OperationCanceledException) { StatusText.Text = Text("Edit_Cancelled"); }
-        catch (ImageExportException exception) { StatusText.Text = Text($"Edit_Error_{exception.Error}"); }
-        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or ArgumentException or InvalidOperationException)
-        {
-            StatusText.Text = Text("Edit_Error_WriteFailed");
-        }
-        finally
-        {
-            _exportCancellation = null;
-            cancellation.Dispose();
-            SetExporting(false);
-            if (_closeAfterExport) { Close(); }
-        }
+        return dialog.ShowDialog(this) == true ? dialog.FileName : null;
     }
 
     private void SetExporting(bool exporting)
@@ -385,15 +412,52 @@ public partial class EditWindow : Window
 
     private void OnClosing(object? sender, CancelEventArgs e)
     {
-        if (!IsExporting) { return; }
+        if (!IsExporting)
+        {
+            if (_discardChanges || !HasUnexportedChanges) { return; }
+            e.Cancel = true;
+            if (CloseConfirmation.Visibility == Visibility.Visible) { return; }
+            _confirmationFocus = Keyboard.FocusedElement;
+            EditorContent.IsEnabled = false;
+            CloseConfirmation.Visibility = Visibility.Visible;
+            ContinueEditingButton.Focus();
+            return;
+        }
         e.Cancel = true;
         _closeAfterExport = true;
         _exportCancellation!.Cancel();
         StatusText.Text = Text("Edit_Cancelling");
     }
 
+    private void HideCloseConfirmation()
+    {
+        CloseConfirmation.Visibility = Visibility.Collapsed;
+        EditorContent.IsEnabled = true;
+        if (_confirmationFocus is UIElement { IsVisible: true, IsEnabled: true } element) { element.Focus(); }
+        else { Preview.Focus(); }
+        _confirmationFocus = null;
+    }
+
+    private void OnContinueEditingClick(object sender, RoutedEventArgs e) => HideCloseConfirmation();
+    private void OnDiscardClick(object sender, RoutedEventArgs e)
+    {
+        _discardChanges = true;
+        Close();
+    }
+
+    private async void OnSaveAndCloseClick(object sender, RoutedEventArgs e)
+    {
+        HideCloseConfirmation();
+        await SaveAsync(closeAfterSuccess: true);
+    }
+
     private void OnPreviewKeyDown(object sender, KeyEventArgs e)
     {
+        if (CloseConfirmation.Visibility == Visibility.Visible)
+        {
+            if (e.Key == Key.Escape) { HideCloseConfirmation(); e.Handled = true; }
+            return;
+        }
         if (e.Key == Key.Escape)
         {
             if (_selectingCrop) { OnSelectCropClick(this, e); }
