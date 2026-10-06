@@ -1,6 +1,6 @@
 # 解码器与图片格式支持
 
-> 最新状态（2026-10-06）：GIF/WebP 动画与 TIFF 分页已接入当前代码，待最终 CI 和实际验收；当前源码为 0.6.0 未发布开发版，最新公开下载仍为 v0.4.0。最终验收由主任务收口。本轮不触发 Release，不填写本批尚未完成的通过数字或性能改善；已有专项文档中的历史验证保持原记录，不代表本批已通过。
+> 最新状态（2026-10-06）：GIF/WebP动画与TIFF分页已通过固定像素样本和Windows CI，569通过/1本机RAW样本跳过，实际边界见[验收记录](animation-multipage-validation.md)。当前源码0.6.0未发布，最新公开下载仍v0.4.0，本轮不触发Release。固定机静态性能、混合DPI/跨设备长测与WebP背景提示兼容仍待补，不宣称全部变体或性能无退化。
 
 ## 实际解码与绘制路径
 
@@ -26,10 +26,10 @@ JPEG、PNG、BMP、单页 TIFF、ICO 和 JPEG XR 沿用 WPF/WIC 静态路径；G
 | JPEG | `.jpg`、`.jpeg` | 支持 | WIC | 静态；可用的常见 EXIF 与 8 种 Orientation；不承诺 CMYK/广色域色彩准确性 |
 | PNG | `.png` | 支持 | WIC | 静态首帧、透明像素；16-bit 输入转为 8-bit 通道；不提供 APNG 播放 |
 | BMP | `.bmp` | 支持 | WIC | 静态；编码变体能否读取取决于 WIC，不承诺所有历史变体 |
-| GIF | `.gif` | 支持，动画已实现待最终 CI | SkiaSharp SKCodec；单帧区域用WIC | 代表帧及动画；透明/局部/disposal依赖合成；播放、暂停、重播、定位和循环 |
-| TIFF | `.tif`、`.tiff` | 支持，分页已实现待最终 CI | 单页 WPF/WIC；多页系统 WIC COM | 页数/定位、异尺寸和逐页方向；当前页预览/完整/区域读取；高位深转为8-bit |
+| GIF | `.gif` | 静态/动画固定样本与CI通过 | SkiaSharp SKCodec；单帧区域用WIC | 代表帧及动画；透明/局部/disposal依赖合成；播放、暂停、重播、定位和循环 |
+| TIFF | `.tif`、`.tiff` | 静态/分页固定样本与CI通过 | 单页 WPF/WIC；多页系统 WIC COM | 页数/定位、异尺寸和逐页方向；当前页预览/完整/区域读取；高位深转为8-bit |
 | ICO | `.ico` | 支持 | WIC | 仅第一个图标帧；没有多尺寸/多帧选择，不承诺总能自动选最大尺寸 |
-| WebP | `.webp` | 支持，动画已实现待最终 CI | SkiaSharp SKCodec | 静态/动画、Alpha、Source/Over 与依赖帧合成；播放、暂停、重播、定位和循环；无ROI |
+| WebP | `.webp` | 静态/动画固定样本与CI通过 | SkiaSharp SKCodec | 静态/动画、Alpha、Source/Over 与依赖帧合成；播放、暂停、重播、定位和循环；无ROI；ANIM背景颜色未独立修正 |
 | JPEG XR / HD Photo | `.jxr`、`.wdp`、`.hdp` | 开发代码支持 | WIC | 主图、预览、缩略图与ROI；输出BGRA8，不保证HDR/高位深准确输出 |
 | 受限 SVG | `.svg` | 开发代码支持 | Svg.Skia 5.2.3 + Skia | 基础形状/路径/变换/本地渐变，直接完整目标栅格化；文字/图片/脚本/外部引用/use/clip/mask/filter/动画不支持 |
 | HEIF/HEIC、AVIF | `.heif`、`.heic`、`.avif` | 开发代码支持 | Magick.NET-Q8-x64 14.17.2 | 静态首图；容器方向一次纠正，RGB ICC→sRGB；源32MP/32768边/文件128MiB，序列与ROI不支持，HDR不保证 |
@@ -39,7 +39,7 @@ JPEG、PNG、BMP、单页 TIFF、ICO 和 JPEG XR 沿用 WPF/WIC 静态路径；G
 
 ## 当前能力矩阵
 
-此表描述当前代码，GIF/WebP 动画及 TIFF 多页仍待最终 CI；支持不代表所有变体都可打开。ICC 指嵌入 profile 处理，未实现显示器 profile 切换或HDR管线。EXIF 字段展示与方向纠正是不同能力。Edit 指进入已有静态编辑器并安全导出 PNG/JPEG/WebP，不代表原格式回写。
+此表描述已验证的当前代码，支持不代表所有变体都可打开。WebP当前Skia对ANIM背景提示按透明背景处理，固定样本已记录该语义，不承诺全部背景颜色变体完整兼容。ICC指嵌入profile处理，未实现显示器profile切换或HDR管线。EXIF字段展示与方向纠正是不同能力。Edit指进入已有静态编辑器并安全导出PNG/JPEG/WebP，不代表原格式回写。
 
 | 格式/路径 | Static 静态 | Animation 动画 | Pages 多页 | Transparency 透明 | ICC | EXIF | Region 区域 | Edit 编辑 |
 |---|---|---|---|---|---|---|---|---|
@@ -101,7 +101,7 @@ JPEG、PNG、BMP、单页 TIFF、ICO 和 JPEG XR 沿用 WPF/WIC 静态路径；G
 
 增加格式前确认实际 codec、native 依赖、许可证、损坏输入与内存边界，再同步主图、缩略图、选择器、导航、关联声明和本表。动画、TIFF 多页、ICO 多尺寸、导出、高位深、ICC 分别验收，不把静态首帧标成完整播放或编辑支持。
 
-本批0.6功能已实现待最终CI，源码版本号与最终验收由主任务收口；开发artifacts不代表GitHub已发布v0.5.0或v0.6.0。最新公开下载仍为v0.4.0，需要新Release时显式触发，本轮不发布。
+本批0.6自动化验收已通过，启动/激活/动画资源与真实0.5→0.6升级/重装/卸载结果见[记录](animation-multipage-validation.md)；开发artifacts不代表GitHub已发布v0.5.0或v0.6.0。最新公开下载仍为v0.4.0，本轮不发布。
 
 代码核对入口：
 

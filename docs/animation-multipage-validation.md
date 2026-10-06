@@ -37,10 +37,40 @@ Windows 10 19045、x64、同机Release framework-dependent，0.6未提交工作�
 
 采样主帧和参考各最多8,294,400B，native会话、decoder、帧timer各最多1。过程WS峰值约253.7MiB、private峰值约350.1MiB、handle峰值729；末次采样WS约190.9MiB、private约160.0MiB、handle681。切到JPG后帧资源归零、保留一个静态bitmap；清当前来源后wrapper/pin/timer/session/decoder计数全部为0，并在空闲和关闭再次为0。这证明该样本场景内项目计数有界并实际回收，不宣称整个进程绝不泄漏或长期P95达标。
 
-最终构建另外完成4096×4096大GIF持续60秒观察（`artifacts/animation/large-gif-pressure.json`）：混合输入、缩放/全屏/F5/快速切换和关闭均成功，释放/空闲/关闭的wrapper、pin、timer、session、native计数全部归零。本地短smoke已完成六输入与资源归零。Windows CI、self-contained静态对照、文件激活和真实0.5→0.6安装/升级/重装/卸载结果待补。
+最终构建另外完成4096×4096大GIF持续60秒观察（`artifacts/animation/large-gif-pressure.json`）：混合输入、缩放/全屏/F5/快速切换和关闭均成功，释放/空闲/关闭的wrapper、pin、timer、session、native计数全部归零。本地短smoke已完成六输入与资源归零。
+
+## Windows CI 与安装验收
+
+[PR #33](https://github.com/Flysoft1337/ModernImageViewer/pull/33) 功能提交 `426d2a6` 的 [Windows CI 37459778269](https://github.com/Flysoft1337/ModernImageViewer/actions/runs/37459778269) 全部通过。Actions 测试 checkout 合并提交为 `f817b10`，报告 ProductVersion 也携带该提交；不是本机 framework-dependent 结果。环境 Windows 10.0.26100/x64、4逻辑处理器、约16GiB内存，应用 self-contained win-x64。
+
+- 格式检查通过（保留既有 workspace warning），Release build 0警告/0错误；实际TRX核心187、UI/codec382，共569通过，1本机RAW样本跳过。NuGet含传递依赖审计未发现当前源报告的已知漏洞，无新增codec依赖。
+- 100MP观察预览1600×1600/10,240,000B、缩略140×140/78,400B，单次273.50/225.76ms。发布包启动、12类格式/新增动画与多页样本的单实例文件激活成功。
+- 动画专项六输入/一轮smoke成功，包含4096大GIF，持续播放段1秒；无强杀、无丢弃观测样本。切到静态后会话/decoder/timer为0，清图/空闲/关闭时wrapper、bitmap pin、bitmap、timer、session、decoder及帧/快照字节全部为0。采样WS/private峰值约202.8/174.3MiB，handles570；这不是长期压力或进程泄漏证明。
+- 独立checkout固定 `9cdcde9` 构建真实0.5安装器；生命周期JSON证实0.5.0安装→0.6.0升级（程序集hash改变）→0.6.0同版重装（hash不变），卸载identity一致，卸载与临时清理成功。旧版/新版安装后文件激活、用户文件及默认关联保护断言均通过。
+- Release发布job明确跳过。最后验收同步仅修改Markdown，功能源/测试/脚本与通过的 `426d2a6` 相同，不把该次CI说成后来文档提交的执行结果。
+
+首轮CI `37458958549` 在569通过、审计/启动成功后因激活脚本遍历新增README/hash sidecar而超时；修复为从既有格式组筛选图片扩展名，本地真实激活通过，第二轮完整CI通过。没有移除任何真实格式样本。
+
+### 同机静态对照的实际边界
+
+同一Windows job，各版本一次startup和一次相同8生成图/8切换、F5/细化/快速切换观察。两版都完成8次邻图切换、所需细节全部绘制且无预算降级；末次保留相同主图586,756B、缩略8项379,136B、neighbor0B、bitmap pin1。
+
+| 观察量 | 固定0.5基线 | 0.6功能提交 |
+|---|---:|---:|
+| 启动窗口/输入空闲 | 771.4ms | 892.2ms |
+| 首次请求至画面绘制 | 138.37ms | 180.41ms |
+| 8次切图平均值 | 45.59ms | 99.27ms |
+| 采样工作集最大值 | 141,692,928B | 146,427,904B |
+| 采样private最大值 | 67,297,280B | 66,723,840B |
+
+0.6本次时间数字偏慢，不能写成速度提升或性能无退化。运行顺序为0.6先、0.5后，机器负载/缓存/冷暖启动未受控，样本数不足以确定稳定回归；这也不能反向证明差异全由噪声造成。代码核对JPEG/PNG直接返回无帧会话，未新增codec读取、worker或播放timer；固定基准机交替重复测量仍是发布前待办，不以本次CI替代P95/10%发布性能门槛。
+
+取回的TRX、startup/browsing/animation/codec JSON和安装lifecycle证据位于 `artifacts/animation/ci-37459778269`；CI artifacts提供同名原始报告，受保留期限制。
 
 ## 保留边界
 
 不提供动画编辑/导出、TIFF所选页另存、APNG、AVIF/HEIF序列、BigTIFF完整兼容或ICO尺寸选择。超限动画只尝试静态代表帧并反馈；不承诺所有损坏文件或编码变体。多页TIFF的嵌入ICC转换、显示器ICC、HDR/高位深、真实混合DPI多屏及跨设备长期观察仍未完成。GIF/WebP有效延时小于20ms统一回退100ms，不能解释成精确保留极短原始节奏。
+
+WebP固定样本声明白色ANIM background，当前Skia依透明背景语义清除；未实现背景提示的独立兼容修正，不宣称全部ANIM背景颜色变体完整兼容。GIF/WebP依赖合成正确性以当前固定像素样本为依据。
 
 下一阶段优先真实日常动画样本/混合DPI与低内存长测，再评估ICO尺寸选择；保持浏览优先，不扩编辑或完整RAW显影。
