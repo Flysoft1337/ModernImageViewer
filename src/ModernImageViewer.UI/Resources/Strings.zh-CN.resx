@@ -234,4 +234,9 @@
   <data name="Edit_CropOriginal" xml:space="preserve"><value>原比例</value></data>
   <data name="Edit_ApplyCropHint" xml:space="preserve"><value>点击应用裁剪以预览此比例。</value></data>
   <data name="Edit_WebpHint" xml:space="preserve"><value>有损 WebP，支持透明；品质 100 不代表无损。</value></data>
+  <data name="Edit_UnsavedTitle" xml:space="preserve"><value>修改尚未保存</value></data>
+  <data name="Edit_UnsavedMessage" xml:space="preserve"><value>关闭前是否另存副本？原图片保持不变。</value></data>
+  <data name="Edit_Continue" xml:space="preserve"><value>继续编辑</value></data>
+  <data name="Edit_Discard" xml:space="preserve"><value>丢弃修改</value></data>
+  <data name="Edit_SaveAndClose" xml:space="preserve"><value>另存并关闭</value></data>
 </root>

@@ -8,6 +8,7 @@ public sealed class ImageEditSession
     private readonly List<ImageEditRecipe> _undo = [];
     private readonly Stack<ImageEditRecipe> _redo = [];
     private readonly ImageEditRecipe _initial;
+    private ImageEditRecipe? _exported;
 
     public ImageEditSession(PixelSize source, ViewOrientation orientation = default) =>
         Current = _initial = ImageEditRecipe.Create(source, orientation);
@@ -16,6 +17,9 @@ public sealed class ImageEditSession
     public bool CanUndo => _undo.Count != 0;
     public bool CanRedo => _redo.Count != 0;
     public bool IsModified => Current != _initial;
+    public bool HasUnexportedChanges => Current != (_exported ?? _initial);
+
+    public void MarkExported() => _exported = Current;
 
     public void Apply(ImageEditRecipe recipe)
     {

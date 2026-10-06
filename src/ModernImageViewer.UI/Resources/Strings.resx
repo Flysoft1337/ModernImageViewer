@@ -234,4 +234,9 @@
   <data name="Edit_CropOriginal" xml:space="preserve"><value>Original</value></data>
   <data name="Edit_ApplyCropHint" xml:space="preserve"><value>Apply the crop to preview this ratio.</value></data>
   <data name="Edit_WebpHint" xml:space="preserve"><value>Lossy WebP with transparency. Quality 100 is not lossless.</value></data>
+  <data name="Edit_UnsavedTitle" xml:space="preserve"><value>Unsaved changes</value></data>
+  <data name="Edit_UnsavedMessage" xml:space="preserve"><value>Save a copy before closing? Your original image stays unchanged.</value></data>
+  <data name="Edit_Continue" xml:space="preserve"><value>Keep editing</value></data>
+  <data name="Edit_Discard" xml:space="preserve"><value>Discard</value></data>
+  <data name="Edit_SaveAndClose" xml:space="preserve"><value>Save and close</value></data>
 </root>

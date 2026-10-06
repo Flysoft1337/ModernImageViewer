@@ -462,8 +462,10 @@ public sealed class MainWindowViewModelTests
         {
             themes.Apply(theme);
             localization.SetCulture(language);
+            NoopExporter exporter = new();
+            string? exportPath = Path.Combine(Path.GetTempPath(), $"miv-editor-test-{Guid.NewGuid():N}.png");
             EditWindow editor = new(viewModel.Presentation, default(ViewOrientation).RotateRight(), localization,
-                new NoopExporter(), 0, DateTime.UtcNow)
+                exporter, 0, DateTime.UtcNow, pickExportPath: _ => exportPath)
             { Owner = window, Width = 720, Height = 480 };
             editor.Show();
             editor.Dispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.ContextIdle);
@@ -517,13 +519,107 @@ public sealed class MainWindowViewModelTests
                 editor.UpdateLayout();
                 SaveScreenshot(editor, Path.Combine(output, $"editor-export-{theme}-{language}.png"));
             }
-            editor.Close();
+            VerifyEditorClosing(editor, exporter, () => exportPath = null, output, theme, language);
+            EditWindow savedEditor = new(viewModel.Presentation, default, localization, new NoopExporter(),
+                0, DateTime.UtcNow, pickExportPath: _ => Path.Combine(Path.GetTempPath(), $"miv-editor-{Guid.NewGuid():N}.png"))
+            { Owner = window, Width = 720, Height = 480 };
+            savedEditor.Show();
+            ((System.Windows.Controls.TextBox)savedEditor.FindName("CropWidth")).Text = "100";
+            savedEditor.Close();
+            ((System.Windows.Controls.Button)savedEditor.FindName("SaveAndCloseButton")).RaiseEvent(
+                new System.Windows.RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
+            Assert.False(savedEditor.IsVisible);
         }
+    }
+
+    private static void VerifyEditorClosing(EditWindow editor, NoopExporter exporter, Action cancelPicker,
+        string? output, Themes.AppTheme theme, string language)
+    {
+        void Click(string name) => ((System.Windows.Controls.Button)editor.FindName(name)).RaiseEvent(
+            new System.Windows.RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
+        Task Save(bool close = false) => (Task)typeof(EditWindow).GetMethod("SaveAsync",
+            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!.Invoke(editor, [close])!;
+        System.Windows.UIElement confirmation = (System.Windows.UIElement)editor.FindName("CloseConfirmation");
+        bool closed = false;
+        editor.Closed += (_, _) => closed = true;
+        Assert.True(editor.HasUnexportedChanges);
+        editor.Close();
+        Assert.True(editor.IsLoaded);
+        Assert.Equal(System.Windows.Visibility.Visible, confirmation.Visibility);
+        Assert.False(((System.Windows.UIElement)editor.FindName("EditorContent")).IsEnabled);
+        Assert.Same(editor.FindName("ContinueEditingButton"), System.Windows.Input.Keyboard.FocusedElement);
+        editor.UpdateLayout();
+        if (!string.IsNullOrEmpty(output)) { SaveScreenshot(editor, Path.Combine(output, $"editor-close-{theme}-{language}.png")); }
+        Click("ContinueEditingButton");
+        Assert.Equal(System.Windows.Visibility.Collapsed, confirmation.Visibility);
+        Assert.True(((System.Windows.UIElement)editor.FindName("EditorContent")).IsEnabled);
+        exporter.Failure = new ImageExportException(ImageExportError.WriteFailed);
+        Save(close: true).GetAwaiter().GetResult();
+        Assert.True(editor.IsLoaded);
+        Assert.True(editor.HasUnexportedChanges);
+        exporter.Failure = null;
+        Save().GetAwaiter().GetResult();
+        Assert.False(editor.HasUnexportedChanges);
+        Click("UndoButton");
+        Assert.True(editor.HasUnexportedChanges);
+        Click("RedoButton");
+        Assert.False(editor.HasUnexportedChanges);
+        System.Windows.Controls.TextBox width = (System.Windows.Controls.TextBox)editor.FindName("CropWidth");
+        string savedWidth = width.Text;
+        width.Text = "invalid";
+        editor.Close();
+        Assert.Equal(System.Windows.Visibility.Visible, confirmation.Visibility);
+        Click("ContinueEditingButton");
+        width.Text = savedWidth;
+        Assert.False(editor.HasUnexportedChanges);
+        ((System.Windows.Controls.TextBox)editor.FindName("OutputWidth")).Text = "201";
+        Assert.True(editor.HasUnexportedChanges);
+        TaskCompletionSource pendingExport = new();
+        exporter.Wait = token =>
+        {
+            token.Register(() => pendingExport.SetCanceled(token));
+            return pendingExport.Task;
+        };
+        SynchronizationContext? previousContext = SynchronizationContext.Current;
+        SynchronizationContext.SetSynchronizationContext(new System.Windows.Threading.DispatcherSynchronizationContext(editor.Dispatcher));
+        try
+        {
+            Task saving = Save();
+            Assert.True(editor.IsExporting);
+            editor.Close();
+            System.Windows.Threading.DispatcherFrame frame = new();
+            saving.GetAwaiter().OnCompleted(() => frame.Continue = false);
+            System.Windows.Threading.DispatcherTimer timeout = new() { Interval = TimeSpan.FromSeconds(3) };
+            timeout.Tick += (_, _) => frame.Continue = false;
+            timeout.Start();
+            try { if (!saving.IsCompleted) { System.Windows.Threading.Dispatcher.PushFrame(frame); } }
+            finally { timeout.Stop(); }
+            Assert.True(saving.IsCompleted, "Export cancellation timed out.");
+            saving.GetAwaiter().GetResult();
+        }
+        finally { SynchronizationContext.SetSynchronizationContext(previousContext); }
+        editor.Dispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.ContextIdle);
+        Assert.False(editor.IsExporting);
+        Assert.False(closed);
+        Assert.True(editor.HasUnexportedChanges);
+        Assert.Equal(System.Windows.Visibility.Visible, confirmation.Visibility);
+        Click("ContinueEditingButton");
+        exporter.Wait = null;
+        cancelPicker();
+        Save(close: true).GetAwaiter().GetResult();
+        Assert.True(editor.IsLoaded);
+        Assert.True(editor.HasUnexportedChanges);
+        editor.Close();
+        Click("DiscardChangesButton");
+        Assert.True(closed);
     }
 
     private sealed class NoopExporter : ModernImageViewer.Application.Editing.IImageExportService
     {
-        public Task ExportAsync(ModernImageViewer.Application.Editing.ImageExportRequest request, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Exception? Failure { get; set; }
+        public Func<CancellationToken, Task>? Wait { get; set; }
+        public Task ExportAsync(ModernImageViewer.Application.Editing.ImageExportRequest request, CancellationToken cancellationToken = default) =>
+            Wait is not null ? Wait(cancellationToken) : Failure is null ? Task.CompletedTask : Task.FromException(Failure);
     }
 
     private sealed class PreviewDecoder : IPreviewImageDecoder, IRegionImageDecoder

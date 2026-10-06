@@ -6,6 +6,27 @@ namespace ModernImageViewer.Tests;
 public sealed class ImageEditSessionTests
 {
     [Fact]
+    public void SuccessfulExportCheckpointFollowsUndoRedoAndReset()
+    {
+        ImageEditSession session = new(new(100, 80));
+        Assert.False(session.HasUnexportedChanges);
+        session.Apply(session.Current.WithCrop(new(10, 10, 50, 40)));
+        Assert.True(session.HasUnexportedChanges);
+        session.MarkExported();
+        Assert.False(session.HasUnexportedChanges);
+        session.Undo();
+        Assert.True(session.HasUnexportedChanges);
+        session.Redo();
+        Assert.False(session.HasUnexportedChanges);
+        session.Apply(session.Current.FlipHorizontal());
+        Assert.True(session.HasUnexportedChanges);
+        session.Undo();
+        Assert.False(session.HasUnexportedChanges);
+        session.Reset();
+        Assert.True(session.HasUnexportedChanges);
+    }
+
+    [Fact]
     public void CropRotateResizeMapsOriginalCornersAndInverseRegionCorrectly()
     {
         ViewOrientation direction = default;
