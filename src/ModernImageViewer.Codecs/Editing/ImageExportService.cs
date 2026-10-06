@@ -4,6 +4,7 @@ using System.Runtime.InteropServices;
 using ModernImageViewer.Application.Editing;
 using ModernImageViewer.Application.Images;
 using ModernImageViewer.Imaging;
+using ModernImageViewer.Rendering.Editing;
 
 using SkiaSharp;
 
@@ -14,7 +15,13 @@ public sealed class ImageExportService(IImageDecoder decoder) : IImageExportServ
     public const long OutputByteLimit = 64L * 1024 * 1024;
     public const long SourceByteLimit = 64L * 1024 * 1024;
     private const long RegionByteLimit = 16L * 1024 * 1024;
+    // Output + compositing layer + two conservative filter work surfaces. This is an
+    // allocation guard, not a promise about Skia/native process peak memory.
+    public const long EffectWorkingByteLimit = 128L * 1024 * 1024;
     private static readonly SemaphoreSlim ExportSlot = new(1, 1);
+
+    public Task<byte[]?> GetSourceColorProfileAsync(string path, CancellationToken cancellationToken = default) =>
+        Task.Run(() => ImageExportMetadata.ReadSource(path, preserve: false, cancellationToken).PixelProfile, cancellationToken);
 
     public async Task ExportAsync(ImageExportRequest request, CancellationToken cancellationToken = default)
     {
@@ -30,6 +37,7 @@ public sealed class ImageExportService(IImageDecoder decoder) : IImageExportServ
         string? source = request.SourcePath is null ? null : Path.GetFullPath(request.SourcePath);
         string destination = Path.GetFullPath(request.DestinationPath);
         string? temporary = null;
+        string? metadataTemporary = null;
         try
         {
             // Keep this handle through commit: Windows denies writes/deletes through hard links,
@@ -50,12 +58,20 @@ public sealed class ImageExportService(IImageDecoder decoder) : IImageExportServ
                 throw new ImageExportException(ImageExportError.BudgetExceeded);
             }
             token.ThrowIfCancellationRequested();
+            ImageExportMetadata.SourceInfo sourceInfo = ImageExportMetadata.ReadSource(source,
+                request.MetadataMode == ImageExportMetadataMode.PreserveCamera, token);
+            using SKColorSpace srgb = SKColorSpace.CreateSrgb();
+            using SKColorSpace sourceColor = sourceInfo.PixelProfile is null ? SKColorSpace.CreateSrgb()
+                : SKColorSpace.CreateIcc(sourceInfo.PixelProfile) ?? throw new ImageExportException(ImageExportError.DecodeFailed);
             PixelSize output = request.Recipe.OutputSize;
-            using SKBitmap bitmap = new(new SKImageInfo(output.Width, output.Height, SKColorType.Bgra8888, SKAlphaType.Premul));
+            using SKBitmap bitmap = new(new SKImageInfo(output.Width, output.Height, SKColorType.Bgra8888, SKAlphaType.Premul, srgb));
             if (bitmap.GetPixels() == IntPtr.Zero) { throw new ImageExportException(ImageExportError.BudgetExceeded); }
             using (SKCanvas canvas = new(bitmap))
             {
                 canvas.Clear(request.Format == ImageExportFormat.Jpeg ? SKColors.White : SKColors.Transparent);
+                using SKPaint? effects = request.Recipe.Adjustments.IsIdentity ? null : ImageEditEffects.CreatePaint(request.Recipe.Adjustments);
+                if (effects is not null) { canvas.SaveLayer(new SKRect(0, 0, output.Width, output.Height), effects); }
+                canvas.Save();
                 var m = request.Recipe.GetMatrix();
                 canvas.Concat(new SKMatrix((float)m.M11, (float)m.M21, (float)m.OffsetX,
                     (float)m.M12, (float)m.M22, (float)m.OffsetY, 0, 0, 1));
@@ -63,7 +79,7 @@ public sealed class ImageExportService(IImageDecoder decoder) : IImageExportServ
                 if (memorySource is not null || wholeSource is not null)
                 {
                     using SKBitmap pixels = memorySource is not null
-                        ? AttachPixels(memorySource.Size, memorySource.Stride, memorySource.Pixels) : AttachPixels(wholeSource!);
+                        ? AttachPixels(memorySource.Size, memorySource.Stride, memorySource.Pixels, srgb) : AttachPixels(wholeSource!, sourceColor);
                     if (memorySource is not null || wholeSource!.Size == wholeSource.SourceSize)
                     {
                         using SKBitmap cropped = new();
@@ -107,7 +123,7 @@ public sealed class ImageExportService(IImageDecoder decoder) : IImageExportServ
                             {
                                 throw new ImageExportException(ImageExportError.SourceChanged);
                             }
-                            using SKBitmap pixels = AttachPixels(owner.Region.Image);
+                            using SKBitmap pixels = AttachPixels(owner.Region.Image, sourceColor);
                             canvas.Save();
                             canvas.ClipRect(ToRect(core));
                             canvas.DrawBitmap(pixels, ToRect(padded), new SKSamplingOptions(SKFilterMode.Linear));
@@ -115,15 +131,20 @@ public sealed class ImageExportService(IImageDecoder decoder) : IImageExportServ
                         }
                     }
                 }
+                canvas.Restore();
+                if (effects is not null) { canvas.Restore(); }
+                token.ThrowIfCancellationRequested();
+                ImageAnnotationRenderer.Draw(canvas, request.Recipe, bitmap);
             }
             token.ThrowIfCancellationRequested();
             temporary = Path.Combine(Path.GetDirectoryName(destination)!, $".miv-export-{Guid.NewGuid():N}.tmp");
             using (FileStream stream = new(temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None))
             {
                 using SKPixmap pixels = bitmap.PeekPixels();
-                // Encode fresh raster pixels only: source EXIF/XMP/ICC metadata is not copied.
+                // Lossless changes the codec mode, not merely the lossy quality setting.
                 bool encoded = request.Format == ImageExportFormat.Webp
-                    ? pixels.Encode(stream, new SKWebpEncoderOptions(SKWebpEncoderCompression.Lossy, request.JpegQuality))
+                    ? pixels.Encode(stream, new SKWebpEncoderOptions(request.WebpLossless
+                        ? SKWebpEncoderCompression.Lossless : SKWebpEncoderCompression.Lossy, request.JpegQuality))
                     : bitmap.Encode(stream, request.Format == ImageExportFormat.Png ? SKEncodedImageFormat.Png : SKEncodedImageFormat.Jpeg,
                         request.JpegQuality);
                 if (!encoded)
@@ -132,6 +153,12 @@ public sealed class ImageExportService(IImageDecoder decoder) : IImageExportServ
                 }
                 stream.Flush(flushToDisk: true);
             }
+            token.ThrowIfCancellationRequested();
+            byte[]? exif = ImageExportMetadata.CreateExif(sourceInfo.Metadata, output, request.MetadataMode);
+            metadataTemporary = ImageExportMetadata.AddToEncodedFile(temporary, request.Format, output, exif, token);
+            File.Delete(temporary);
+            temporary = metadataTemporary;
+            metadataTemporary = null;
             token.ThrowIfCancellationRequested();
             // Never replace an existing file, even if it appears after the save dialog closes.
             File.Move(temporary, destination, overwrite: false);
@@ -157,9 +184,10 @@ public sealed class ImageExportService(IImageDecoder decoder) : IImageExportServ
         }
         finally
         {
-            if (temporary is not null)
+            foreach (string? path in new[] { temporary, metadataTemporary })
             {
-                try { File.Delete(temporary); }
+                if (path is null) { continue; }
+                try { File.Delete(path); }
                 catch (IOException) { }
                 catch (UnauthorizedAccessException) { }
             }
@@ -239,6 +267,7 @@ public sealed class ImageExportService(IImageDecoder decoder) : IImageExportServ
             throw new ImageExportException(ImageExportError.InvalidDestination);
         }
         if (request.JpegQuality is < 1 or > 100) { throw new ArgumentOutOfRangeException(nameof(request)); }
+        if (!Enum.IsDefined(request.MetadataMode)) { throw new ArgumentOutOfRangeException(nameof(request)); }
         PixelSize size = request.Recipe.OutputSize;
         PixelSize source = request.Recipe.SourceSize;
         if (source.Width > 32768 || source.Height > 32768 || source.PixelCount > 100_000_000
@@ -246,8 +275,13 @@ public sealed class ImageExportService(IImageDecoder decoder) : IImageExportServ
         {
             throw new ImageExportException(ImageExportError.BudgetExceeded);
         }
+        if (!request.Recipe.Adjustments.IsIdentity && size.PixelCount * 4 * 4 > EffectWorkingByteLimit)
+        {
+            throw new ImageExportException(ImageExportError.BudgetExceeded);
+        }
         if (memory)
         {
+            if (request.SourcePixels is { IsSrgb: false }) { throw new ImageExportException(ImageExportError.DecodeFailed); }
             if (source.PixelCount * 4 > SourceByteLimit)
             {
                 throw new ImageExportException(ImageExportError.BudgetExceeded);
@@ -269,9 +303,9 @@ public sealed class ImageExportService(IImageDecoder decoder) : IImageExportServ
 
     private static SKRect ToRect(PixelRect rect) => new(rect.X, rect.Y, rect.Right, rect.Bottom);
 
-    private static SKBitmap AttachPixels(PixelBuffer image) => AttachPixels(image.Size, image.Stride, image.Pixels);
+    private static SKBitmap AttachPixels(PixelBuffer image, SKColorSpace colorSpace) => AttachPixels(image.Size, image.Stride, image.Pixels, colorSpace);
 
-    private static SKBitmap AttachPixels(PixelSize size, int stride, ReadOnlyMemory<byte> memory)
+    private static SKBitmap AttachPixels(PixelSize size, int stride, ReadOnlyMemory<byte> memory, SKColorSpace colorSpace)
     {
         if (!MemoryMarshal.TryGetArray(memory, out ArraySegment<byte> pixels) || pixels.Array is null)
         {
@@ -281,7 +315,7 @@ public sealed class ImageExportService(IImageDecoder decoder) : IImageExportServ
         SKBitmap bitmap = new();
         try
         {
-            if (!bitmap.InstallPixels(new(size.Width, size.Height, SKColorType.Bgra8888, SKAlphaType.Premul),
+            if (!bitmap.InstallPixels(new(size.Width, size.Height, SKColorType.Bgra8888, SKAlphaType.Premul, colorSpace),
                 pin.Address, stride, (_, context) => ((PinnedPixels)context).Dispose(), pin))
             {
                 throw new InvalidOperationException("Unable to attach decoded pixels.");

@@ -32,11 +32,13 @@ public sealed record UserSettingsSnapshot(
     string? Language = null,
     string? Theme = null,
     WindowPlacementData? WindowPlacement = null,
-    BrowsingPreferencesData? Browsing = null)
+    BrowsingPreferencesData? Browsing = null,
+    IReadOnlyList<EditorPresetData>? EditorPresets = null)
 {
     public UserSettingsSnapshot Normalize() => this with
     {
         WindowPlacement = WindowPlacement is { IsValid: true } ? WindowPlacement : null,
         Browsing = (Browsing ?? new()).Normalize(),
+        EditorPresets = EditorPresetData.NormalizeList(EditorPresets),
     };
 }

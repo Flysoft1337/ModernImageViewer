@@ -11,7 +11,7 @@ public static class SharedPixelBitmap
     private static readonly SKBitmapReleaseDelegate ReleasePixels = (_, context) => ((PinnedPixels)context).Dispose();
 
     // Rendering view only: the storage belongs to PixelBuffer and must not be mutated.
-    public static SKBitmap Create(PixelBuffer image)
+    public static SKBitmap Create(PixelBuffer image, SKColorSpace? colorSpace = null)
     {
         ArgumentNullException.ThrowIfNull(image);
         if (!MemoryMarshal.TryGetArray(image.Pixels, out ArraySegment<byte> pixels) || pixels.Array is null)
@@ -24,7 +24,7 @@ public static class SharedPixelBitmap
         try
         {
             pin = new PinnedPixels(pixels.Array, pixels.Offset);
-            SKImageInfo info = new(image.Size.Width, image.Size.Height, SKColorType.Bgra8888, SKAlphaType.Premul);
+            SKImageInfo info = new(image.Size.Width, image.Size.Height, SKColorType.Bgra8888, SKAlphaType.Premul, colorSpace);
             if (!bitmap.InstallPixels(info, pin.Address, image.Stride, ReleasePixels, pin))
             {
                 throw new InvalidOperationException("The pixel buffer could not be attached to the renderer.");

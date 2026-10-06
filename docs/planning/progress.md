@@ -212,6 +212,16 @@
 - [PR #30](https://github.com/Flysoft1337/ModernImageViewer/pull/30)功能提交cf7e3f9的[Windows CI 37430275906](https://github.com/Flysoft1337/ModernImageViewer/actions/runs/37430275906)成功：完整恢复/格式，Release构建0警告0错误；核心69+UI/codec185=254通过、1项本机真实RAW样本跳过。依赖审计、100MP观察、便携启动/12类格式激活、安装版激活及当前用户安装/同版本重装迁移/卸载通过；Release job明确跳过。
 - CI format有既有workspace加载warning，不称全部工具零告警。最后仅Markdown支持/验收同步，功能源/测试/CI流程与已通过cf7e3f9一致；最终合并状态见PR，开发0.5.0/公开v0.4.0不变。
 
+## 2026-10-06：完整日常编辑（进行中）
+
+- 基于 master 2536d49 创建 codex/complete-editor，四个代理分别负责几何/效果、标注、导出、预设，主任务完成 UI/颜色/渲染整合。
+- 初次构建暴露 UI/codec 依赖和 Skia 4 弃用 API；抽出共享 Rendering、采用 SKPathBuilder 和新文字重载，修复 Thickness 构造。后续 Release 构建0警告0错误。
+- 本地还原默认离线用户无完整包、代理 TLS 凭证不可用；使用现有 C:/Users/19446/.nuget/packages 离线包还原，NuGetAudit 本地暂不联网，审计复用正式 CI。新 Rendering 目标同步 Windows，未增加包版本或更改 CI 矩阵。
+- 首轮编辑核心26通过；相关 UI/codec首轮72通过4失败，三项旧 WebP 断言需适配新 sRGB ICC，透明 RGB 应只验证 alpha/预乘值。第二轮76通过2失败，新增标注窗口测试不能继承有 XAML 的 EditWindow，调整为既有窗口case中的helper；无损半透明量化需明确检验边界。未把失败轮计为通过。
+- 已查看深中文/浅英文调整及标注截图，修正英文页签截断。完整源裁剪预览改共享 subset 与导出相同边界采样；关闭前先清理标注草稿再释放 viewport。新增文件格式化因默认沙箱写限制改授权提升执行。
+- 最终本地 Release 构建0警告0错误；核心编辑/裁剪27项、相关UI/codec82项全部通过，包含选择移动、文字/字体/颜色合并历史、删除、Esc、非法草稿、摄影元数据、无损编码、ICC、预设、旧设置BOM与256KiB读取上限。窗口helper反射歧义已修复，最终双语主题720×480截图已查看，288资源键一致。
+- 同尺寸参数提交保留缩放和位置；锐化缩略预览明确为近似。专业RAW、显示器ICC、HDR/高位深及完整元数据保留未完成，不将本次交付写成所有M2/M3目标退出。准备提交PR，正式打包/安装结果待既有Windows CI。
+
 - 已接入显示方向的居中比例预设及锁定拖选，预设先写参数草稿，应用/保存才进入历史；同一批预设选择基于已应用crop，避免切换预设反复收缩。旋转/翻转坐标沿用N2矩阵，原比例拖选按当前方向计算。WebP UI共享品质输入，PNG隐藏品质；几何与既有STA窗口回归已补，等待统一构建。
 
 - 第一轮核心回归发现测试对已是4:3的crop再次应用同一比例仍期待新增历史；现有会话正确忽略无变化recipe，修正断言。格式检查要求switch各臂分行，采用既有format修复；未改变历史实现。

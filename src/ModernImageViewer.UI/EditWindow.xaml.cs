@@ -11,6 +11,7 @@ using Microsoft.Win32;
 
 using ModernImageViewer.Application.Editing;
 using ModernImageViewer.Application.Images;
+using ModernImageViewer.Application.Settings;
 using ModernImageViewer.Imaging;
 using ModernImageViewer.UI.Localization;
 
@@ -39,7 +40,8 @@ public partial class EditWindow : Window
 
     public EditWindow(ImageOpenState presentation, ViewOrientation orientation, ILocalizationService localization,
         IImageExportService exporter, long? sourceLength = null, DateTime? sourceModifiedUtc = null,
-        ImageExportPixels? sourcePixels = null, Func<ImageExportFormat, string?>? pickExportPath = null)
+        ImageExportPixels? sourcePixels = null, Func<ImageExportFormat, string?>? pickExportPath = null,
+        IUserSettingsService? settings = null, byte[]? sourceColorProfile = null)
     {
         ArgumentNullException.ThrowIfNull(presentation);
         if (presentation.Image is null) { throw new ArgumentException("An image is required.", nameof(presentation)); }
@@ -78,6 +80,9 @@ public partial class EditWindow : Window
         }
         DataContext = new EditorStrings(localization);
         InitializeComponent();
+        InitializeAdjustments();
+        InitializeAnnotations();
+        InitializePresets(settings);
         if (presentation.IsMemorySource)
         {
             PreviewNotice.Text = Text("Edit_ClipboardNotice");
@@ -95,12 +100,15 @@ public partial class EditWindow : Window
         PixelBuffer previewSnapshot = new(presentation.Image.Size, presentation.Image.Stride, previewPixels.Array,
             presentation.Image.Metadata, presentation.Image.SourceSize, presentation.Image.SourceFileStamp);
         Preview.Presentation = presentation with { Image = previewSnapshot, Region = null, IsRefining = false, IsRegionLoading = false };
+        Preview.SetEditSourceColorProfile(sourceColorProfile);
         RefreshEditor();
         UpdateFormatHint();
         Loaded += (_, _) => Preview.Focus();
         Closing += OnClosing;
         Closed += (_, _) =>
         {
+            _adjustmentTimer.Stop();
+            CancelAnnotationGesture();
             Preview.Dispose();
             Preview.Presentation = null;
             previewSnapshot.Dispose();
@@ -114,7 +122,8 @@ public partial class EditWindow : Window
 
     private bool HasDraftChanges => !Matches(CropX, Recipe.Crop.X) || !Matches(CropY, Recipe.Crop.Y)
         || !Matches(CropWidth, Recipe.Crop.Width) || !Matches(CropHeight, Recipe.Crop.Height)
-        || !Matches(OutputWidth, Recipe.OutputSize.Width) || !Matches(OutputHeight, Recipe.OutputSize.Height);
+        || !Matches(OutputWidth, Recipe.OutputSize.Width) || !Matches(OutputHeight, Recipe.OutputSize.Height)
+        || HasAdjustmentDraft || AnnotationIsDrawing;
 
     private static bool Matches(TextBox input, int value) => int.TryParse(input.Text,
         NumberStyles.None, CultureInfo.InvariantCulture, out int parsed) && parsed == value;
@@ -137,7 +146,9 @@ public partial class EditWindow : Window
             _selectingCrop = false;
             CropOverlay.Visibility = Visibility.Collapsed;
             SelectionRectangle.Visibility = Visibility.Collapsed;
-            Preview.SetEditRecipe(recipe);
+            RefreshAdjustments();
+            RefreshAnnotations();
+            Preview.SetEditRecipe(recipe, fit: false);
             OutputSummary.Text = string.Format(_localization.CurrentCulture, Text("Edit_OutputSummary"),
                 recipe.OutputSize.Width, recipe.OutputSize.Height);
             StatusText.Text = Text("Edit_Ready");
@@ -145,13 +156,15 @@ public partial class EditWindow : Window
         finally { _refreshing = false; }
     }
 
-    private void OnUndoClick(object sender, RoutedEventArgs e) { _session.Undo(); RefreshEditor(); }
-    private void OnRedoClick(object sender, RoutedEventArgs e) { _session.Redo(); RefreshEditor(); }
+    private void OnUndoClick(object sender, RoutedEventArgs e) { if (!CommitAnnotationProperties()) { return; } CommitAdjustments(); _session.Undo(); RefreshEditor(); }
+    private void OnRedoClick(object sender, RoutedEventArgs e) { if (!CommitAnnotationProperties()) { return; } _session.Redo(); RefreshEditor(); }
     private void OnResetClick(object sender, RoutedEventArgs e) { _session.Reset(); RefreshEditor(); }
 
     private void OnDirectionClick(object sender, RoutedEventArgs e)
     {
         if (sender is not Button { Tag: string action }) { return; }
+        if (!CommitAnnotationProperties()) { return; }
+        CommitAdjustments();
         _session.Apply(action switch
         {
             "Left" => Recipe.RotateLeft(),
@@ -165,8 +178,12 @@ public partial class EditWindow : Window
 
     private void OnSelectCropClick(object sender, RoutedEventArgs e)
     {
+        if (!CommitAnnotationProperties()) { return; }
+        CommitAdjustments();
+        OnEditingModeChanged(true);
+        AnnotationOverlay.Visibility = Visibility.Collapsed;
         _selectingCrop = !_selectingCrop;
-        Preview.SetEditRecipe(_selectingCrop ? ImageEditRecipe.Create(Recipe.SourceSize, Recipe.Orientation) : Recipe);
+        Preview.SetEditRecipe(_selectingCrop ? Recipe.WithCrop(new(0, 0, Recipe.SourceSize.Width, Recipe.SourceSize.Height)) : Recipe);
         CropOverlay.Visibility = _selectingCrop ? Visibility.Visible : Visibility.Collapsed;
         SelectionRectangle.Visibility = Visibility.Collapsed;
         StatusText.Text = Text(_selectingCrop ? "Edit_DragCrop" : "Edit_Ready");
@@ -211,12 +228,9 @@ public partial class EditWindow : Window
 
     private void ShowCropRectangle(PixelRect crop)
     {
-        Point first = Preview.ToCanvasPoint(crop.X, crop.Y);
-        Point last = Preview.ToCanvasPoint(crop.Right, crop.Bottom);
-        Canvas.SetLeft(SelectionRectangle, Math.Min(first.X, last.X));
-        Canvas.SetTop(SelectionRectangle, Math.Min(first.Y, last.Y));
-        SelectionRectangle.Width = Math.Abs(last.X - first.X);
-        SelectionRectangle.Height = Math.Abs(last.Y - first.Y);
+        SelectionRectangle.Points = new([
+            Preview.ToCanvasPoint(crop.X, crop.Y), Preview.ToCanvasPoint(crop.Right, crop.Y),
+            Preview.ToCanvasPoint(crop.Right, crop.Bottom), Preview.ToCanvasPoint(crop.X, crop.Bottom)]);
         SelectionRectangle.Visibility = Visibility.Visible;
     }
 
@@ -284,8 +298,9 @@ public partial class EditWindow : Window
 
     private void OnApplyCropClick(object sender, RoutedEventArgs e)
     {
+        if (!CommitAnnotationProperties()) { return; }
         if (!TryReadCrop(out PixelRect crop)) { return; }
-        _session.Apply(Recipe.WithCrop(crop));
+        _session.Apply(ReadAdjustmentRecipe().WithCrop(crop));
         RefreshEditor();
     }
 
@@ -307,8 +322,9 @@ public partial class EditWindow : Window
 
     private void OnApplySizeClick(object sender, RoutedEventArgs e)
     {
+        if (!CommitAnnotationProperties()) { return; }
         if (!TryReadSize(out PixelSize size)) { return; }
-        _session.Apply(Recipe.WithSize(size));
+        _session.Apply(ReadAdjustmentRecipe().WithSize(size));
         RefreshEditor();
     }
 
@@ -318,8 +334,10 @@ public partial class EditWindow : Window
         if (FormatHint is null || QualityPanel is null) { return; }
         bool jpeg = JpegFormat?.IsChecked == true;
         bool webp = WebpFormat?.IsChecked == true;
-        FormatHint.Text = Text(webp ? "Edit_WebpHint" : jpeg ? "Edit_JpegHint" : "Edit_PngHint");
-        QualityPanel.Visibility = jpeg || webp ? Visibility.Visible : Visibility.Collapsed;
+        bool lossless = webp && WebpLossless?.IsChecked == true;
+        FormatHint.Text = Text(lossless ? "Edit_WebpLosslessHint" : webp ? "Edit_WebpHint" : jpeg ? "Edit_JpegHint" : "Edit_PngHint");
+        QualityPanel.Visibility = jpeg || (webp && !lossless) ? Visibility.Visible : Visibility.Collapsed;
+        if (WebpLossless is not null) { WebpLossless.Visibility = webp ? Visibility.Visible : Visibility.Collapsed; }
     }
 
     private async void OnSaveClick(object sender, RoutedEventArgs e) => await SaveAsync();
@@ -327,7 +345,10 @@ public partial class EditWindow : Window
     private async Task SaveAsync(bool closeAfterSuccess = false)
     {
         if (IsExporting || CloseConfirmation.Visibility == Visibility.Visible || !TryReadCrop(out PixelRect crop)) { return; }
-        ImageEditRecipe next = crop == Recipe.Crop ? Recipe : Recipe.WithCrop(crop);
+        if (!CommitAnnotationProperties()) { return; }
+        if (AnnotationIsDrawing) { CancelAnnotationGesture(); }
+        ImageEditRecipe next = ReadAdjustmentRecipe();
+        if (crop != Recipe.Crop) { next = next.WithCrop(crop); }
         if (_sizeDirty)
         {
             if (!TryReadSize(out PixelSize size)) { return; }
@@ -338,7 +359,8 @@ public partial class EditWindow : Window
         ImageExportFormat format = WebpFormat.IsChecked == true ? ImageExportFormat.Webp
             : JpegFormat.IsChecked == true ? ImageExportFormat.Jpeg : ImageExportFormat.Png;
         int quality = 90;
-        if (format != ImageExportFormat.Png && !ReadInteger(JpegQuality, 1, 100, out quality)) { return; }
+        bool lossless = format == ImageExportFormat.Webp && WebpLossless.IsChecked == true;
+        if (format != ImageExportFormat.Png && !lossless && !ReadInteger(JpegQuality, 1, 100, out quality)) { return; }
         string? destination = _pickExportPath is null ? PickExportPath(format) : _pickExportPath(format);
         if (string.IsNullOrWhiteSpace(destination)) { return; }
         if (File.Exists(destination))
@@ -354,7 +376,8 @@ public partial class EditWindow : Window
         try
         {
             await _exporter.ExportAsync(new(_sourcePath, destination, Recipe, format,
-                quality, _sourceLength, _sourceModified, _sourcePixels, _memorySourceIdentity), cancellation.Token);
+                quality, _sourceLength, _sourceModified, _sourcePixels, _memorySourceIdentity,
+                lossless, PreserveMetadata.IsChecked == true ? ImageExportMetadataMode.PreserveCamera : ImageExportMetadataMode.Remove), cancellation.Token);
             // A successful commit is authoritative even if cancellation raced after File.Move.
             _session.MarkExported();
             saved = true;
@@ -404,6 +427,8 @@ public partial class EditWindow : Window
         EditFields.IsEnabled = !exporting;
         SaveButton.IsEnabled = !exporting;
         CropOverlay.IsEnabled = !exporting;
+        AnnotationOverlay.IsEnabled = !exporting;
+        RotationFields.IsEnabled = !exporting;
         CancelExportButton.Visibility = exporting ? Visibility.Visible : Visibility.Collapsed;
     }
 
@@ -460,7 +485,9 @@ public partial class EditWindow : Window
         }
         if (e.Key == Key.Escape)
         {
-            if (_selectingCrop) { OnSelectCropClick(this, e); }
+            if (AnnotationIsDrawing) { CancelAnnotationGesture(); }
+            else if (AnnotationOverlay.Visibility == Visibility.Visible) { OnEditingModeChanged(true); }
+            else if (_selectingCrop) { OnSelectCropClick(this, e); }
             else if (IsExporting) { _exportCancellation!.Cancel(); }
             else { Close(); }
             e.Handled = true;

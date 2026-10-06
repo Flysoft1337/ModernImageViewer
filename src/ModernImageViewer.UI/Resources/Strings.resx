@@ -197,7 +197,7 @@
   <data name="Edit_PngHint" xml:space="preserve"><value>PNG preserves transparency. Lossless encoding.</value></data>
   <data name="Edit_JpegHint" xml:space="preserve"><value>JPEG uses a white background for transparency. Lossy encoding.</value></data>
   <data name="Edit_PreviewNotice" xml:space="preserve"><value>The preview may be downsampled. Export uses source pixels at the resolution needed for your output.</value></data>
-  <data name="Edit_ExportNotice" xml:space="preserve"><value>Choose a new filename; existing files cannot be replaced. 8-bit output, up to 16 megapixels. Source EXIF/ICC metadata is not copied.</value></data>
+  <data name="Edit_ExportNotice" xml:space="preserve"><value>Choose a new filename; existing files cannot be replaced. 8-bit output, up to 16 megapixels, or 8 megapixels with adjustments.</value></data>
   <data name="Edit_OutputSummary" xml:space="preserve"><value>Applied output · {0} × {1} px</value></data>
   <data name="Edit_Ready" xml:space="preserve"><value>Ctrl+Z undo · Ctrl+Shift+Z redo · Ctrl+S save a copy</value></data>
   <data name="Edit_InvalidValues" xml:space="preserve"><value>Enter whole numbers within the image bounds.</value></data>
@@ -239,4 +239,57 @@
   <data name="Edit_Continue" xml:space="preserve"><value>Keep editing</value></data>
   <data name="Edit_Discard" xml:space="preserve"><value>Discard</value></data>
   <data name="Edit_SaveAndClose" xml:space="preserve"><value>Save and close</value></data>
+  <data name="Edit_ModeGeometry" xml:space="preserve"><value>Crop</value></data>
+  <data name="Edit_ModeAdjust" xml:space="preserve"><value>Adjust</value></data>
+  <data name="Edit_ModeAnnotate" xml:space="preserve"><value>Mark</value></data>
+  <data name="Edit_Rotation" xml:space="preserve"><value>Angle</value></data>
+  <data name="Edit_Exposure" xml:space="preserve"><value>Exposure</value></data>
+  <data name="Edit_Brightness" xml:space="preserve"><value>Brightness</value></data>
+  <data name="Edit_Contrast" xml:space="preserve"><value>Contrast</value></data>
+  <data name="Edit_Gamma" xml:space="preserve"><value>Gamma</value></data>
+  <data name="Edit_Saturation" xml:space="preserve"><value>Saturation</value></data>
+  <data name="Edit_Temperature" xml:space="preserve"><value>Temperature</value></data>
+  <data name="Edit_Sharpen" xml:space="preserve"><value>Sharpen</value></data>
+  <data name="Edit_Blur" xml:space="preserve"><value>Blur</value></data>
+  <data name="Edit_ResetAdjustments" xml:space="preserve"><value>Reset adjustments</value></data>
+  <data name="Edit_Lossless" xml:space="preserve"><value>Lossless WebP</value></data>
+  <data name="Edit_WebpLosslessHint" xml:space="preserve"><value>Lossless WebP with transparency.</value></data>
+  <data name="Edit_PreserveMetadata" xml:space="preserve"><value>Keep camera metadata</value></data>
+  <data name="Edit_MetadataHint" xml:space="preserve"><value>Keep camera, lens, date and exposure settings. GPS, thumbnails and other source metadata are removed. Output uses sRGB.</value></data>
+  <data name="Edit_Presets" xml:space="preserve"><value>Presets</value></data>
+  <data name="Edit_PresetName" xml:space="preserve"><value>Preset name</value></data>
+  <data name="Edit_PresetApply" xml:space="preserve"><value>Apply</value></data>
+  <data name="Edit_PresetSave" xml:space="preserve"><value>Save</value></data>
+  <data name="Edit_PresetDelete" xml:space="preserve"><value>Delete</value></data>
+  <data name="Edit_PresetInvalidName" xml:space="preserve"><value>Enter a name of 1-40 characters.</value></data>
+  <data name="Edit_PresetLimit" xml:space="preserve"><value>Up to 16 presets can be saved.</value></data>
+  <data name="Edit_PresetSaved" xml:space="preserve"><value>Preset saved: {0}</value></data>
+  <data name="Edit_PresetDeleted" xml:space="preserve"><value>Preset deleted: {0}</value></data>
+  <data name="Edit_PresetSaveFailed" xml:space="preserve"><value>Could not save presets.</value></data>
+  <data name="Edit_PresetApplied" xml:space="preserve"><value>Preset applied: {0}</value></data>
+  <data name="Edit_Annotations" xml:space="preserve"><value>Annotations</value></data>
+  <data name="Edit_AnnotationArrow" xml:space="preserve"><value>Arrow</value></data>
+  <data name="Edit_AnnotationRectangle" xml:space="preserve"><value>Rectangle</value></data>
+  <data name="Edit_AnnotationEllipse" xml:space="preserve"><value>Ellipse</value></data>
+  <data name="Edit_AnnotationPen" xml:space="preserve"><value>Pen</value></data>
+  <data name="Edit_AnnotationText" xml:space="preserve"><value>Text</value></data>
+  <data name="Edit_AnnotationMosaic" xml:space="preserve"><value>Mosaic</value></data>
+  <data name="Edit_AnnotationBlur" xml:space="preserve"><value>Region blur</value></data>
+  <data name="Edit_ColorRed" xml:space="preserve"><value>Red</value></data>
+  <data name="Edit_ColorYellow" xml:space="preserve"><value>Yellow</value></data>
+  <data name="Edit_ColorGreen" xml:space="preserve"><value>Green</value></data>
+  <data name="Edit_ColorBlue" xml:space="preserve"><value>Blue</value></data>
+  <data name="Edit_ColorWhite" xml:space="preserve"><value>White</value></data>
+  <data name="Edit_ColorBlack" xml:space="preserve"><value>Black</value></data>
+  <data name="Edit_AnnotationWidth" xml:space="preserve"><value>Stroke width</value></data>
+  <data name="Edit_AnnotationFontSize" xml:space="preserve"><value>Font size</value></data>
+  <data name="Edit_AnnotationStrength" xml:space="preserve"><value>Strength</value></data>
+  <data name="Edit_AnnotationStop" xml:space="preserve"><value>Stop drawing</value></data>
+  <data name="Edit_AnnotationDeleteLast" xml:space="preserve"><value>Delete last annotation</value></data>
+  <data name="Edit_AnnotationClear" xml:space="preserve"><value>Clear annotations</value></data>
+  <data name="Edit_AnnotationInvalid" xml:space="preserve"><value>Check the text or selection.</value></data>
+  <data name="Edit_AnnotationLimit" xml:space="preserve"><value>Annotation limit reached.</value></data>
+  <data name="Edit_ModeExport" xml:space="preserve"><value>Export</value></data>
+  <data name="Edit_AnnotationSelect" xml:space="preserve"><value>Select annotation</value></data>
+  <data name="Edit_AnnotationDeleteSelected" xml:space="preserve"><value>Delete selected annotation</value></data>
 </root>

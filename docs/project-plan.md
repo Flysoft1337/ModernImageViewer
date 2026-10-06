@@ -393,7 +393,7 @@ ModernImageViewer.Benchmarks   启动、解码、切图、导出基准
 
 ### M2：基础编辑与导出
 
-文件来源首批已接入裁剪/方向/Resize/Stretch、撤销重做和PNG/JPEG/WebP新文件导出；见[本批验证](raw-modern-editing.md)。下列仍是完整M2目标，剪贴板内存编辑已接入；固定比例裁剪与WebP品质导出已接入，完整元数据/ICC策略未完成；见[编辑补全](editing-improvements.md)。
+开发代码已接入文件/内存来源裁剪/Resize/Stretch/任意角度、撤销重做和PNG/JPEG/有损无损WebP新文件导出；摄影信息白名单与RGB ICC转sRGB可用，原profile保留/显示器ICC、高位深仍未完成。日常调整、标注选择修改和预设已接入，具体边界与实际验证见[编辑能力](editing-improvements.md)。以下是里程碑目标清单，不能据此声称完整色彩管理或全部M3退出。
 
 - 非破坏性编辑会话；
 - 旋转、翻转、裁剪、Resize、Stretch；
@@ -404,10 +404,10 @@ ModernImageViewer.Benchmarks   启动、解码、切图、导出基准
 
 ### M3：v1.0
 
-- 调整与标注；
+- 调整与标注（日常八项调整/七种标注及选择修改已接入开发，见编辑能力）；
 - RAW 正式支持；
 - 动画和多页体验完善；
-- 预设和快捷键配置；
+- 预设和快捷键配置（编辑预设已接入，快捷键配置待实现）；
 - 崩溃恢复、性能收敛、安全测试；
 - 安装、升级、卸载和签名验证。
 

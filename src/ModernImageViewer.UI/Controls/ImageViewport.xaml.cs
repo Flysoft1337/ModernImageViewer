@@ -23,15 +23,18 @@ public partial class ImageViewport : UserControl, IDisposable
     public ViewOrientation Orientation { get; private set; }
     public ImageEditRecipe? EditRecipe { get; private set; }
 
-    public void SetEditRecipe(ImageEditRecipe? recipe)
+    public void SetEditRecipe(ImageEditRecipe? recipe, bool fit = true)
     {
         if (recipe is not null && Image?.SourceSize != recipe.SourceSize)
         {
             throw new ArgumentException("The recipe must match the displayed source.", nameof(recipe));
         }
+        PixelSize? previousSize = EditRecipe?.OutputSize;
+        if (EditRecipe != recipe) { ClearEditorPreview(); }
         EditRecipe = recipe;
         _lastRequestedRegion = null;
-        Fit();
+        if (fit || previousSize != recipe?.OutputSize) { Fit(); }
+        else { _surface?.InvalidateVisual(); }
     }
 
     private PixelSize DisplaySize => EditRecipe?.OutputSize ?? Orientation.GetDisplaySize(Image!.SourceSize);
@@ -196,7 +199,12 @@ public partial class ImageViewport : UserControl, IDisposable
             _surface.PaintSurface += OnPaintSurface;
             Canvas.Children.Add(_surface);
         }
-        _bitmap = SharedPixelBitmap.Create(image);
+        if (_editSourceProfile is { } profile)
+        {
+            using SKColorSpace colorSpace = SKColorSpace.CreateIcc(profile);
+            _bitmap = SharedPixelBitmap.Create(image, colorSpace);
+        }
+        else { _bitmap = SharedPixelBitmap.Create(image); }
         _detailRequested = false;
         _lastRequestedRegion = null;
         if (_preserveTransform)
@@ -229,10 +237,24 @@ public partial class ImageViewport : UserControl, IDisposable
             (float)(_transform.OffsetY + (displaySize.Height * _transform.Scale))), _checkerPaint!);
         canvas.Translate((float)_transform.OffsetX, (float)_transform.OffsetY);
         canvas.Scale((float)_transform.Scale);
-        var orientation = EditRecipe?.GetMatrix() ?? Orientation.GetMatrix(sourceSize);
+        if (EditRecipe is { } edited && (_editSourceProfile is not null || !edited.Adjustments.IsIdentity || !edited.Annotations.IsEmpty))
+        {
+            SKBitmap preview = GetEditorPreview(edited);
+            canvas.DrawBitmap(preview, new SKRect(0, 0, displaySize.Width, displaySize.Height),
+                new SKSamplingOptions(SKFilterMode.Linear));
+        }
+        else { DrawImagePixels(canvas, EditRecipe); }
+        canvas.Restore();
+    }
+
+    private void DrawImagePixels(SKCanvas canvas, ImageEditRecipe? recipe)
+    {
+        PixelSize sourceSize = Image!.SourceSize;
+        canvas.Save();
+        var orientation = recipe?.GetMatrix() ?? Orientation.GetMatrix(sourceSize);
         canvas.Concat(new SKMatrix((float)orientation.M11, (float)orientation.M21, (float)orientation.OffsetX,
             (float)orientation.M12, (float)orientation.M22, (float)orientation.OffsetY, 0, 0, 1));
-        if (EditRecipe is { } recipe)
+        if (recipe is not null)
         {
             canvas.ClipRect(ToSkRect(recipe.Crop));
         }
@@ -242,8 +264,18 @@ public partial class ImageViewport : UserControl, IDisposable
         {
             canvas.ClipRect(ToSkRect(detailed.Bounds), SKClipOperation.Difference);
         }
-        canvas.DrawBitmap(_bitmap, new SKRect(0, 0, sourceSize.Width, sourceSize.Height),
-            new SKSamplingOptions(SKFilterMode.Linear));
+        if (recipe is not null && Image.Size == sourceSize)
+        {
+            using SKBitmap cropped = new();
+            PixelRect bounds = recipe.Crop;
+            if (_bitmap!.ExtractSubset(cropped, new SKRectI(bounds.X, bounds.Y, bounds.Right, bounds.Bottom)))
+            { canvas.DrawBitmap(cropped, ToSkRect(bounds), new SKSamplingOptions(SKFilterMode.Linear)); }
+        }
+        else
+        {
+            canvas.DrawBitmap(_bitmap, new SKRect(0, 0, sourceSize.Width, sourceSize.Height),
+                new SKSamplingOptions(SKFilterMode.Linear));
+        }
         canvas.Restore();
         if (_regionBitmap is not null && _displayedRegion is { } region)
         {
@@ -413,6 +445,7 @@ public partial class ImageViewport : UserControl, IDisposable
         {
             return;
         }
+        ClearEditorPreview();
         _regionBitmap?.Dispose();
         _regionBitmap = region is null ? null : SharedPixelBitmap.Create(region.Image);
         _displayedRegion = region;
@@ -511,6 +544,7 @@ public partial class ImageViewport : UserControl, IDisposable
 
     private void DisposeBitmap()
     {
+        ClearEditorPreview();
         _regionBitmap?.Dispose();
         _regionBitmap = null;
         _displayedRegion = null;

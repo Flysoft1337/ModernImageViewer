@@ -50,7 +50,7 @@ JPEG、PNG、BMP、GIF、TIFF、ICO和JPEG XR使用Windows Imaging Component（W
 - F5 清理缓存并增加代次，使刷新前的在途结果不能重新进入新缓存；本轮没有持续文件监听。同路径内容变化但修改时间与长度均不变时，仍需 F5 强制失效。
 - WIC 路径可读的 EXIF Orientation 1–8 用于主图和缩略图方向；WebP已应用方向，拍摄信息未统一。缺失或不适用元数据不阻止打开。
 
-当前仅补WebP嵌入RGB ICC→sRGB输出，跨格式应用级ICC管线、显示器profile切换、HDR/广色域输出或高位深编辑仍不保证。Windows/Skia codec 自身的格式转换不等于完整色彩管理。常见 JPEG EXIF 展示包括相机、镜头、拍摄时间、ISO、快门、光圈和焦距；不保证各格式的所有元数据都能读取。
+浏览管线补WebP嵌入RGB ICC→sRGB输出；编辑窗口新增WIC RGB ICC→sRGB预览/导出和明确输出sRGB声明。可选择保留安全摄影信息，GPS/缩略图/厂商/XMP移除；非RGB设备profile、原profile保留、显示器profile切换、HDR/高位深编辑仍不保证。窗口/Skia格式转换不等于完整色彩管理。常见 JPEG EXIF 展示包括相机、镜头、拍摄时间、ISO、快门、光圈和焦距；不保证各格式的所有元数据都能读取。PNG/JPEG/有损和无损WebP安全新文件导出见[编辑能力](editing-improvements.md)。
 
 ## 首图响应与目录索引
 
