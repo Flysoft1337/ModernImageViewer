@@ -16,6 +16,8 @@ PNG/JPEG/WebP共用现有安全新文件导出。WebP为有损品质1–100，10
 
 ## 比例裁剪与WebP验证
 
+关闭保护功能提交cf7e3f9的[PR #30](https://github.com/Flysoft1337/ModernImageViewer/pull/30)/[Windows CI 37430275906](https://github.com/Flysoft1337/ModernImageViewer/actions/runs/37430275906)已通过：核心69+UI/codec185=254通过、1项本机RAW样本跳过，Release构建0警告/0错误；启动/12类格式激活、安装/重装迁移/卸载通过。Release job跳过，format有既有workspace加载warning。最后仅补Markdown支持/验收记录，功能源/测试/流程与已通过cf7e3f9一致，最终合并状态见PR。
+
 标准Release构建0警告/0错误，编辑核心6项与相关UI/codec35项通过；涵盖旋转/翻转/反向拖选、边界、取整、比例不变的历史、预设草稿和撤销，以及WebP透明度/尺寸/方向、品质边界、元数据移除、源hash/共享像素不变、已有目标/源版本/预算/取消拒绝。复用既有STA窗口和双语主题截图、Windows CI，不增加测试矩阵。最终格式/CI与截图检查见[进度](planning/progress.md)。
 
 完整Windows CI核心68+UI/codec185=253通过、1项本机RAW样本跳过；Release构建0警告/0错误，格式/依赖审计、100MP观察、启动/12类格式激活、安装/重装迁移/卸载通过。Release job跳过；format有既有workspace加载warning。末次仅补Markdown验收，功能源/测试/CI流程与已通过b7286b2一致。

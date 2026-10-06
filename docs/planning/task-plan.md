@@ -98,4 +98,4 @@ N1/N2已合并，本批按用户优先完成N5现代格式/RAW预览与N6文件�
 
 - [x] 跟踪最近成功导出的recipe，识别撤销/重做与未应用参数。
 - [x] 主题一致的关闭确认，继续/丢弃/另存后关闭；取消或失败保留编辑。
-- [ ] 关键回归、双语截图、已有Windows CI与实际记录，不发布。
+- [x] 关键回归、双语截图、已有Windows CI与实际记录：[PR #30](https://github.com/Flysoft1337/ModernImageViewer/pull/30)功能提交[CI](https://github.com/Flysoft1337/ModernImageViewer/actions/runs/37430275906)254通过/1本机RAW样本skip，启动/激活/安装通过，不发布。
