@@ -245,6 +245,7 @@ public sealed class WindowsImageClipboardService : IImageClipboardService
         if (source.Width <= 0 || source.Height <= 0) { throw Corrupt(); }
         if (source.Width > 32768 || source.Height > 32768
             || source.PixelCount * 4 > ImageOpenCoordinator.MainPixelBudgetBytes) { throw TooLarge(); }
+        if (image.OriginalSize) { ValidateBudget(source, ClipboardImageLimits.SourceBytes); }
         if (image.Stride < source.Width * 4 || (long)image.Stride * source.Height > image.Pixels.Length)
         {
             throw Corrupt();

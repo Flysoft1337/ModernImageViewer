@@ -16,6 +16,11 @@ public sealed class NeighborPreviewCache : IDisposable
     private long _version;
     private bool _disposed;
 
+    public long RetainedBytes
+    {
+        get { lock (_gate) { return _entry?.Buffer.Pixels.Length ?? 0; } }
+    }
+
     public NeighborPreviewCache(IPrefetchImageDecoder decoder)
     {
         ArgumentNullException.ThrowIfNull(decoder);

@@ -6,6 +6,26 @@ namespace ModernImageViewer.Tests;
 public sealed class NeighborPreviewCacheTests
 {
     [Fact]
+    public async Task DeletedFileDuringNativePrefetchCannotEnterCache()
+    {
+        using TestFiles files = new();
+        string path = files.Create("deleted.png");
+        TaskCompletionSource started = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        TaskCompletionSource<PixelBuffer?> native = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        using NeighborPreviewCache cache = new(new FakeDecoder((_, _, _) => { started.SetResult(); return native.Task; }));
+        cache.Schedule(path);
+        Task pending = cache.WaitForPendingAsync();
+        await started.Task.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
+        File.Delete(path);
+        PixelBuffer pixels = CreateBuffer();
+        native.SetResult(pixels);
+        await pending;
+        Assert.Equal(0, cache.RetainedBytes);
+        AssertDisposed(pixels);
+        Assert.Null(await cache.TryTakeAsync(path, TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
     public async Task CancelPendingPreservesCompletedPreviewAndTakeTransfersOwnershipOnce()
     {
         using TestFiles files = new();

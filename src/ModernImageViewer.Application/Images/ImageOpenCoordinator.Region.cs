@@ -23,6 +23,7 @@ public sealed partial class ImageOpenCoordinator
             return false;
         }
         CancelPendingRegion();
+        CancelPendingPreviewUpgrade();
         if (current.Region is { } existing && existing.Bounds == bounds)
         {
             return true;
@@ -48,6 +49,10 @@ public sealed partial class ImageOpenCoordinator
                 || region.Image.Pixels.Length > MaximumRegionBytes)
             {
                 throw new ImageSizeLimitExceededException();
+            }
+            if (preview.SourceFileStamp is { } sourceStamp && region.Image.SourceFileStamp is { } regionStamp && sourceStamp != regionStamp)
+            {
+                throw new IOException("The source changed during browsing.");
             }
             DecodedImageRegion? previous = State.Region;
             State = State with { Region = region, IsRegionLoading = false, RefinementError = ImageOpenError.None };
@@ -97,6 +102,8 @@ public sealed partial class ImageOpenCoordinator
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         _neighborCache?.Clear();
+        CancelPendingRefinement();
+        CancelPendingPreviewUpgrade();
         CancelPendingRegion();
         DecodedImageRegion? region = State.Region;
         if (region is not null)

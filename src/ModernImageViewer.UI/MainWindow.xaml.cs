@@ -51,6 +51,8 @@ public partial class MainWindow : Window
         Viewport.ScaleChanged += (_, scale) => _viewModel.UpdateScale(scale);
         Viewport.DetailRequested += OnDetailRequested;
         InitializeRegionDetail();
+        InitializeAdaptivePreview();
+        InitializeBrowsingObservation();
         InitializeImmersiveControls();
         InitializeWindowPreferences();
         Viewport.OrientationChanged += OnOrientationChanged;
@@ -73,6 +75,8 @@ public partial class MainWindow : Window
             _slideshowTimer.Stop();
             DisposeImmersiveControls();
             DisposeRegionDetail();
+            DisposeAdaptivePreview();
+            DisposeBrowsingObservation();
             Viewport.DetailRequested -= OnDetailRequested;
             Viewport.Dispose();
         };
@@ -81,14 +85,17 @@ public partial class MainWindow : Window
     public IThumbnailDecoder? ThumbnailDecoder { get; }
 
     private void OnDetailRequested(object? sender, EventArgs e)
+        => QueueAutomaticDetail(Viewport, _viewModel, () => IsLoaded);
+
+    internal static void QueueAutomaticDetail(ImageViewport viewport, MainWindowViewModel viewModel, Func<bool> isLoaded)
     {
         // Queue after the pixel/path binding has completed; do not reenter a WPF binding update.
-        ModernImageViewer.Imaging.PixelBuffer? requestedImage = _viewModel.CurrentImage;
-        _ = Dispatcher.InvokeAsync(async () =>
+        ModernImageViewer.Imaging.PixelBuffer? requestedImage = viewModel.CurrentImage;
+        _ = viewport.Dispatcher.InvokeAsync(async () =>
         {
-            if (IsLoaded && ReferenceEquals(requestedImage, _viewModel.CurrentImage))
+            if (isLoaded() && ReferenceEquals(requestedImage, viewModel.CurrentImage) && viewport.IsAutomaticDetailRequired)
             {
-                await _viewModel.RefineImageAsync();
+                await viewModel.RefineImageAsync();
             }
         }, DispatcherPriority.Background);
     }

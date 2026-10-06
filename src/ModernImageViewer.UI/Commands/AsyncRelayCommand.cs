@@ -5,13 +5,14 @@ namespace ModernImageViewer.UI.Commands;
 public sealed class AsyncRelayCommand(
     Func<Task> execute,
     Func<bool>? canExecute = null,
-    Action<Exception>? onError = null) : ICommand
+    Action<Exception>? onError = null,
+    bool allowConcurrent = false) : ICommand
 {
-    private bool _isExecuting;
+    private int _executionCount;
 
     public event EventHandler? CanExecuteChanged;
 
-    public bool CanExecute(object? parameter) => !_isExecuting && (canExecute?.Invoke() ?? true);
+    public bool CanExecute(object? parameter) => (allowConcurrent || _executionCount == 0) && (canExecute?.Invoke() ?? true);
 
     public async void Execute(object? parameter)
     {
@@ -25,7 +26,7 @@ public sealed class AsyncRelayCommand(
             return;
         }
 
-        _isExecuting = true;
+        _executionCount++;
         RaiseCanExecuteChanged();
         try
         {
@@ -40,7 +41,7 @@ public sealed class AsyncRelayCommand(
         }
         finally
         {
-            _isExecuting = false;
+            _executionCount--;
             RaiseCanExecuteChanged();
         }
     }

@@ -6,6 +6,25 @@ namespace ModernImageViewer.Tests;
 public sealed class RegionDetailTests
 {
     [Fact]
+    public async Task RejectedWholeRefinementDoesNotRestoreCancelledRegionLoading()
+    {
+        RegionDecoder decoder = new();
+        using ImageOpenCoordinator coordinator = new(new NullPicker(), decoder);
+        Assert.True(await coordinator.OpenAsync("large.png", TestContext.Current.CancellationToken));
+        PixelRect bounds = new(10, 20, 3, 4);
+        Task<bool> pending = coordinator.RequestRegionAsync(bounds, TestContext.Current.CancellationToken);
+        Assert.True(coordinator.State.IsRegionLoading);
+        Assert.False(await coordinator.RefineAsync(TestContext.Current.CancellationToken));
+        Assert.True(decoder.Cancellations[0].IsCancellationRequested);
+        Assert.False(coordinator.State.IsRegionLoading);
+        Assert.Equal(ImageOpenError.ImageTooLarge, coordinator.State.RefinementError);
+        DecodedImageRegion late = decoder.Complete(0, bounds);
+        Assert.False(await pending);
+        Assert.Throws<ObjectDisposedException>(() => late.Image.Pixels);
+        Assert.False(coordinator.State.IsRegionLoading);
+    }
+
+    [Fact]
     public async Task ReturningToRetainedRegionCancelsPendingRegionAndDisposesLatePixels()
     {
         RegionDecoder decoder = new();

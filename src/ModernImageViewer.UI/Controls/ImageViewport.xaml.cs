@@ -111,7 +111,7 @@ public partial class ImageViewport : UserControl, IDisposable
 
     public void Fit()
     {
-        if (Image is null)
+        if (_disposed || Image is null)
         {
             return;
         }
@@ -122,7 +122,7 @@ public partial class ImageViewport : UserControl, IDisposable
 
     public void ActualSize()
     {
-        if (Image is null)
+        if (_disposed || Image is null)
         {
             return;
         }
@@ -139,7 +139,7 @@ public partial class ImageViewport : UserControl, IDisposable
 
     private void ChangeOrientation(ViewOrientation orientation)
     {
-        if (Image is not { } image || orientation == Orientation)
+        if (_disposed || Image is not { } image || orientation == Orientation)
         {
             return;
         }
@@ -154,21 +154,26 @@ public partial class ImageViewport : UserControl, IDisposable
     private static void OnPresentationChanged(DependencyObject dependencyObject, DependencyPropertyChangedEventArgs e)
     {
         ImageViewport viewport = (ImageViewport)dependencyObject;
+        if (viewport._disposed) { return; }
         ImageOpenState? previous = (ImageOpenState?)e.OldValue;
         ImageOpenState? current = (ImageOpenState?)e.NewValue;
         // A single binding carries path and pixels together, so a late refinement cannot reset
         // zoom or accidentally preserve the position when switching to another same-size image.
-        viewport._preserveTransform = previous?.Image is not null && current?.Image is not null
-            && (previous.IsMemorySource || current.IsMemorySource
-                ? previous.Source?.Identity == current.Source?.Identity
-                : string.Equals(previous.FilePath, current.FilePath, StringComparison.OrdinalIgnoreCase))
-            && previous.Image.SourceSize == current.Image.SourceSize;
+        viewport._preserveTransform = IsSameSource(previous, current);
+        if (viewport._isUnloaded && !viewport._preserveTransform) { viewport._fitOnLoad = true; }
         if (!viewport._preserveTransform)
         {
             viewport.EditRecipe = null;
             viewport.ClearOrientation();
         }
+        bool samePixels = ReferenceEquals(viewport.Image, current?.Image);
         viewport.Image = current?.Image;
+        if (samePixels && !viewport._preserveTransform)
+        {
+            viewport._detailRequested = false;
+            viewport._lastRequestedRegion = null;
+            viewport.Fit();
+        }
         viewport._preserveTransform = false;
         viewport.RebuildRegionBitmap(current?.Region);
     }
@@ -181,13 +186,15 @@ public partial class ImageViewport : UserControl, IDisposable
 
     private void RebuildBitmap(PixelBuffer? image)
     {
+        if (_disposed) { return; }
         if (!_preserveTransform)
         {
+            if (_isUnloaded) { _fitOnLoad = true; }
             ClearOrientation();
         }
         DisposeBitmap();
         Cursor = image is null ? Cursors.Arrow : Cursors.Hand;
-        if (image is null)
+        if (image is null || _isUnloaded)
         {
             _surface?.InvalidateVisual();
             return;
@@ -226,9 +233,9 @@ public partial class ImageViewport : UserControl, IDisposable
             return;
         }
 
-        double dpiScale = VisualTreeHelper.GetDpi(Canvas).DpiScaleX;
+        DpiScale dpi = VisualTreeHelper.GetDpi(Canvas);
         canvas.Save();
-        canvas.Scale((float)dpiScale);
+        canvas.Scale((float)dpi.DpiScaleX, (float)dpi.DpiScaleY);
         EnsureCheckerPaint();
         PixelSize sourceSize = Image!.SourceSize;
         PixelSize displaySize = DisplaySize;
@@ -245,6 +252,7 @@ public partial class ImageViewport : UserControl, IDisposable
         }
         else { DrawImagePixels(canvas, EditRecipe); }
         canvas.Restore();
+        NotifyFramePresented();
     }
 
     private void DrawImagePixels(SKCanvas canvas, ImageEditRecipe? recipe)
@@ -354,6 +362,8 @@ public partial class ImageViewport : UserControl, IDisposable
 
     private void OnSizeChanged(object sender, SizeChangedEventArgs e)
     {
+        if (_disposed) { return; }
+        NotifyPreviewTargetChanged();
         if (_transform.Mode == ViewportMode.Fit)
         {
             Fit();
@@ -379,19 +389,22 @@ public partial class ImageViewport : UserControl, IDisposable
         NotifyTransformChanged();
     }
 
-    private void NotifyTransformChanged()
+    private void NotifyTransformChanged(DpiScale? changedDpi = null)
     {
+        if (_disposed || _isUnloaded) { return; }
         _surface?.InvalidateVisual();
-        double pixelScale = _transform.Scale * VisualTreeHelper.GetDpi(Canvas).DpiScaleX;
+        double pixelScale = _transform.Scale * (changedDpi ?? VisualTreeHelper.GetDpi(Canvas)).DpiScaleX;
         ScaleChanged?.Invoke(this, pixelScale);
         _regionTimer.Stop();
         if (NeedsRegionDetail(pixelScale))
         {
             _regionTimer.Start();
         }
-        if (!_detailRequested && Image is { } image && image.Size != image.SourceSize
-            && pixelScale > Math.Min((double)image.Size.Width / image.SourceSize.Width,
-                (double)image.Size.Height / image.SourceSize.Height))
+        if (!NeedsAutomaticDetail(pixelScale))
+        {
+            _detailRequested = false;
+        }
+        else if (!_detailRequested)
         {
             _detailRequested = true;
             DetailRequested?.Invoke(this, EventArgs.Empty);
@@ -399,10 +412,9 @@ public partial class ImageViewport : UserControl, IDisposable
     }
 
     private bool NeedsRegionDetail(double pixelScale) => Presentation is { Status: ImageOpenStatus.Loaded, IsPreview: true } state
+        && NeedsAutomaticDetail(pixelScale)
         && state.RefinementError != ImageOpenError.UnsupportedFormat && Image is { } image
-        && image.SourceSize.PixelCount > ImageOpenCoordinator.FullResolutionOutputLimit / 4
-        && pixelScale > Math.Min((double)image.Size.Width / image.SourceSize.Width,
-            (double)image.Size.Height / image.SourceSize.Height);
+        && image.SourceSize.PixelCount > ImageOpenCoordinator.FullResolutionOutputLimit / 4;
 
     private PixelRect? CalculateVisibleDetailRegion()
     {
@@ -441,13 +453,15 @@ public partial class ImageViewport : UserControl, IDisposable
 
     private void RebuildRegionBitmap(DecodedImageRegion? region)
     {
+        if (_disposed || _isUnloaded) { return; }
         if (ReferenceEquals(_displayedRegion, region) && (region is null || _regionBitmap is not null))
         {
             return;
         }
+        SKBitmap? next = region is null ? null : SharedPixelBitmap.Create(region.Image);
         ClearEditorPreview();
         _regionBitmap?.Dispose();
-        _regionBitmap = region is null ? null : SharedPixelBitmap.Create(region.Image);
+        _regionBitmap = next;
         _displayedRegion = region;
         _surface?.InvalidateVisual();
     }
@@ -457,13 +471,19 @@ public partial class ImageViewport : UserControl, IDisposable
     protected override void OnDpiChanged(DpiScale oldDpi, DpiScale newDpi)
     {
         base.OnDpiChanged(oldDpi, newDpi);
+        if (_disposed) { return; }
+        NotifyPreviewTargetChanged(newDpi);
         if (_transform.Mode == ViewportMode.ActualSize)
         {
-            ActualSize();
+            if (Image is not null)
+            {
+                _transform.ActualSize(DisplaySize, Canvas.ActualWidth, Canvas.ActualHeight, 1 / newDpi.DpiScaleX);
+                NotifyTransformChanged(newDpi);
+            }
         }
         else
         {
-            NotifyTransformChanged();
+            NotifyTransformChanged(newDpi);
         }
     }
 
@@ -505,17 +525,26 @@ public partial class ImageViewport : UserControl, IDisposable
 
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
+        if (_disposed) { return; }
+        _isUnloaded = false;
+        _lastPreviewTarget = null;
+        NotifyPreviewTargetChanged();
         if (Image is not null && _bitmap is null)
         {
-            _preserveTransform = true;
+            _preserveTransform = !_fitOnLoad;
             RebuildBitmap(Image);
             _preserveTransform = false;
+            _fitOnLoad = false;
             RebuildRegionBitmap(Presentation?.Region);
         }
     }
 
     private void OnUnloaded(object sender, RoutedEventArgs e)
     {
+        _isUnloaded = true;
+        _lastPreviewTarget = null;
+        _lastPointer = null;
+        Canvas.ReleaseMouseCapture();
         _regionTimer.Stop();
         DisposeBitmap();
         DisposeChecker();
@@ -534,16 +563,27 @@ public partial class ImageViewport : UserControl, IDisposable
 
     public void Dispose()
     {
+        if (_disposed) { return; }
+        _disposed = true;
+        Loaded -= OnLoaded;
+        Unloaded -= OnUnloaded;
+        _lastPointer = null;
+        Canvas.ReleaseMouseCapture();
         _regionTimer.Stop();
         _regionTimer.Tick -= OnRegionTimer;
         DisposeBitmap();
         DisposeChecker();
         RemoveSurface();
+        EditRecipe = null;
+        _editSourceProfile = null;
+        ClearValue(PresentationProperty);
+        ClearValue(ImageProperty);
         GC.SuppressFinalize(this);
     }
 
     private void DisposeBitmap()
     {
+        _regionTimer.Stop();
         ClearEditorPreview();
         _regionBitmap?.Dispose();
         _regionBitmap = null;

@@ -20,7 +20,8 @@ public sealed partial class ImageOpenCoordinator
         CancellationToken token = cancellation.Token;
         ImageBrowseSession? session = browsing ?? browseSession;
         session?.CancelSorting();
-        State = previous with { Status = ImageOpenStatus.Loading, PendingPath = null, Error = ImageOpenError.None };
+        PixelSize target = _previewTarget;
+        State = previous with { Status = ImageOpenStatus.Loading, PendingPath = null, Error = ImageOpenError.None, RequestId = version };
         PixelBuffer? image = null;
         try
         {
@@ -29,8 +30,8 @@ public sealed partial class ImageOpenCoordinator
             {
                 throw new ImageSizeLimitExceededException();
             }
-            image = await input.ReadPixelsAsync(PreviewMaximumSize, PreviewReservedBytes, token);
-            ValidateMemoryPixels(image, input, PreviewMaximumSize, PreviewReservedBytes);
+            image = await ReadMemoryPixelsAsync(input, target, PreviewReservedBytes, false, token);
+            ValidateMemoryPixels(image, input, target, PreviewReservedBytes);
             if (_disposed || version != Volatile.Read(ref _requestVersion) || token.IsCancellationRequested)
             {
                 return false;
@@ -38,10 +39,11 @@ public sealed partial class ImageOpenCoordinator
             session?.Clear();
             _currentSession = null;
             _neighborCache?.Clear();
+            _previewNeedsTarget = false;
+            State = new(ImageOpenStatus.Loaded, image, IsPreview: image.Size != image.SourceSize,
+                Source: new ImageSource(Guid.NewGuid(), ImageSourceKind.Memory, input), RequestId: version);
             previous.Region?.Dispose();
             previous.Image?.Dispose();
-            State = new(ImageOpenStatus.Loaded, image, IsPreview: image.Size != image.SourceSize,
-                Source: new ImageSource(Guid.NewGuid(), ImageSourceKind.Memory, input));
             image = null;
             return true;
         }
@@ -64,6 +66,12 @@ public sealed partial class ImageOpenCoordinator
             if (ReferenceEquals(_openCancellation, cancellation)) { _openCancellation = null; }
         }
     }
+
+    private Task<PixelBuffer> ReadMemoryPixelsAsync(MemoryImageInput source, PixelSize maximumSize,
+        long maximumDecodedBytes, bool detail, CancellationToken cancellationToken) =>
+        decoder is IMemoryImageDecoder memoryDecoder
+            ? memoryDecoder.ReadMemoryPixelsAsync(source, maximumSize, maximumDecodedBytes, detail, cancellationToken)
+            : source.ReadPixelsAsync(maximumSize, maximumDecodedBytes, cancellationToken);
 
     private static void ValidateMemoryPixels(PixelBuffer image, MemoryImageInput source, PixelSize maximumSize, long maximumBytes)
     {
