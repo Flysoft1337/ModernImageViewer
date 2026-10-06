@@ -13,11 +13,15 @@ internal static class HeifImageDecoder
 {
     internal const long MaximumInputBytes = 128L * 1024 * 1024;
     internal const long MaximumSourcePixels = 32_000_000;
-    private static readonly SemaphoreSlim DecodeSlot = new(1);
+    private static readonly DecodeScheduler DecodeSlot = new(serializeThumbnails: true);
     private static readonly Lazy<bool> Initialized = new(Initialize);
 
     internal static PixelBuffer Decode(Stream stream, bool avif, PixelSize? maximumSize,
-        long? maximumDecodedBytes, CancellationToken cancellationToken)
+        long? maximumDecodedBytes, CancellationToken cancellationToken) =>
+        Decode(stream, avif, maximumSize, maximumDecodedBytes, DecodePriority.Foreground, cancellationToken);
+
+    internal static PixelBuffer Decode(Stream stream, bool avif, PixelSize? maximumSize,
+        long? maximumDecodedBytes, DecodePriority priority, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         if (stream.Length > MaximumInputBytes) { throw new ImageSizeLimitExceededException(); }
@@ -29,7 +33,7 @@ internal static class HeifImageDecoder
         {
             throw new ImageDecodeException(ImageOpenError.UnsupportedFormat);
         }
-        DecodeSlot.Wait(cancellationToken);
+        using IDisposable lease = DecodeSlot.AcquireAsync(priority, cancellationToken).GetAwaiter().GetResult();
         try
         {
             try { _ = Initialized.Value; }
@@ -110,7 +114,6 @@ internal static class HeifImageDecoder
         catch (BadImageFormatException) { throw new ImageDecodeException(ImageOpenError.UnsupportedFormat); }
         catch (EntryPointNotFoundException) { throw new ImageDecodeException(ImageOpenError.UnsupportedFormat); }
         catch (TypeInitializationException) { throw new ImageDecodeException(ImageOpenError.UnsupportedFormat); }
-        finally { DecodeSlot.Release(); }
     }
 
     private static bool Initialize()

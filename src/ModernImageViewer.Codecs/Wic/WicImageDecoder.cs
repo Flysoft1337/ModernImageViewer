@@ -12,7 +12,7 @@ namespace ModernImageViewer.Codecs.Wic;
 
 public sealed class WicImageDecoder : IImageDecoder
 {
-    internal static readonly SemaphoreSlim DecodeSlot = new(1);
+    internal static readonly DecodeScheduler DecodeSlot = new();
     private readonly ImageDecodeLimits _limits = ImageDecodeLimits.Default;
     private static readonly HashSet<Guid> Containers =
     [
@@ -25,19 +25,8 @@ public sealed class WicImageDecoder : IImageDecoder
         new("57A37CAA-367A-4540-916B-F183C5093A4B"), // JPEG XR / HD Photo
     ];
 
-    public async Task<PixelBuffer> DecodeAsync(string path, CancellationToken cancellationToken)
-    {
-        // Native work cannot always stop midway. Bound full-resolution allocations.
-        await DecodeSlot.WaitAsync(cancellationToken);
-        try
-        {
-            return await Task.Run(() => Decode(path, null, cancellationToken), cancellationToken);
-        }
-        finally
-        {
-            DecodeSlot.Release();
-        }
-    }
+    public Task<PixelBuffer> DecodeAsync(string path, CancellationToken cancellationToken) =>
+        DecodeSlot.RunAsync(DecodePriority.Foreground, () => Decode(path, null, cancellationToken), cancellationToken);
 
     private PixelBuffer Decode(string path, PixelSize? maximumSize, CancellationToken cancellationToken)
     {

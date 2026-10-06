@@ -42,6 +42,7 @@ public sealed class ThumbnailImage : Image, IDisposable
     }
 
     public static void ClearCache() => Cache.Clear();
+    internal static (int Count, long Bytes) Retained => Cache.Retained;
 
     public void Dispose()
     {

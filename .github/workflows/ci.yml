@@ -150,6 +150,22 @@ jobs:
           -AppPath .\artifacts\publish\win-x64\ModernImageViewer.App.exe
           -FixtureDirectory .\artifacts\format-fixtures
 
+      - name: Observe browsing phases and continuity smoke
+        shell: pwsh
+        run: >-
+          .\scripts\measure-browsing.ps1
+          -AppPath .\artifacts\publish\win-x64\ModernImageViewer.App.exe
+          -GeneratedImageCount 8 -NeighborSwitches 8 -RapidBurst 4
+          -RefreshEvery 4 -DetailEvery 4 -IdleSeconds 2
+
+      - name: Upload browsing observation
+        uses: actions/upload-artifact@v7
+        with:
+          name: browsing-observation
+          path: artifacts/browsing-observation/*.json
+          if-no-files-found: error
+          retention-days: 14
+
       - name: Build win-x64 installer
         id: installer_build
         shell: pwsh

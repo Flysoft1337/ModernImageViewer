@@ -12,50 +12,32 @@ using SkiaSharp;
 
 namespace ModernImageViewer.Codecs;
 
-public sealed class ImageDecoder : IPreviewImageDecoder, IThumbnailDecoder, IRegionImageDecoder, IPrefetchImageDecoder
+public sealed partial class ImageDecoder : IPreviewImageDecoder, IThumbnailDecoder, IRegionImageDecoder, IPrefetchImageDecoder, IMemoryImageDecoder
 {
-    private static readonly SemaphoreSlim ThumbnailSlots = new(2);
     private readonly WicImageDecoder _wic = new();
 
     public Task<PixelBuffer> DecodeAsync(string path, CancellationToken cancellationToken) =>
-        DecodeScheduledAsync(path, null, WicImageDecoder.DecodeSlot, cancellationToken);
+        DecodeScheduledAsync(path, null, DecodePriority.Foreground, cancellationToken);
 
     public Task<PixelBuffer> DecodePreviewAsync(string path, PixelSize maximumSize, CancellationToken cancellationToken) =>
-        DecodeScheduledAsync(path, maximumSize, WicImageDecoder.DecodeSlot, cancellationToken);
+        DecodeScheduledAsync(path, maximumSize, DecodePriority.Foreground, cancellationToken);
 
     public Task<PixelBuffer> DecodeDetailAsync(string path, long maximumDecodedBytes, CancellationToken cancellationToken) =>
-        DecodeScheduledAsync(path, null, WicImageDecoder.DecodeSlot, cancellationToken, maximumDecodedBytes);
+        DecodeScheduledAsync(path, null, DecodePriority.Detail, cancellationToken, maximumDecodedBytes);
 
     public Task<PixelBuffer> DecodeThumbnailAsync(string path, PixelSize maximumSize, CancellationToken cancellationToken) =>
-        DecodeScheduledAsync(path, maximumSize, ThumbnailSlots, cancellationToken);
+        DecodeScheduledAsync(path, maximumSize, DecodePriority.Thumbnail, cancellationToken);
 
-    public async Task<PixelBuffer?> TryDecodePreviewAsync(string path, PixelSize maximumSize, CancellationToken cancellationToken)
-    {
-        // Idle work never queues behind a foreground decode or creates another full-image slot.
-        if (!await WicImageDecoder.DecodeSlot.WaitAsync(0, cancellationToken))
-        {
-            return null;
-        }
-        try
-        {
-            return await Task.Run(() => Decode(path, maximumSize, null, cancellationToken), cancellationToken);
-        }
-        finally
-        {
-            WicImageDecoder.DecodeSlot.Release();
-        }
-    }
+    public Task<PixelBuffer?> TryDecodePreviewAsync(string path, PixelSize maximumSize, CancellationToken cancellationToken) =>
+        WicImageDecoder.DecodeSlot.TryRunPrefetchAsync(() => Decode(path, maximumSize, null, DecodePriority.Thumbnail, cancellationToken), cancellationToken);
 
-    public async Task<DecodedImageRegion> DecodeRegionAsync(string path, PixelRect region,
-        PixelSize expectedSourceSize, long maximumDecodedBytes, CancellationToken cancellationToken)
-    {
-        await WicImageDecoder.DecodeSlot.WaitAsync(cancellationToken);
-        try
-        {
-            return await Task.Run(() =>
+    public Task<DecodedImageRegion> DecodeRegionAsync(string path, PixelRect region,
+        PixelSize expectedSourceSize, long maximumDecodedBytes, CancellationToken cancellationToken) =>
+        WicImageDecoder.DecodeSlot.RunAsync(DecodePriority.Detail, () =>
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 using FileStream stream = new(path, FileMode.Open, FileAccess.Read, FileShare.Read);
+                ImageFileStamp stamp = ReadFileStamp(path, stream);
                 if (SupportedImageFormats.IsRawExtension(Path.GetExtension(path)))
                 {
                     throw new ImageDecodeException(ImageOpenError.UnsupportedFormat);
@@ -75,35 +57,27 @@ public sealed class ImageDecoder : IPreviewImageDecoder, IThumbnailDecoder, IReg
                 {
                     throw new ImageDecodeException(ImageOpenError.UnsupportedFormat);
                 }
-                return _wic.DecodeRegion(stream, region, expectedSourceSize, maximumDecodedBytes, cancellationToken);
+                using DecodedImageRegion decoded = _wic.DecodeRegion(stream, region, expectedSourceSize, maximumDecodedBytes, cancellationToken);
+                ValidateFileStamp(path, stream, stamp);
+                return new DecodedImageRegion(TransferWithFileStamp(decoded.Image, stamp), decoded.Bounds);
             }, cancellationToken);
-        }
-        finally
-        {
-            WicImageDecoder.DecodeSlot.Release();
-        }
-    }
 
-    private async Task<PixelBuffer> DecodeScheduledAsync(string path, PixelSize? maximumSize,
-        SemaphoreSlim slots, CancellationToken cancellationToken, long? maximumDecodedBytes = null)
-    {
-        await slots.WaitAsync(cancellationToken);
-        try
-        {
-            return await Task.Run(() => Decode(path, maximumSize, maximumDecodedBytes, cancellationToken), cancellationToken);
-        }
-        finally
-        {
-            slots.Release();
-        }
-    }
+    private Task<PixelBuffer> DecodeScheduledAsync(string path, PixelSize? maximumSize,
+        DecodePriority priority, CancellationToken cancellationToken, long? maximumDecodedBytes = null) =>
+        WicImageDecoder.DecodeSlot.RunAsync(priority, () => Decode(path, maximumSize, maximumDecodedBytes, priority, cancellationToken), cancellationToken);
 
-    private PixelBuffer Decode(string path, PixelSize? maximumSize, long? maximumDecodedBytes, CancellationToken cancellationToken)
+    private PixelBuffer Decode(string path, PixelSize? maximumSize, long? maximumDecodedBytes, DecodePriority priority, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         using FileStream stream = new(path, FileMode.Open, FileAccess.Read, FileShare.Read);
-        ImageFileStamp stamp = new(stream.Length, File.GetLastWriteTimeUtc(path));
-        using PixelBuffer decoded = DecodeStream(path, stream, maximumSize, maximumDecodedBytes, cancellationToken);
+        ImageFileStamp stamp = ReadFileStamp(path, stream);
+        using PixelBuffer decoded = DecodeStream(path, stream, maximumSize, maximumDecodedBytes, priority, cancellationToken);
+        ValidateFileStamp(path, stream, stamp);
+        return TransferWithFileStamp(decoded, stamp);
+    }
+
+    private static PixelBuffer TransferWithFileStamp(PixelBuffer decoded, ImageFileStamp stamp)
+    {
         if (!MemoryMarshal.TryGetArray(decoded.Pixels, out ArraySegment<byte> pixels) || pixels.Array is null || pixels.Offset != 0)
         {
             throw new ImageDecodeException(ImageOpenError.DecodeFailed);
@@ -112,12 +86,23 @@ public sealed class ImageDecoder : IPreviewImageDecoder, IThumbnailDecoder, IReg
         return new PixelBuffer(decoded.Size, decoded.Stride, pixels.Array, decoded.Metadata, decoded.SourceSize, stamp);
     }
 
+    internal static ImageFileStamp ReadFileStamp(string path, FileStream stream) =>
+        new(stream.Length, File.GetLastWriteTimeUtc(path));
+
+    internal static void ValidateFileStamp(string path, FileStream stream, ImageFileStamp expected)
+    {
+        if (ReadFileStamp(path, stream) != expected)
+        {
+            throw new IOException("The source image changed during decoding.");
+        }
+    }
+
     private PixelBuffer DecodeStream(string path, Stream stream, PixelSize? maximumSize,
-        long? maximumDecodedBytes, CancellationToken cancellationToken)
+        long? maximumDecodedBytes, DecodePriority priority, CancellationToken cancellationToken)
     {
         if (SupportedImageFormats.IsRawExtension(Path.GetExtension(path)))
         {
-            return RawPreviewImageDecoder.Decode(path, maximumSize, maximumDecodedBytes, cancellationToken);
+            return RawPreviewImageDecoder.Decode(path, maximumSize, maximumDecodedBytes, priority, cancellationToken);
         }
         if (string.Equals(Path.GetExtension(path), ".svg", StringComparison.OrdinalIgnoreCase))
         {
@@ -125,7 +110,7 @@ public sealed class ImageDecoder : IPreviewImageDecoder, IThumbnailDecoder, IReg
         }
         if (HeifContainer.TryDetect(stream, out bool avif))
         {
-            return HeifImageDecoder.Decode(stream, avif, maximumSize, maximumDecodedBytes, cancellationToken);
+            return HeifImageDecoder.Decode(stream, avif, maximumSize, maximumDecodedBytes, priority, cancellationToken);
         }
         if (!IsWebP(stream))
         {
@@ -145,9 +130,11 @@ public sealed class ImageDecoder : IPreviewImageDecoder, IThumbnailDecoder, IReg
         return webP;
     }
 
-    private static PixelBuffer DecodeWebP(Stream stream, PixelSize? maximumSize, long? maximumDecodedBytes, CancellationToken cancellationToken)
+    internal static PixelBuffer DecodeWebP(Stream stream, PixelSize? maximumSize, long? maximumDecodedBytes, CancellationToken cancellationToken)
     {
-        using SKCodec? codec = SKCodec.Create(stream);
+        // The caller owns the read lock through the final source-version check.
+        using SKManagedStream codecStream = new(stream, disposeManagedStream: false);
+        using SKCodec? codec = SKCodec.Create(codecStream);
         if (codec is null)
         {
             throw new ImageDecodeException(ImageOpenError.CorruptFile);

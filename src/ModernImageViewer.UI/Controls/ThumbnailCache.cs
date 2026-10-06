@@ -12,6 +12,11 @@ internal sealed class ThumbnailCache<T>(int entryLimit, long byteLimit) where T 
     private long _pixelBytes;
     private long _generation;
 
+    internal (int Count, long Bytes) Retained
+    {
+        get { lock (_gate) { return (_entries.Count, _pixelBytes); } }
+    }
+
     public long Generation
     {
         get { lock (_gate) { return _generation; } }

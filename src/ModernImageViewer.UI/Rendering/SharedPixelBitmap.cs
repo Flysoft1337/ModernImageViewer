@@ -9,6 +9,9 @@ namespace ModernImageViewer.UI.Rendering;
 public static class SharedPixelBitmap
 {
     private static readonly SKBitmapReleaseDelegate ReleasePixels = (_, context) => ((PinnedPixels)context).Dispose();
+    private static int _activePinCount;
+
+    internal static int ActivePinCount => Volatile.Read(ref _activePinCount);
 
     // Rendering view only: the storage belongs to PixelBuffer and must not be mutated.
     public static SKBitmap Create(PixelBuffer image, SKColorSpace? colorSpace = null)
@@ -48,6 +51,7 @@ public static class SharedPixelBitmap
             GCHandle handle = GCHandle.Alloc(pixels, GCHandleType.Pinned);
             _handle = GCHandle.ToIntPtr(handle);
             Address = IntPtr.Add(handle.AddrOfPinnedObject(), offset);
+            Interlocked.Increment(ref _activePinCount);
         }
 
         public IntPtr Address { get; }
@@ -58,6 +62,7 @@ public static class SharedPixelBitmap
             if (handle != IntPtr.Zero)
             {
                 GCHandle.FromIntPtr(handle).Free();
+                Interlocked.Decrement(ref _activePinCount);
             }
         }
     }

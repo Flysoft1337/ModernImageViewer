@@ -16,6 +16,7 @@ using ModernImageViewer.Platform;
 using ModernImageViewer.Platform.Activation;
 using ModernImageViewer.UI;
 using ModernImageViewer.UI.Localization;
+using ModernImageViewer.UI.Observations;
 using ModernImageViewer.UI.ViewModels;
 
 namespace ModernImageViewer.App;
@@ -67,6 +68,7 @@ public partial class App : System.Windows.Application
             ConfigureServices(services);
             _services = services.BuildServiceProvider();
             _services.GetRequiredService<ILocalizationService>().Initialize();
+            BrowsingObservationOptions.Current = BrowsingObservationOptions.FromEnvironment();
             MainWindow mainWindow = _services.GetRequiredService<MainWindow>();
             MainWindow = mainWindow;
             mainWindow.Show();

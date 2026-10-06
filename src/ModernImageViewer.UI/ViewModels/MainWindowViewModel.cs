@@ -40,7 +40,8 @@ public sealed partial class MainWindowViewModel : INotifyPropertyChanged, IDispo
     private string? _messageKey;
     private PixelRect? _visibleRegion;
     private PixelBuffer? _informationImage;
-    private IReadOnlyList<BrowseItem> _browseItems = [];
+    private Guid? _informationSourceIdentity;
+    private BrowseItem[] _browseItems = [];
 
     public MainWindowViewModel(
         ILocalizationService localization,
@@ -64,8 +65,8 @@ public sealed partial class MainWindowViewModel : INotifyPropertyChanged, IDispo
         PasteFilesCommand = new AsyncRelayCommand(PasteFilesAsync, () => _imageClipboard is not null || _clipboardFiles is not null);
         CopyPreviewCommand = new AsyncRelayCommand(() => CopyImageAsync(false), () => CanCopyImage);
         CopyOriginalCommand = new AsyncRelayCommand(() => CopyImageAsync(true), () => CanCopyOriginal);
-        PreviousCommand = new AsyncRelayCommand(MovePreviousAsync, () => CanMovePrevious);
-        NextCommand = new AsyncRelayCommand(MoveNextAsync, () => CanMoveNext);
+        PreviousCommand = new AsyncRelayCommand(MovePreviousAsync, () => CanMovePrevious, allowConcurrent: true);
+        NextCommand = new AsyncRelayCommand(MoveNextAsync, () => CanMoveNext, allowConcurrent: true);
         _localization.CultureChanged += OnCultureChanged;
         _coordinator.PropertyChanged += OnCoordinatorPropertyChanged;
     }
@@ -272,8 +273,8 @@ public sealed partial class MainWindowViewModel : INotifyPropertyChanged, IDispo
     public PixelBuffer? CurrentImage => _coordinator.State.Image;
     public bool HasImage => CurrentImage is not null;
     public bool IsLoading => _isIndexingFolder || _coordinator.State.Status == ImageOpenStatus.Loading;
-    public bool CanMovePrevious => !IsSorting && _browseSession.CanMovePrevious;
-    public bool CanMoveNext => !IsSorting && _browseSession.CanMoveNext;
+    public bool CanMovePrevious => !IsSorting && !_browseSession.IsIndexing && NavigationIndex > 0;
+    public bool CanMoveNext => !IsSorting && !_browseSession.IsIndexing && NavigationIndex >= 0 && NavigationIndex < _browseSession.Count - 1;
 
     public ICommand OpenCommand { get; }
     public AsyncRelayCommand PreviousCommand { get; }
@@ -297,9 +298,16 @@ public sealed partial class MainWindowViewModel : INotifyPropertyChanged, IDispo
     public async Task<bool> OpenPathAsync(string path)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
+        NotifyBrowsingOpenRequested();
         CancelFolderWork();
         _refreshCancellation?.Cancel();
-        return await _coordinator.OpenCandidatesAsync([path], _browseSession);
+        _navigationTarget = Path.GetFullPath(path);
+        long version = _inputVersion;
+        try { return await _coordinator.OpenCandidatesAsync([path], _browseSession); }
+        finally
+        {
+            if (version == _inputVersion) { _navigationTarget = null; NotifyAll(); }
+        }
     }
 
     public void UpdateScale(double scale)
@@ -326,10 +334,12 @@ public sealed partial class MainWindowViewModel : INotifyPropertyChanged, IDispo
         {
             return false;
         }
+        NotifyBrowsingOpenRequested();
         IsSlideshowPlaying = false;
         CancelFolderWork();
         _refreshCancellation?.Cancel();
         _coordinator.CancelPendingOpen();
+        InvalidateBrowsingCache();
         long version = _inputVersion;
         CancellationTokenSource cancellation = new();
         _folderCancellation = cancellation;
@@ -423,19 +433,25 @@ public sealed partial class MainWindowViewModel : INotifyPropertyChanged, IDispo
         {
             return;
         }
+        CancelFolderWork();
         _refreshCancellation?.Cancel();
-        _refreshCancellation?.Dispose();
-        _refreshCancellation = new CancellationTokenSource();
-        CancelBrowsingTools();
+        using CancellationTokenSource cancellation = new();
+        _refreshCancellation = cancellation;
+        long version = _inputVersion;
+        string path = CurrentFilePath;
+        NotifyBrowsingOpenRequested();
+        _coordinator.CancelPendingOpen();
+        InvalidateBrowsingCache();
         _coordinator.ClearPreviewCache();
-        _coordinator.CancelPendingIndexing();
         try
         {
-            Task refresh = _browseSession.RefreshAsync(_refreshCancellation.Token);
+            Task refresh = _browseSession.RefreshAsync(cancellation.Token);
             NotifyAll();
             await refresh;
+            if (_disposed || version != _inputVersion || cancellation.IsCancellationRequested) { return; }
             // Refresh also reloads the visible file, invalidating old main pixels and region detail.
-            await _coordinator.OpenCandidatesAsync([CurrentFilePath], _browseSession, cancellationToken: _refreshCancellation.Token);
+            await _coordinator.OpenCandidatesAsync([path], _browseSession, cancellationToken: cancellation.Token);
+            if (_disposed || version != _inputVersion || cancellation.IsCancellationRequested) { return; }
             await ReadFileInformationAsync();
             UpdateBrowseItems();
             _isSlideshowPlaying = _isSlideshowPlaying && CanPlaySlideshow;
@@ -444,6 +460,7 @@ public sealed partial class MainWindowViewModel : INotifyPropertyChanged, IDispo
         catch (OperationCanceledException) { }
         finally
         {
+            if (ReferenceEquals(_refreshCancellation, cancellation)) { _refreshCancellation = null; }
             if (!_disposed)
             {
                 NotifyAll();
@@ -475,6 +492,7 @@ public sealed partial class MainWindowViewModel : INotifyPropertyChanged, IDispo
 
     private void CancelFolderWork()
     {
+        _navigationTarget = null;
         CancelBrowsingTools();
         CancelClipboardWrite();
         _inputVersion++;
@@ -523,7 +541,7 @@ public sealed partial class MainWindowViewModel : INotifyPropertyChanged, IDispo
 
     private async Task MovePreviousAsync()
     {
-        string? path = _browseSession.GetPreviousPath();
+        string? path = CanMovePrevious ? _browseSession.Items[NavigationIndex - 1] : null;
         if (path is not null)
         {
             await OpenPathAsync(path);
@@ -532,7 +550,7 @@ public sealed partial class MainWindowViewModel : INotifyPropertyChanged, IDispo
 
     private async Task MoveNextAsync()
     {
-        string? path = _browseSession.GetNextPath();
+        string? path = CanMoveNext ? _browseSession.Items[NavigationIndex + 1] : null;
         if (path is not null)
         {
             await OpenPathAsync(path);
@@ -551,9 +569,11 @@ public sealed partial class MainWindowViewModel : INotifyPropertyChanged, IDispo
         if (_coordinator.State is { Status: ImageOpenStatus.Loaded, Image: not null } state)
         {
             UpdateBrowseItems();
-            if (e.PropertyName == nameof(ImageOpenCoordinator.State) && !ReferenceEquals(_informationImage, state.Image))
+            if (e.PropertyName == nameof(ImageOpenCoordinator.State)
+                && (state.Source is { } source ? _informationSourceIdentity != source.Identity : !ReferenceEquals(_informationImage, state.Image)))
             {
                 _informationImage = state.Image;
+                _informationSourceIdentity = state.Source?.Identity;
                 _ = ReadFileInformationAsync();
                 UpdateMetadataItems();
             }
@@ -576,6 +596,13 @@ public sealed partial class MainWindowViewModel : INotifyPropertyChanged, IDispo
         // Keep the strip bounded, including at the beginning and end of a directory.
         const int visibleCount = 9;
         int start = Math.Clamp(_browseSession.CurrentIndex - (visibleCount / 2), 0, Math.Max(0, _browseSession.Count - visibleCount));
+        int count = Math.Min(visibleCount, _browseSession.Count - start);
+        if (_browseItems.Length == count && _browseItems.Select((item, offset) =>
+            item.FilePath == _browseSession.Items[start + offset] && item.Index == start + offset
+            && item.IsCurrent == (start + offset == _browseSession.CurrentIndex)).All(matches => matches))
+        {
+            return;
+        }
         _browseItems = _browseSession.Items.Skip(start).Take(visibleCount)
             .Select((path, offset) => new BrowseItem(path, start + offset, start + offset == _browseSession.CurrentIndex))
             .ToArray();

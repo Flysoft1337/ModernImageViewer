@@ -1,5 +1,16 @@
 # 进度日志
 
+## 2026-10-06：0.5 浏览核心收口
+
+- 以 master 25b9424 开始，工作区干净；不扩展编辑功能、不发布。
+- 已读取约定、README、项目计划/路线图/功能方案及当前主图/区域/内存打开、邻图缓存、窗口/VM/视口。
+- 分工三个代理：解码优先级；DPI/视口/共享位图生命周期；可选阶段观察/真实连续浏览脚本。主代理处理自适应预览、导航意图与缓存失效。
+- 末次只读复审发现并修正排队自动细化未复核需求、内存图片读取绕过主图槽，以及完整细化预算拒绝恢复已取消区域加载标记；补专项回归。500图观察在这些防护修正前执行，最终发布包smoke另由CI验证。
+- 完成本地最终Release构建0警告0错误、核心136+UI/codec315=451项通过/1真实RAW样本skip、format。全量回归发现并修复WebP codec关闭来源流导致解后戳失败；动态目标旧测试替身改为遵守目标，原尺寸剪贴板64MiB限制独立保留。
+- 最终500个独立生成PNG文件/500切换、20快速请求、每50次F5、每25次实际像素、空闲30秒成功，未强制GC。Windows10 19045/i7-11800H/约32GiB、150%DPI、1836×723目标，Release framework-dependent、25b9424+本轮未提交功能；不是self-contained或P95对照。缓存最多24项/1,137,408字节、主像素最多16MiB、pin始终1，private约123.94→121.09MiB，handle749→748，WS小幅波动；完整混合格式长期验收仍待完成。报告位于artifacts/browsing-core/500-image-observation.json。
+- [PR #32](https://github.com/Flysoft1337/ModernImageViewer/pull/32)功能提交6bbdd7a的[Windows CI 37446139400](https://github.com/Flysoft1337/ModernImageViewer/actions/runs/37446139400)成功：完整恢复/格式、Release构建0警告0错误，核心136+UI/codec315=451通过、1本机真实RAW样本跳过；依赖审计、100MP观察、self-contained启动/12类格式激活/8次浏览smoke、安装版激活及当前用户安装/重装旧关联迁移/卸载均通过。Release job明确跳过。
+- 已下载核对浏览JSON：阶段完整、所需细节绘制成功、0丢请求/0预算受限、无完整路径；2秒CI空闲期WS/private仍上升，只作为功能smoke。format有既有workspace加载warning。最终仅补Markdown验收记录，源码/测试/CI流程与已通过6bbdd7a保持一致；合并状态见PR，保持0.5.0/公开v0.4.0。
+
 ## 2026-10-05：M0 格式与必备基线开始
 
 - 已读取最新 AGENTS、功能方案、路线图、项目计划、支持矩阵和规划记录；N1/N2 已合并。用户要求更多格式及完善 N0，仓库对应项为 M0，已提出异步范围核对。

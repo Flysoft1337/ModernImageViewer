@@ -19,7 +19,7 @@ public sealed class AdaptiveImageTests
         Task<bool> refining = coordinator.RefineAsync(TestContext.Current.CancellationToken);
         Assert.True(coordinator.State.IsRefining);
         Assert.Equal(ImageOpenCoordinator.MainPixelBudgetBytes
-            - 2 * ImageOpenCoordinator.PreviewMaximumSize.PixelCount * 4
+            - 2 * PreviewDecodePolicy.MaximumBytes
             - NeighborPreviewCache.MaximumCachedBytes, decoder.DetailBudget);
         PixelBuffer full = Image(new PixelSize(2, 2));
         decoder.Details[0].SetResult(full);

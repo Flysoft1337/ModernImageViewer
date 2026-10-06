@@ -13,20 +13,17 @@ public static class RawPreviewImageDecoder
 {
     private const int MaximumPreviewBytes = 32 * 1024 * 1024;
     private const long MaximumFileBytes = 256 * 1024 * 1024;
-    private static readonly SemaphoreSlim NativeSlot = new(1);
+    private static readonly DecodeScheduler NativeSlot = new(serializeThumbnails: true);
 
     public static PixelBuffer Decode(string path, PixelSize? maximumSize, long? maximumDecodedBytes,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken) =>
+        Decode(path, maximumSize, maximumDecodedBytes, DecodePriority.Foreground, cancellationToken);
+
+    internal static PixelBuffer Decode(string path, PixelSize? maximumSize, long? maximumDecodedBytes,
+        DecodePriority priority, CancellationToken cancellationToken)
     {
-        NativeSlot.Wait(cancellationToken);
-        try
-        {
-            return DecodeCore(path, maximumSize, maximumDecodedBytes, cancellationToken);
-        }
-        finally
-        {
-            NativeSlot.Release();
-        }
+        using IDisposable lease = NativeSlot.AcquireAsync(priority, cancellationToken).GetAwaiter().GetResult();
+        return DecodeCore(path, maximumSize, maximumDecodedBytes, cancellationToken);
     }
 
     private static PixelBuffer DecodeCore(string path, PixelSize? maximumSize, long? maximumDecodedBytes,

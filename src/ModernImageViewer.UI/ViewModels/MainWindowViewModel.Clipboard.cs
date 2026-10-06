@@ -61,6 +61,8 @@ public sealed partial class MainWindowViewModel
         }
         else if (input.Image is { } image)
         {
+            NotifyBrowsingOpenRequested();
+            InvalidateBrowsingCache();
             IsSlideshowPlaying = false;
             CancelFolderWork();
             _refreshCancellation?.Cancel();

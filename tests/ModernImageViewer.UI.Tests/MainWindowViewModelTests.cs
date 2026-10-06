@@ -664,7 +664,7 @@ public sealed class MainWindowViewModelTests
             Task.FromResult(CreateImage(SourceSize));
 
         public Task<PixelBuffer> DecodePreviewAsync(string path, PixelSize maximumSize, CancellationToken cancellationToken) =>
-            Task.FromResult(CreateImage(new PixelSize(2000, 1500)));
+            Task.FromResult(CreateImage(PreviewDecodePolicy.FitSource(SourceSize, maximumSize)));
 
         public Task<DecodedImageRegion> DecodeRegionAsync(string path, PixelRect region, PixelSize expectedSourceSize,
             long maximumDecodedBytes, CancellationToken cancellationToken) => Task.FromResult(new DecodedImageRegion(CreateImage(region.Size), region));

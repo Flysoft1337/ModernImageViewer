@@ -33,7 +33,8 @@ public sealed record ImageOpenState(
     ImageOpenError RefinementError = ImageOpenError.None,
     DecodedImageRegion? Region = null,
     bool IsRegionLoading = false,
-    ImageSource? Source = null)
+    ImageSource? Source = null,
+    long RequestId = 0)
 {
     public bool IsMemorySource => Source?.Kind == ImageSourceKind.Memory;
 }

@@ -14,6 +14,8 @@ public sealed class ViewportTransform
 
     public ViewportMode Mode { get; private set; } = ViewportMode.Fit;
 
+    // Scale is DIP per source image pixel. Viewport dimensions, anchors and offsets are DIP.
+    // Physical pixel density is Scale * DPI scale, applied only at the rendering boundary.
     public double Scale { get; private set; } = 1;
 
     public double OffsetX { get; private set; }
@@ -22,7 +24,7 @@ public sealed class ViewportTransform
 
     public void Fit(PixelSize image, double viewportWidth, double viewportHeight)
     {
-        if (viewportWidth <= 0 || viewportHeight <= 0)
+        if (!IsValidViewport(viewportWidth, viewportHeight))
         {
             return;
         }
@@ -34,6 +36,10 @@ public sealed class ViewportTransform
 
     public void ActualSize(PixelSize image, double viewportWidth, double viewportHeight, double pixelScale = 1)
     {
+        if (!IsValidViewport(viewportWidth, viewportHeight) || !double.IsFinite(pixelScale) || pixelScale <= 0)
+        {
+            return;
+        }
         Mode = ViewportMode.ActualSize;
         Scale = pixelScale;
         Center(image, viewportWidth, viewportHeight);
@@ -41,7 +47,7 @@ public sealed class ViewportTransform
 
     public void ZoomAt(double factor, double anchorX, double anchorY)
     {
-        if (factor <= 0)
+        if (!double.IsFinite(factor) || factor <= 0 || !double.IsFinite(anchorX) || !double.IsFinite(anchorY))
         {
             return;
         }
@@ -59,6 +65,10 @@ public sealed class ViewportTransform
 
     public void Pan(double deltaX, double deltaY)
     {
+        if (!double.IsFinite(deltaX) || !double.IsFinite(deltaY))
+        {
+            return;
+        }
         OffsetX += deltaX;
         OffsetY += deltaY;
         Mode = ViewportMode.Custom;
@@ -67,6 +77,10 @@ public sealed class ViewportTransform
     public void Reorient(PixelSize source, ViewOrientation previous, ViewOrientation current,
         double viewportWidth, double viewportHeight, double pixelScale = 1)
     {
+        if (!IsValidViewport(viewportWidth, viewportHeight))
+        {
+            return;
+        }
         PixelSize display = current.GetDisplaySize(source);
         if (Mode == ViewportMode.Fit)
         {
@@ -90,7 +104,7 @@ public sealed class ViewportTransform
         double viewportWidth, double viewportHeight, int maximumEdge = 2048)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(maximumEdge);
-        if (viewportWidth <= 0 || viewportHeight <= 0 || Scale <= 0)
+        if (!IsValidViewport(viewportWidth, viewportHeight) || Scale <= 0)
         {
             return null;
         }
@@ -121,4 +135,7 @@ public sealed class ViewportTransform
         OffsetX = (viewportWidth - (image.Width * Scale)) / 2;
         OffsetY = (viewportHeight - (image.Height * Scale)) / 2;
     }
+
+    private static bool IsValidViewport(double width, double height) =>
+        double.IsFinite(width) && width > 0 && double.IsFinite(height) && height > 0;
 }
