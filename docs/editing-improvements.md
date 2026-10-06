@@ -16,7 +16,7 @@
 
 源/常规输出各最多64MiB；启用调整时按输出及三个保守工作surface限制至128MiB（输出最多32MiB）。效果/标注/色彩转换预览最多8MiB、最长边2048；中性且无需转换时不增加像素缓存。区域遮挡每个采样/模糊局部缓冲最多4MiB，超大区域降采样。Skia/native/codec/surface与编码内部内存不全计入这些限制，不称整个进程硬上限。
 
-本批验证与 CI 的实际结果见[进度记录](planning/progress.md)。开发版本仍0.5.0，最新公开下载仍v0.4.0，不触发Release。
+本地Release构建0警告0错误，编辑核心27项、相关UI/codec82项通过，288双语资源键一致，已核对720×480深中文/浅英文截图。[PR #31](https://github.com/Flysoft1337/ModernImageViewer/pull/31)功能提交974412f的[Windows CI](https://github.com/Flysoft1337/ModernImageViewer/actions/runs/37438292272)核心89+UI/codec243=332通过、1本机RAW样本跳过，启动/12类格式激活、安装/重装迁移/卸载通过，Release job跳过。格式工具有既有workspace加载warning。末次仅同步Markdown验收，最终合并状态见PR；详细结果见[进度记录](planning/progress.md)。开发版本仍0.5.0，最新公开下载仍v0.4.0，不触发Release。
 
 ## 比例裁剪与WebP（历史交付）
 
