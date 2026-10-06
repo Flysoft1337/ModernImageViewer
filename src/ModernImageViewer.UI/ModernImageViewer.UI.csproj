@@ -2,6 +2,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\ModernImageViewer.Application\ModernImageViewer.Application.csproj" />
+    <ProjectReference Include="..\ModernImageViewer.Rendering\ModernImageViewer.Rendering.csproj" />
   </ItemGroup>
 
   <ItemGroup>

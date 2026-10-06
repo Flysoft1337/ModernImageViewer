@@ -197,7 +197,7 @@
   <data name="Edit_PngHint" xml:space="preserve"><value>PNG 保留透明度，编码无损。</value></data>
   <data name="Edit_JpegHint" xml:space="preserve"><value>JPEG 将透明区域合成为白底，有损编码。</value></data>
   <data name="Edit_PreviewNotice" xml:space="preserve"><value>预览可能经过降采样；导出按输出所需分辨率读取源像素。</value></data>
-  <data name="Edit_ExportNotice" xml:space="preserve"><value>请选择新文件名，不替换已有文件。输出为 8 位像素，最多约 1600 万像素；不复制原图 EXIF/ICC 元数据。</value></data>
+  <data name="Edit_ExportNotice" xml:space="preserve"><value>请选择新文件名，不替换已有文件。输出为 8 位像素，最多约 1600 万像素；启用调整时最多约 800 万像素。</value></data>
   <data name="Edit_OutputSummary" xml:space="preserve"><value>已应用输出 · {0} × {1} 像素</value></data>
   <data name="Edit_Ready" xml:space="preserve"><value>Ctrl+Z 撤销 · Ctrl+Shift+Z 重做 · Ctrl+S 另存为</value></data>
   <data name="Edit_InvalidValues" xml:space="preserve"><value>请输入图片范围内的整数。</value></data>
@@ -239,4 +239,57 @@
   <data name="Edit_Continue" xml:space="preserve"><value>继续编辑</value></data>
   <data name="Edit_Discard" xml:space="preserve"><value>丢弃修改</value></data>
   <data name="Edit_SaveAndClose" xml:space="preserve"><value>另存并关闭</value></data>
+  <data name="Edit_ModeGeometry" xml:space="preserve"><value>裁剪</value></data>
+  <data name="Edit_ModeAdjust" xml:space="preserve"><value>调整</value></data>
+  <data name="Edit_ModeAnnotate" xml:space="preserve"><value>标注</value></data>
+  <data name="Edit_Rotation" xml:space="preserve"><value>角度</value></data>
+  <data name="Edit_Exposure" xml:space="preserve"><value>曝光</value></data>
+  <data name="Edit_Brightness" xml:space="preserve"><value>亮度</value></data>
+  <data name="Edit_Contrast" xml:space="preserve"><value>对比度</value></data>
+  <data name="Edit_Gamma" xml:space="preserve"><value>Gamma</value></data>
+  <data name="Edit_Saturation" xml:space="preserve"><value>饱和度</value></data>
+  <data name="Edit_Temperature" xml:space="preserve"><value>色温</value></data>
+  <data name="Edit_Sharpen" xml:space="preserve"><value>锐化</value></data>
+  <data name="Edit_Blur" xml:space="preserve"><value>模糊</value></data>
+  <data name="Edit_ResetAdjustments" xml:space="preserve"><value>重置调整</value></data>
+  <data name="Edit_Lossless" xml:space="preserve"><value>WebP 无损</value></data>
+  <data name="Edit_WebpLosslessHint" xml:space="preserve"><value>无损 WebP，保留透明度。</value></data>
+  <data name="Edit_PreserveMetadata" xml:space="preserve"><value>保留拍摄信息</value></data>
+  <data name="Edit_MetadataHint" xml:space="preserve"><value>保留相机、镜头、拍摄日期与曝光参数。移除 GPS、缩略图及其他原始元数据；输出使用 sRGB。</value></data>
+  <data name="Edit_Presets" xml:space="preserve"><value>预设</value></data>
+  <data name="Edit_PresetName" xml:space="preserve"><value>预设名称</value></data>
+  <data name="Edit_PresetApply" xml:space="preserve"><value>应用</value></data>
+  <data name="Edit_PresetSave" xml:space="preserve"><value>保存</value></data>
+  <data name="Edit_PresetDelete" xml:space="preserve"><value>删除</value></data>
+  <data name="Edit_PresetInvalidName" xml:space="preserve"><value>名称须为 1-40 个字符。</value></data>
+  <data name="Edit_PresetLimit" xml:space="preserve"><value>最多保存 16 个预设。</value></data>
+  <data name="Edit_PresetSaved" xml:space="preserve"><value>已保存预设：{0}</value></data>
+  <data name="Edit_PresetDeleted" xml:space="preserve"><value>已删除预设：{0}</value></data>
+  <data name="Edit_PresetSaveFailed" xml:space="preserve"><value>无法保存预设。</value></data>
+  <data name="Edit_PresetApplied" xml:space="preserve"><value>已应用预设：{0}</value></data>
+  <data name="Edit_Annotations" xml:space="preserve"><value>标注</value></data>
+  <data name="Edit_AnnotationArrow" xml:space="preserve"><value>箭头</value></data>
+  <data name="Edit_AnnotationRectangle" xml:space="preserve"><value>矩形</value></data>
+  <data name="Edit_AnnotationEllipse" xml:space="preserve"><value>椭圆</value></data>
+  <data name="Edit_AnnotationPen" xml:space="preserve"><value>画笔</value></data>
+  <data name="Edit_AnnotationText" xml:space="preserve"><value>文字</value></data>
+  <data name="Edit_AnnotationMosaic" xml:space="preserve"><value>马赛克</value></data>
+  <data name="Edit_AnnotationBlur" xml:space="preserve"><value>区域模糊</value></data>
+  <data name="Edit_ColorRed" xml:space="preserve"><value>红色</value></data>
+  <data name="Edit_ColorYellow" xml:space="preserve"><value>黄色</value></data>
+  <data name="Edit_ColorGreen" xml:space="preserve"><value>绿色</value></data>
+  <data name="Edit_ColorBlue" xml:space="preserve"><value>蓝色</value></data>
+  <data name="Edit_ColorWhite" xml:space="preserve"><value>白色</value></data>
+  <data name="Edit_ColorBlack" xml:space="preserve"><value>黑色</value></data>
+  <data name="Edit_AnnotationWidth" xml:space="preserve"><value>线宽</value></data>
+  <data name="Edit_AnnotationFontSize" xml:space="preserve"><value>字号</value></data>
+  <data name="Edit_AnnotationStrength" xml:space="preserve"><value>强度</value></data>
+  <data name="Edit_AnnotationStop" xml:space="preserve"><value>结束标注</value></data>
+  <data name="Edit_AnnotationDeleteLast" xml:space="preserve"><value>删除最后一个标注</value></data>
+  <data name="Edit_AnnotationClear" xml:space="preserve"><value>清空标注</value></data>
+  <data name="Edit_AnnotationInvalid" xml:space="preserve"><value>请检查文字或选区。</value></data>
+  <data name="Edit_AnnotationLimit" xml:space="preserve"><value>标注已达上限。</value></data>
+  <data name="Edit_ModeExport" xml:space="preserve"><value>导出</value></data>
+  <data name="Edit_AnnotationSelect" xml:space="preserve"><value>选择标注</value></data>
+  <data name="Edit_AnnotationDeleteSelected" xml:space="preserve"><value>删除选中标注</value></data>
 </root>

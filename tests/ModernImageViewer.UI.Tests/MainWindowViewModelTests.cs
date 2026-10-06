@@ -463,9 +463,10 @@ public sealed class MainWindowViewModelTests
             themes.Apply(theme);
             localization.SetCulture(language);
             NoopExporter exporter = new();
+            MemorySettings editorSettings = new();
             string? exportPath = Path.Combine(Path.GetTempPath(), $"miv-editor-test-{Guid.NewGuid():N}.png");
             EditWindow editor = new(viewModel.Presentation, default(ViewOrientation).RotateRight(), localization,
-                exporter, 0, DateTime.UtcNow, pickExportPath: _ => exportPath)
+                exporter, 0, DateTime.UtcNow, pickExportPath: _ => exportPath, settings: editorSettings)
             { Owner = window, Width = 720, Height = 480 };
             editor.Show();
             editor.Dispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.ContextIdle);
@@ -496,11 +497,29 @@ public sealed class MainWindowViewModelTests
             ((System.Windows.Controls.Button)editor.FindName("UndoButton")).RaiseEvent(new System.Windows.RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
             Assert.Equal(new PixelSize(200, 400), editor.Recipe.OutputSize);
             ((System.Windows.Controls.RadioButton)editor.FindName("CropRatioFree")).IsChecked = true;
+            var sliders = (Dictionary<string, System.Windows.Controls.Slider>)typeof(EditWindow)
+                .GetField("_adjustmentSliders", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!.GetValue(editor)!;
+            sliders["Rotation"].Value = 31;
+            sliders["Exposure"].Value = 1;
+            Assert.True(editor.HasUnexportedChanges);
+            typeof(EditWindow).GetMethod("CommitAdjustments", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!.Invoke(editor, null);
+            Assert.Equal(31, editor.Recipe.RotationDegrees);
+            Assert.Equal(1, editor.Recipe.Adjustments.Exposure);
+            ((System.Windows.Controls.Button)editor.FindName("UndoButton")).RaiseEvent(new System.Windows.RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
+            Assert.Equal(new PixelSize(200, 400), editor.Recipe.OutputSize);
+            Assert.Equal(0, editor.Recipe.Adjustments.Exposure);
+            ImageAnnotationTests.VerifyEditorGestures(editor);
             ((System.Windows.Controls.RadioButton)editor.FindName("JpegFormat")).IsChecked = true;
             Assert.Equal(System.Windows.Visibility.Visible, ((System.Windows.Controls.StackPanel)editor.FindName("QualityPanel")).Visibility);
             ((System.Windows.Controls.RadioButton)editor.FindName("PngFormat")).IsChecked = true;
             Assert.Equal(System.Windows.Visibility.Collapsed, ((System.Windows.Controls.StackPanel)editor.FindName("QualityPanel")).Visibility);
             ((System.Windows.Controls.RadioButton)editor.FindName("WebpFormat")).IsChecked = true;
+            ((System.Windows.Controls.TextBox)editor.FindName("EditorPresetName")).Text = "Web export";
+            ((System.Windows.Controls.Button)editor.FindName("EditorPresetSave")).RaiseEvent(new System.Windows.RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
+            Assert.Single(editorSettings.Current.EditorPresets!);
+            ((System.Windows.Controls.CheckBox)editor.FindName("WebpLossless")).IsChecked = true;
+            Assert.Equal(System.Windows.Visibility.Collapsed, ((System.Windows.Controls.StackPanel)editor.FindName("QualityPanel")).Visibility);
+            ((System.Windows.Controls.CheckBox)editor.FindName("WebpLossless")).IsChecked = false;
             Assert.Equal(localization.GetString("Edit_WebpHint"), ((System.Windows.Controls.TextBlock)editor.FindName("FormatHint")).Text);
             Assert.Equal(System.Windows.Visibility.Visible, ((System.Windows.Controls.StackPanel)editor.FindName("QualityPanel")).Visibility);
             editor.Dispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.ContextIdle);
@@ -514,6 +533,14 @@ public sealed class MainWindowViewModelTests
             {
                 Directory.CreateDirectory(output);
                 SaveScreenshot(editor, Path.Combine(output, $"editor-{theme}-{language}.png"));
+                foreach (string mode in new[] { "Adjust", "Annotate", "Export" })
+                {
+                    var modeButton = FindMode(editor, mode);
+                    modeButton.IsChecked = true;
+                    editor.Dispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.ContextIdle);
+                    editor.UpdateLayout();
+                    SaveScreenshot(editor, Path.Combine(output, $"editor-{mode}-{theme}-{language}.png"));
+                }
                 ((System.Windows.Controls.ScrollViewer)editor.FindName("EditorFieldsScroll")).ScrollToEnd();
                 editor.Dispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.ContextIdle);
                 editor.UpdateLayout();
@@ -530,6 +557,14 @@ public sealed class MainWindowViewModelTests
                 new System.Windows.RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
             Assert.False(savedEditor.IsVisible);
         }
+    }
+
+    private static System.Windows.Controls.RadioButton FindMode(EditWindow editor, string mode)
+    {
+        var scroll = (System.Windows.Controls.ScrollViewer)editor.FindName("EditorFieldsScroll");
+        var grid = (System.Windows.Controls.Grid)scroll.Parent;
+        var choices = grid.Children.OfType<System.Windows.Controls.Primitives.UniformGrid>().Single();
+        return choices.Children.OfType<System.Windows.Controls.RadioButton>().Single(choice => Equals(choice.Tag, mode));
     }
 
     private static void VerifyEditorClosing(EditWindow editor, NoopExporter exporter, Action cancelPicker,
@@ -657,6 +692,8 @@ public sealed class MainWindowViewModelTests
         public ModernImageViewer.Application.Settings.UserSettingsSnapshot Current { get; private set; } = new("en-US", "Dark");
         public string? Language => Current.Language;
         public string? Theme => Current.Theme;
+        public bool SaveEditorPresets(IReadOnlyList<ModernImageViewer.Application.Settings.EditorPresetData> presets)
+        { Current = Current with { EditorPresets = presets.ToArray() }; return true; }
         public int FlushCount { get; private set; }
         public void SaveLanguage(string language) => Current = Current with { Language = language };
         public void SaveTheme(string theme) => Current = Current with { Theme = theme };

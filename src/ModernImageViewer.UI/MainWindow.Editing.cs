@@ -72,7 +72,7 @@ public partial class MainWindow
                 }
                 if (!IsCurrentMemory() || cancellation.IsCancellationRequested) { return; }
                 EditWindow memoryEditor = new(presentation, orientation, _localization ?? _viewModel.Localization,
-                    _imageExporter, sourcePixels: pixels)
+                    _imageExporter, sourcePixels: pixels, settings: _viewModel.Settings)
                 { Owner = this };
                 memoryEditor.ShowDialog();
                 return;
@@ -94,8 +94,10 @@ public partial class MainWindow
                 _messageTimer.Start();
                 return;
             }
+            byte[]? colorProfile = await _imageExporter.GetSourceColorProfileAsync(presentation.FilePath!, cancellation.Token);
+            if (!IsCurrentSource() || cancellation.IsCancellationRequested) { return; }
             EditWindow editor = new(presentation, orientation, _localization ?? _viewModel.Localization,
-                _imageExporter, source.Length, source.LastWriteTimeUtc)
+                _imageExporter, source.Length, source.LastWriteTimeUtc, settings: _viewModel.Settings, sourceColorProfile: colorProfile)
             { Owner = this };
             editor.ShowDialog();
         }

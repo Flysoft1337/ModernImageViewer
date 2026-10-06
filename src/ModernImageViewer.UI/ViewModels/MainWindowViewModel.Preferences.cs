@@ -5,6 +5,7 @@ namespace ModernImageViewer.UI.ViewModels;
 public sealed partial class MainWindowViewModel
 {
     private readonly IUserSettingsService? _settings;
+    internal IUserSettingsService? Settings => _settings;
 
     public WindowPlacementData? WindowPlacement => _settings?.Current.WindowPlacement;
 

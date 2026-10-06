@@ -11,6 +11,19 @@
     <shell:WindowChrome CaptionHeight="54" ResizeBorderThickness="6" GlassFrameThickness="0" />
   </shell:WindowChrome.WindowChrome>
   <Window.Resources>
+    <Style x:Key="EditorSlider" TargetType="Slider">
+      <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Slider">
+        <Grid VerticalAlignment="Center" Height="24">
+          <Border Height="3" Background="{DynamicResource BorderBrush}" CornerRadius="1" />
+          <Track x:Name="PART_Track" IsDirectionReversed="{TemplateBinding IsDirectionReversed}">
+            <Track.DecreaseRepeatButton><RepeatButton Command="Slider.DecreaseLarge" Opacity="0" Focusable="False" /></Track.DecreaseRepeatButton>
+            <Track.Thumb><Thumb Width="14" Height="20"><Thumb.Template><ControlTemplate TargetType="Thumb"><Border Background="{DynamicResource AccentBrush}" CornerRadius="4" BorderThickness="2" BorderBrush="{DynamicResource SurfaceBrush}" /></ControlTemplate></Thumb.Template></Thumb></Track.Thumb>
+            <Track.IncreaseRepeatButton><RepeatButton Command="Slider.IncreaseLarge" Opacity="0" Focusable="False" /></Track.IncreaseRepeatButton>
+          </Track>
+        </Grid>
+        <ControlTemplate.Triggers><Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.45" /></Trigger><Trigger Property="IsKeyboardFocused" Value="True"><Setter Property="Background" Value="{DynamicResource AccentSurfaceBrush}" /></Trigger></ControlTemplate.Triggers>
+      </ControlTemplate></Setter.Value></Setter>
+    </Style>
     <Style x:Key="EditorInput" TargetType="TextBox">
       <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
       <Setter Property="Background" Value="{DynamicResource WindowBackgroundBrush}" />
@@ -65,8 +78,8 @@
       <Grid>
         <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
         <WrapPanel x:Name="EditToolbar" Margin="12,8">
-          <Button x:Name="UndoButton" Style="{StaticResource ToolbarButtonStyle}" Click="OnUndoClick" Content="{Binding [Edit_Undo]}" ToolTip="Ctrl+Z" />
-          <Button x:Name="RedoButton" Style="{StaticResource ToolbarButtonStyle}" Click="OnRedoClick" Content="{Binding [Edit_Redo]}" ToolTip="Ctrl+Shift+Z" />
+          <Button x:Name="UndoButton" Style="{StaticResource ToolbarButtonStyle}" Click="OnUndoClick" ToolTip="{Binding [Edit_Undo]}" AutomationProperties.Name="{Binding [Edit_Undo]}"><TextBlock Text="↶" FontSize="22" /></Button>
+          <Button x:Name="RedoButton" Style="{StaticResource ToolbarButtonStyle}" Click="OnRedoClick" ToolTip="{Binding [Edit_Redo]}" AutomationProperties.Name="{Binding [Edit_Redo]}"><TextBlock Text="↷" FontSize="22" /></Button>
           <Border Style="{StaticResource ToolDividerStyle}" />
           <Button Style="{StaticResource ToolbarButtonStyle}" Tag="Left" Click="OnDirectionClick" ToolTip="{Binding [Orientation_RotateLeft]}" AutomationProperties.Name="{Binding [Orientation_RotateLeft]}"><Path Style="{StaticResource IconStyle}" Data="{StaticResource Icon.Refresh}" RenderTransformOrigin="0.5,0.5"><Path.RenderTransform><ScaleTransform ScaleX="-1" /></Path.RenderTransform></Path></Button>
           <Button Style="{StaticResource ToolbarButtonStyle}" Tag="Right" Click="OnDirectionClick" ToolTip="{Binding [Orientation_RotateRight]}" AutomationProperties.Name="{Binding [Orientation_RotateRight]}"><Path Style="{StaticResource IconStyle}" Data="{StaticResource Icon.Refresh}" /></Button>
@@ -78,14 +91,24 @@
           <controls:ImageViewport x:Name="Preview" CanvasBackground="{DynamicResource CanvasBrush}" />
           <Canvas x:Name="CropOverlay" Background="Transparent" Visibility="Collapsed" Cursor="Cross"
                   MouseLeftButtonDown="OnCropDown" MouseMove="OnCropMove" MouseLeftButtonUp="OnCropUp" LostMouseCapture="OnCropCaptureLost">
-            <Rectangle x:Name="SelectionRectangle" Stroke="{DynamicResource AccentBrush}" StrokeThickness="2" StrokeDashArray="3,2" Fill="Transparent" Visibility="Collapsed" />
+            <Polygon x:Name="SelectionRectangle" Stroke="{DynamicResource AccentBrush}" StrokeThickness="2" StrokeDashArray="3,2" Fill="Transparent" Visibility="Collapsed" />
           </Canvas>
+          <Canvas x:Name="AnnotationOverlay" Background="Transparent" Visibility="Collapsed" Cursor="Cross" />
         </Grid>
         <StackPanel Grid.Row="2" Margin="20,14"><TextBlock x:Name="OutputSummary" FontSize="13" FontWeight="SemiBold" /><TextBlock x:Name="PreviewNotice" Text="{Binding [Edit_PreviewNotice]}" Foreground="{DynamicResource SecondaryTextBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,5,0,0" /></StackPanel>
       </Grid>
       <Border Grid.Column="1" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1,0,0,0">
-        <ScrollViewer x:Name="EditorFieldsScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+        <Grid>
+          <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /></Grid.RowDefinitions>
+          <UniformGrid Columns="4" Margin="10,12,10,4">
+            <RadioButton GroupName="EditorMode" Tag="Geometry" Content="{Binding [Edit_ModeGeometry]}" IsChecked="True" Checked="OnEditorModeChanged" Style="{StaticResource EditorChoice}" Padding="7,8" Margin="0,0,3,0" />
+            <RadioButton GroupName="EditorMode" Tag="Adjust" Content="{Binding [Edit_ModeAdjust]}" Checked="OnEditorModeChanged" Style="{StaticResource EditorChoice}" Padding="7,8" Margin="0,0,3,0" />
+            <RadioButton GroupName="EditorMode" Tag="Annotate" Content="{Binding [Edit_ModeAnnotate]}" Checked="OnEditorModeChanged" Style="{StaticResource EditorChoice}" Padding="7,8" Margin="0,0,3,0" />
+            <RadioButton x:Name="ExportMode" GroupName="EditorMode" Tag="Export" Content="{Binding [Edit_ModeExport]}" Checked="OnEditorModeChanged" Style="{StaticResource EditorChoice}" Padding="7,8" Margin="0" />
+          </UniformGrid>
+        <ScrollViewer Grid.Row="1" x:Name="EditorFieldsScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
           <StackPanel x:Name="EditFields" Margin="18">
+            <StackPanel x:Name="GeometryFields">
             <TextBlock Text="{Binding [Edit_Crop]}" FontWeight="SemiBold" FontSize="15" />
             <TextBlock Text="{Binding [Edit_CropHint]}" Style="{StaticResource PanelValueStyle}" Foreground="{DynamicResource SecondaryTextBrush}" FontSize="11" Margin="0,6,0,10" />
             <TextBlock Text="{Binding [Edit_CropRatio]}" Style="{StaticResource PanelLabelStyle}" Margin="0,0,0,7" />
@@ -115,13 +138,26 @@
             <CheckBox x:Name="LockAspectRatio" Style="{StaticResource EditorCheck}" IsChecked="True" Content="{Binding [Edit_KeepRatio]}" Margin="0,12,0,0" />
             <Button Style="{StaticResource ToolbarButtonStyle}" Margin="0,10,0,0" Click="OnApplySizeClick" Content="{Binding [Edit_ApplySize]}" BorderBrush="{DynamicResource BorderBrush}" />
             <Border Height="1" Background="{DynamicResource BorderBrush}" Margin="0,20,0,20" />
+            <TextBlock Text="{Binding [Edit_Rotation]}" FontWeight="SemiBold" FontSize="15" />
+            <StackPanel x:Name="RotationFields" Margin="0,12,0,0" />
+            </StackPanel>
+            <StackPanel x:Name="AdjustmentFields" Visibility="Collapsed" />
+            <StackPanel x:Name="AnnotationFields" Visibility="Collapsed" />
+            <StackPanel x:Name="ExportFields" Visibility="Collapsed">
             <TextBlock Text="{Binding [Edit_Export]}" FontWeight="SemiBold" FontSize="15" />
             <WrapPanel Margin="0,12,0,10"><RadioButton x:Name="PngFormat" Content="PNG" GroupName="Format" IsChecked="True" Style="{StaticResource EditorChoice}" Checked="OnFormatChanged" /><RadioButton x:Name="JpegFormat" Content="JPEG" GroupName="Format" Style="{StaticResource EditorChoice}" Checked="OnFormatChanged" /><RadioButton x:Name="WebpFormat" Content="WebP" GroupName="Format" Style="{StaticResource EditorChoice}" Checked="OnFormatChanged" /></WrapPanel>
             <TextBlock x:Name="FormatHint" Style="{StaticResource PanelValueStyle}" Foreground="{DynamicResource SecondaryTextBrush}" FontSize="11" />
             <StackPanel x:Name="QualityPanel" Visibility="Collapsed" Margin="0,12,0,0"><TextBlock Text="{Binding [Edit_Quality]}" Style="{StaticResource PanelLabelStyle}" Margin="0,0,0,5" /><TextBox x:Name="JpegQuality" Text="90" Style="{StaticResource EditorInput}" AutomationProperties.Name="{Binding [Edit_Quality]}" /></StackPanel>
+            <CheckBox x:Name="WebpLossless" Content="{Binding [Edit_Lossless]}" Style="{StaticResource EditorCheck}" Margin="0,12,0,0" Visibility="Collapsed" Checked="OnFormatChanged" Unchecked="OnFormatChanged" />
+            <CheckBox x:Name="PreserveMetadata" Content="{Binding [Edit_PreserveMetadata]}" Style="{StaticResource EditorCheck}" Margin="0,16,0,0" />
+            <TextBlock Text="{Binding [Edit_MetadataHint]}" Foreground="{DynamicResource SecondaryTextBrush}" TextWrapping="Wrap" FontSize="11" Margin="0,8,0,0" />
             <TextBlock Text="{Binding [Edit_ExportNotice]}" Foreground="{DynamicResource SecondaryTextBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,14,0,0" />
+            <Border Height="1" Background="{DynamicResource BorderBrush}" Margin="0,20" />
+            <StackPanel x:Name="PresetFields" />
+            </StackPanel>
           </StackPanel>
         </ScrollViewer>
+        </Grid>
       </Border>
     </Grid>
     <Border Grid.Row="2" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,1,0,0" Padding="18,12">

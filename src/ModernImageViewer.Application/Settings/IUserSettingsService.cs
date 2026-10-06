@@ -9,5 +9,6 @@ public interface IUserSettingsService
     void SaveTheme(string theme);
     void SaveBrowsingPreferences(BrowsingPreferencesData preferences) { }
     void SaveWindowPlacement(WindowPlacementData placement) { }
+    bool SaveEditorPresets(IReadOnlyList<EditorPresetData> presets) => false;
     void Flush() { }
 }

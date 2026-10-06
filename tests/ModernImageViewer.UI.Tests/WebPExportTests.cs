@@ -58,7 +58,7 @@ public sealed class WebPExportTests
         Assert.Contains("VP8 ", chunks); // The quality-100 path is still lossy, not VP8L.
         Assert.DoesNotContain("EXIF", chunks);
         Assert.DoesNotContain("XMP ", chunks);
-        Assert.DoesNotContain("ICCP", chunks);
+        Assert.Contains("ICCP", chunks);
         Assert.Equal(hash, SHA256.HashData(File.ReadAllBytes(files.Source)));
         Assert.Empty(Directory.GetFiles(files.Directory, ".miv-export-*.tmp"));
     }
