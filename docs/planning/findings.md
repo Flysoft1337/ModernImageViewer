@@ -1,5 +1,13 @@
 # 发现记录
 
+## 2026-10-06：0.6 初步核对
+
+- 起点 master `9cdcde9`，工作区干净，0.5 浏览收口已合并；尚未更改产品代码或版本。
+- `ImageOpenState` 只有一份当前 PixelBuffer、预览/细节/区域状态；`ImageOpenCoordinator` 以打开代次提交图片和来源 Guid，没有容器页/帧身份或播放会话。
+- WIC 固定 `Frames[0]`；缩放入口重建 BitmapImage 也默认首页。现有 WebP 使用 SKCodec 默认 GetPixels，随调用关闭 codec 和流，未接帧元信息。
+- `ImageViewport` 换像素会重建共享 SKBitmap、发 ScaleChanged 并重新评估细节需求；动画不能简单走完整图片属性通知链。
+- 共享像素发布后不可改写或复用，Skia pin 到最后引用释放才结束；动画缓冲轮换需要明确交接/租约规则。
+
 ## 2026-10-06 浏览收口
 
 - 基线 25b9424，主图固定 2560×1600；预取已有 250ms 延迟、4MiB 单项和文件属性复核。

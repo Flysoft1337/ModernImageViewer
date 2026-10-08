@@ -16,7 +16,7 @@ public partial class MainWindow
 
     private async void OnEditClick(object sender, RoutedEventArgs e)
     {
-        if (!_viewModel.HasImage || _imageExporter is null || _openingEditor) { return; }
+        if (!_viewModel.CanEditStatic || _imageExporter is null || _openingEditor) { return; }
         _openingEditor = true;
         _viewModel.IsSlideshowPlaying = false;
         _viewModel.CancelRefinement();

@@ -12,7 +12,7 @@ using SkiaSharp;
 
 namespace ModernImageViewer.Codecs;
 
-public sealed partial class ImageDecoder : IPreviewImageDecoder, IThumbnailDecoder, IRegionImageDecoder, IPrefetchImageDecoder, IMemoryImageDecoder
+public sealed partial class ImageDecoder : IPreviewImageDecoder, IThumbnailDecoder, IRegionImageDecoder, IPrefetchImageDecoder, IMemoryImageDecoder, IImageFrameDecoder
 {
     private readonly WicImageDecoder _wic = new();
 
@@ -111,6 +111,13 @@ public sealed partial class ImageDecoder : IPreviewImageDecoder, IThumbnailDecod
         if (HeifContainer.TryDetect(stream, out bool avif))
         {
             return HeifImageDecoder.Decode(stream, avif, maximumSize, maximumDecodedBytes, priority, cancellationToken);
+        }
+        Span<byte> signature = stackalloc byte[6];
+        int signatureLength = stream.ReadAtLeast(signature, signature.Length, throwOnEndOfStream: false);
+        stream.Position = 0;
+        if (signatureLength == signature.Length && (signature.SequenceEqual("GIF87a"u8) || signature.SequenceEqual("GIF89a"u8)))
+        {
+            return DecodeGifRepresentative(stream, maximumSize, maximumDecodedBytes, cancellationToken);
         }
         if (!IsWebP(stream))
         {

@@ -10,6 +10,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 using ModernImageViewer.Application;
 using ModernImageViewer.Application.Images;
+using ModernImageViewer.Application.Observations;
 using ModernImageViewer.Codecs;
 using ModernImageViewer.Metadata;
 using ModernImageViewer.Platform;
@@ -66,6 +67,13 @@ public partial class App : System.Windows.Application
 
             ServiceCollection services = new();
             ConfigureServices(services);
+            AnimationObservationOptions.Current = AnimationObservationOptions.FromEnvironment();
+            if (AnimationObservationOptions.Current is not null)
+            {
+                services.AddSingleton<Func<AnimationResourceSnapshot>>(() => new(0, 0,
+                    ActiveNativeSessionCount: ImageFrameResourceCounters.ActiveSessionCount,
+                    ActiveNativeDecoderCount: ImageFrameResourceCounters.ActiveDecoderCount));
+            }
             _services = services.BuildServiceProvider();
             _services.GetRequiredService<ILocalizationService>().Initialize();
             BrowsingObservationOptions.Current = BrowsingObservationOptions.FromEnvironment();

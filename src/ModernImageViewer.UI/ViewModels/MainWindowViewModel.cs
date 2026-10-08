@@ -213,9 +213,11 @@ public sealed partial class MainWindowViewModel : INotifyPropertyChanged, IDispo
     }
 
     public ImageOpenState Presentation => _coordinator.State;
-    public bool ShowPreviewStatus => HasImage && Presentation.IsPreview && Presentation.Status != ImageOpenStatus.Loading;
+    public bool ShowPreviewStatus => HasImage && (Presentation.IsPreview || Presentation.RefinementError != ImageOpenError.None)
+        && Presentation.Status != ImageOpenStatus.Loading;
     public bool IsRefining => Presentation.IsRefining || Presentation.IsRegionLoading;
-    public bool CanRefine => ShowPreviewStatus && Presentation.Status == ImageOpenStatus.Loaded && !IsRefining;
+    public bool CanRefine => ShowPreviewStatus && Presentation.IsPreview && Presentation.Status == ImageOpenStatus.Loaded && !IsRefining
+        && (Presentation.Sequence is null || _coordinator.HasFrameSession);
     public string RefineLabel => Text("Preview_Refine");
     public string CancelLabel => Text("Preview_Cancel");
     public string PreviewStatusText => Text(IsRefining ? "Preview_Refining"
@@ -474,8 +476,11 @@ public sealed partial class MainWindowViewModel : INotifyPropertyChanged, IDispo
 
     public void Dispose()
     {
+        if (_disposed) { return; }
         FlushPreferences();
+        StopFramePlayback();
         _disposed = true;
+        _coordinator.CancelPendingOpen();
         CancelBrowsingTools();
         _refinementCancellation?.Cancel();
         CancelFolderWork();
@@ -492,6 +497,7 @@ public sealed partial class MainWindowViewModel : INotifyPropertyChanged, IDispo
 
     private void CancelFolderWork()
     {
+        StopFramePlayback();
         _navigationTarget = null;
         CancelBrowsingTools();
         CancelClipboardWrite();
@@ -566,6 +572,23 @@ public sealed partial class MainWindowViewModel : INotifyPropertyChanged, IDispo
 
     private void OnCoordinatorPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
+        UpdateFramePlayback(_coordinator.State);
+        if (e.PropertyName == nameof(ImageOpenCoordinator.State)
+            && _coordinator.State is { Status: ImageOpenStatus.Loaded, Sequence: not null } frameState
+            && _informationSourceIdentity == frameState.Source?.Identity)
+        {
+            OnPropertyChanged(nameof(Presentation));
+            OnPropertyChanged(nameof(CurrentImage));
+            OnPropertyChanged(nameof(DimensionsText));
+            OnPropertyChanged(nameof(ShowPreviewStatus));
+            OnPropertyChanged(nameof(IsRefining));
+            OnPropertyChanged(nameof(CanRefine));
+            OnPropertyChanged(nameof(PreviewStatusText));
+            NotifyFramePosition();
+            CopyPreviewCommand.RaiseCanExecuteChanged();
+            CopyOriginalCommand.RaiseCanExecuteChanged();
+            return;
+        }
         if (_coordinator.State is { Status: ImageOpenStatus.Loaded, Image: not null } state)
         {
             UpdateBrowseItems();

@@ -27,7 +27,7 @@ concurrency:
 jobs:
   build-test-publish:
     runs-on: windows-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     outputs:
       release_version: ${{ steps.release_metadata.outputs.version }}
       release_commit: ${{ steps.release_metadata.outputs.commit }}
@@ -166,17 +166,84 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
+      - name: Observe animation and multipage lifecycle smoke
+        shell: pwsh
+        run: >-
+          .\scripts\measure-animation.ps1
+          -AppPath .\artifacts\publish\win-x64\ModernImageViewer.App.exe
+          -FixtureDirectory .\artifacts\format-fixtures
+          -Loops 1 -LongSeconds 1 -TimeoutSeconds 240 -RequireInstrumentation
+
+      - name: Upload animation observation
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: animation-observation
+          path: artifacts/animation-observation/*.json
+          if-no-files-found: warn
+          retention-days: 14
+
       - name: Build win-x64 installer
         id: installer_build
         shell: pwsh
         run: .\scripts\build-installer.ps1 -SkipPublish
 
-      - name: Check installer lifecycle and installed file activation
+      - name: Check out fixed 0.5 baseline for real upgrade verification
+        uses: actions/checkout@v7
+        with:
+          ref: 9cdcde9cffc4be3a242f30da2828dfb8c7ab910f
+          path: .baseline-0.5
+          persist-credentials: false
+
+      - name: Build actual 0.5 baseline installer
+        shell: pwsh
+        run: |
+          $repository = $env:GITHUB_WORKSPACE
+          $baseline = Join-Path $repository '.baseline-0.5'
+          [xml]$baselineProperties = Get-Content (Join-Path $baseline 'Directory.Build.props') -Raw
+          [xml]$targetProperties = Get-Content (Join-Path $repository 'Directory.Build.props') -Raw
+          if ([string]$baselineProperties.Project.PropertyGroup.Version -ne '0.5.0' -or
+              [string]$targetProperties.Project.PropertyGroup.Version -ne '0.6.0') {
+            throw 'Real upgrade verification requires the unchanged 0.5.0 baseline and a 0.6.0 target.'
+          }
+          # Each checkout resolves native content relative to its own artifacts directory.
+          # The baseline script revalidates archive, source, compiler and bridge hashes.
+          $baselineNative = Join-Path $baseline 'artifacts/raw-native'
+          [IO.Directory]::CreateDirectory($baselineNative) | Out-Null
+          foreach ($name in @('ModernImageViewer.RawBridge.dll', 'raw-native.json', 'LibRaw-0.22.2-Win64.zip', 'licenses')) {
+            Copy-Item -LiteralPath (Join-Path $repository "artifacts/raw-native/$name") -Destination $baselineNative -Recurse
+          }
+          Push-Location $baseline
+          try {
+            & .\scripts\build-installer.ps1 -PublishDirectory (Join-Path $repository 'artifacts/baseline-0.5/publish') -OutputDirectory (Join-Path $repository 'artifacts/baseline-0.5/installer')
+          }
+          finally { Pop-Location }
+
+      - name: Observe fixed 0.5 baseline in the same Windows job
+        shell: pwsh
+        run: |
+          $baselineApp = Join-Path $env:GITHUB_WORKSPACE 'artifacts/baseline-0.5/publish/ModernImageViewer.App.exe'
+          .\scripts\measure-startup.ps1 -AppPath $baselineApp -Iterations 1 -ObservationSeconds 1 -OutputPath .\artifacts\startup-baseline-0.5.json
+          .\scripts\measure-browsing.ps1 -AppPath $baselineApp -GeneratedImageCount 8 -NeighborSwitches 8 -RapidBurst 4 -RefreshEvery 4 -DetailEvery 4 -IdleSeconds 2 -OutputPath .\artifacts\browsing-observation\baseline-0.5.json
+
+      - name: Upload baseline static observations
+        uses: actions/upload-artifact@v7
+        with:
+          name: baseline-static-observation
+          path: |
+            artifacts/startup-baseline-0.5.json
+            artifacts/browsing-observation/baseline-0.5.json
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Check actual 0.5 to 0.6 upgrade, reinstall and uninstall
         shell: pwsh
         run: |
           $installers = @(Get-ChildItem .\artifacts\installer\*-Setup.exe)
           if ($installers.Count -ne 1) { throw 'Expected exactly one installer.' }
-          .\scripts\check-installer.ps1 -InstallerPath $installers[0].FullName -FixtureDirectory .\artifacts\format-fixtures
+          $baselineInstallers = @(Get-ChildItem .\artifacts\baseline-0.5\installer\*-Setup.exe)
+          if ($baselineInstallers.Count -ne 1) { throw 'Expected exactly one unchanged 0.5 installer.' }
+          .\scripts\check-installer.ps1 -InstallerPath $installers[0].FullName -BaselineInstallerPath $baselineInstallers[0].FullName -FixtureDirectory .\artifacts\format-fixtures
 
       - name: Upload win-x64 installer
         if: always() && steps.installer_build.outcome == 'success'

@@ -11,6 +11,7 @@ public partial class ImageViewport
     private bool _isUnloaded;
     private bool _fitOnLoad;
     private PixelSize? _lastPreviewTarget;
+    private bool _updatingAnimationFrame;
 
     public event EventHandler<PixelSize>? PreviewTargetChanged;
     public event EventHandler<ImageOpenState>? FramePresented;
@@ -50,6 +51,10 @@ public partial class ImageViewport
     {
         if (previous?.Image is null || current?.Image is null
             || previous.Image.SourceSize != current.Image.SourceSize)
+        {
+            return false;
+        }
+        if (current.Sequence?.Kind == ImageSequenceKind.Pages && previous.FrameIndex != current.FrameIndex)
         {
             return false;
         }

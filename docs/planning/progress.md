@@ -1,5 +1,26 @@
 # 进度日志
 
+## 2026-10-06：0.6 动画与多页方案分析
+
+- PR #33功能提交426d2a6的[Windows CI 37459778269](https://github.com/Flysoft1337/ModernImageViewer/actions/runs/37459778269)全部通过：核心187+UI/codec382=569通过/1本机RAW样本跳过，格式、Release0警告0错误、审计、100MP、self-contained启动/激活/静态浏览/动画smoke、真实0.5→0.6升级/同版重装/卸载及清理成功，Release跳过。已取回TRX及原始观察/安装JSON核对资源归零和实际版本/hash变化。
+- 静态同job单样本0.6启动892.2ms/首次画面180.41ms/8切图均值99.27ms，0.5为771.4/138.37/45.59ms；两版细节全部绘制且保留缓存相同。时间偏慢不能宣称无退化，也不能单样本确定稳定回归；发布前固定机交替重复测量仍待办。最后仅Markdown验收同步，功能源/测试/脚本与已通过426d2a6相同；边界见[验收记录](../animation-multipage-validation.md)。
+- PR #33 首轮 CI 37458958549：格式、Release构建、569通过/1跳过、依赖审计、100MP、self-contained发布和启动成功；文件激活脚本将样本目录新增README/sha256当图片打开导致超时。按既有格式组筛选图片扩展名后，本地真实12类格式及GIF/WebP/TIFF动画/多页样本激活通过；后续CI继续验证，不将跳过的安装步骤记为通过。
+- 最终本地Release构建0警告/0错误；核心187+UI/codec382=569通过、1本机RAW样本跳过，format verify和diff检查通过。NuGet在线审计本机TLS失败，正式CI待验收。8张双语深浅帧/页截图已核对，页码白底与浮层间距修复。
+- 动画专项smoke及10轮/50输入混合格式+180秒无限WebP压力观察成功，未强制GC；采样主帧/参考各≤8,294,400B，停止/静态切换释放帧资源，清来源/空闲/关闭wrapper、pin、timer、session、native计数全归零。过程WS/private允许波动，不宣称进程不泄漏或P95。详见[验收记录](../animation-multipage-validation.md)。
+
+- 统一帧模型/播放控制、GIF-WebP Skia依赖合成、TIFF持久COM会话与轻量UI已接入。生产项目首轮Release编译通过；整合全量构建被新回归的xUnit取消令牌/常量数组分析器阻挡，正在修复，不把旧测试DLL结果计为最终验收。
+- 修复帧通知吞目录索引、旧会话停止后误回静态首页细化、暂停/重播画面不同步及旋转后的预览目标退化；关闭取消旧提交，ReleaseCompletion等待native实际结束。观察显式启用wrapper/pin/timer/decoder计数，普通运行不写日志。
+- 开发版本改为0.6.0；原0.5固定基线9cdcde9用于真实升级验证，不发布Release。后续验证及边界以最终结果补录。
+
+- 用户已确认方案；创建 codex/0.6-animation-multipage，开始统一模型/当前帧细化/代次提交和独立WPF帧控制接入。
+- 分工codec GIF/WebP、TIFF COM会话、纯逻辑播放时钟、专项观察/跨版本安装验证、coordinator/viewport回归；主任务整合UI/协调器和最终验证。
+- default patch 对嵌套源码报写失败但第一文件已落盘，核对后使用本机codex.exe的apply_patch参数入口完成剩余；stdin入口不被支持已改UTF-8参数。首次分支锁因沙箱只读.git失败，授权环境创建成功。
+
+- 核对 master `9cdcde9` 与干净工作区；读取约定、README、规划、格式/浏览收口记录以及静态打开、解码、优先调度、视口和共享像素实现。
+- 使用 planning-with-files-zh 沿用本目录记录；两个只读代理分别核对 codec 实际帧能力、UI/幻灯片与验证接入边界。
+- 当前只做方案核对，未声称 GIF/WebP 动画或 TIFF 多页已完成；方案向用户确认后再推进实现。
+- 首次多文件 patch 的上下文未匹配，未落盘；改用文件标题的最小上下文重试。
+
 ## 2026-10-06：0.5 浏览核心收口
 
 - 以 master 25b9424 开始，工作区干净；不扩展编辑功能、不发布。

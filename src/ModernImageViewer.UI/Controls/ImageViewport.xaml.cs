@@ -167,7 +167,11 @@ public partial class ImageViewport : UserControl, IDisposable
             viewport.ClearOrientation();
         }
         bool samePixels = ReferenceEquals(viewport.Image, current?.Image);
+        bool animationFrame = viewport._preserveTransform && current?.Sequence?.Kind == ImageSequenceKind.Animation
+            && previous?.Sequence == current.Sequence;
+        viewport._updatingAnimationFrame = animationFrame;
         viewport.Image = current?.Image;
+        viewport._updatingAnimationFrame = false;
         if (samePixels && !viewport._preserveTransform)
         {
             viewport._detailRequested = false;
@@ -216,7 +220,8 @@ public partial class ImageViewport : UserControl, IDisposable
         _lastRequestedRegion = null;
         if (_preserveTransform)
         {
-            NotifyTransformChanged();
+            if (_updatingAnimationFrame) { _surface.InvalidateVisual(); }
+            else { NotifyTransformChanged(); }
         }
         else
         {
@@ -412,6 +417,7 @@ public partial class ImageViewport : UserControl, IDisposable
     }
 
     private bool NeedsRegionDetail(double pixelScale) => Presentation is { Status: ImageOpenStatus.Loaded, IsPreview: true } state
+        && state.Sequence?.Kind != ImageSequenceKind.Animation
         && NeedsAutomaticDetail(pixelScale)
         && state.RefinementError != ImageOpenError.UnsupportedFormat && Image is { } image
         && image.SourceSize.PixelCount > ImageOpenCoordinator.FullResolutionOutputLimit / 4;

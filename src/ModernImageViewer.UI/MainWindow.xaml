@@ -9,6 +9,22 @@
         UseLayoutRounding="True" SnapsToDevicePixels="True"
         AllowDrop="True" DragOver="OnDragOver" Drop="OnDrop" PreviewKeyDown="OnPreviewKeyDown"
         WindowStartupLocation="CenterScreen">
+  <Window.Resources>
+    <Style x:Key="FrameIndexStyle" TargetType="TextBox">
+      <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
+      <Setter Property="Background" Value="{DynamicResource SurfaceHoverBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
+      <Setter Property="CaretBrush" Value="{DynamicResource PrimaryTextBrush}" />
+      <Setter Property="SelectionBrush" Value="{DynamicResource AccentBrush}" />
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="TextBox">
+        <Border x:Name="InputBorder" CornerRadius="4" BorderThickness="1" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" Padding="{TemplateBinding Padding}">
+          <ScrollViewer x:Name="PART_ContentHost" VerticalAlignment="Center" />
+        </Border>
+        <ControlTemplate.Triggers><Trigger Property="IsKeyboardFocusWithin" Value="True"><Setter TargetName="InputBorder" Property="BorderBrush" Value="{DynamicResource AccentBrush}" /></Trigger></ControlTemplate.Triggers>
+      </ControlTemplate></Setter.Value></Setter>
+    </Style>
+  </Window.Resources>
   <shell:WindowChrome.WindowChrome>
     <shell:WindowChrome CaptionHeight="54" ResizeBorderThickness="6" GlassFrameThickness="0" CornerRadius="0" />
   </shell:WindowChrome.WindowChrome>
@@ -36,7 +52,7 @@
                 <MenuItem Header="{Binding PasteFilesLabel}" InputGestureText="Ctrl+V" Command="{Binding PasteFilesCommand}" />
                 <MenuItem Header="{Binding FileAssociationLabel}" Click="OnFileAssociationsClick" />
                 <MenuItem Header="{Binding FileActionsLabel}">
-                  <MenuItem Header="{Binding EditLabel}" InputGestureText="Ctrl+E" Click="OnEditClick" IsEnabled="{Binding HasImage}" />
+                  <MenuItem Header="{Binding EditLabel}" InputGestureText="Ctrl+E" Click="OnEditClick" IsEnabled="{Binding CanEditStatic}" />
                   <MenuItem Header="{Binding RevealLabel}" InputGestureText="Ctrl+Shift+E" Click="OnRevealClick" IsEnabled="{Binding CanReveal}" />
                   <MenuItem Header="{Binding CopyPathLabel}" Click="OnCopyPathClick" IsEnabled="{Binding CanCopyPath}" />
                   <Separator />
@@ -138,6 +154,18 @@
             <MultiDataTrigger><MultiDataTrigger.Conditions><Condition Binding="{Binding IsFullScreen}" Value="True" /><Condition Binding="{Binding IsFilmstripVisible}" Value="True" /></MultiDataTrigger.Conditions><Setter Property="Margin" Value="12,0,12,166" /></MultiDataTrigger>
           </Style.Triggers></Style></Border.Style>
           <Border.Effect><DropShadowEffect BlurRadius="24" ShadowDepth="5" Opacity="0.18" /></Border.Effect>
+          <StackPanel>
+          <StackPanel x:Name="FrameControls" Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,4" Visibility="{Binding HasFrameSequence, Converter={StaticResource BooleanToVisibilityConverter}}">
+            <Button Style="{StaticResource ToolbarButtonStyle}" Click="OnAnimationToggleClick" ToolTip="{Binding AnimationPlayLabel}" AutomationProperties.Name="{Binding AnimationPlayLabel}" Visibility="{Binding IsAnimation, Converter={StaticResource BooleanToVisibilityConverter}}">
+              <Path><Path.Style><Style TargetType="Path" BasedOn="{StaticResource IconStyle}"><Setter Property="Data" Value="{StaticResource Icon.Play}" /><Style.Triggers><DataTrigger Binding="{Binding IsAnimationPlaying}" Value="True"><Setter Property="Data" Value="{StaticResource Icon.Pause}" /></DataTrigger></Style.Triggers></Style></Path.Style></Path>
+            </Button>
+            <Button Style="{StaticResource ToolbarButtonStyle}" Click="OnAnimationRestartClick" ToolTip="{Binding AnimationRestartLabel}" AutomationProperties.Name="{Binding AnimationRestartLabel}" Visibility="{Binding IsAnimation, Converter={StaticResource BooleanToVisibilityConverter}}"><Path Style="{StaticResource IconStyle}" Data="{StaticResource Icon.Refresh}" /></Button>
+            <Button Style="{StaticResource ToolbarButtonStyle}" Click="OnPreviousFrameClick" ToolTip="{Binding FramePreviousLabel}" AutomationProperties.Name="{Binding FramePreviousLabel}" IsEnabled="{Binding CanMovePreviousFrame}"><Path Style="{StaticResource IconStyle}" Data="{StaticResource Icon.Previous}" /></Button>
+            <TextBlock Text="{Binding FramePositionLabel}" FontSize="12" VerticalAlignment="Center" Margin="4,0,6,0" />
+            <TextBox x:Name="FrameIndexInput" Style="{StaticResource FrameIndexStyle}" Text="{Binding FrameIndexText, Mode=OneWay}" Width="56" Height="28" Padding="4,2" VerticalContentAlignment="Center" TextAlignment="Center" MaxLength="5" GotKeyboardFocus="OnFrameIndexFocus" PreviewKeyDown="OnFrameIndexKeyDown" LostKeyboardFocus="OnFrameIndexLostFocus" ToolTip="{Binding FrameIndexHint}" AutomationProperties.Name="{Binding FramePositionLabel}" />
+            <TextBlock Text="{Binding FrameCountText}" Width="64" FontSize="12" VerticalAlignment="Center" Margin="6,0,0,0" Foreground="{DynamicResource SecondaryTextBrush}" />
+            <Button Style="{StaticResource ToolbarButtonStyle}" Click="OnNextFrameClick" ToolTip="{Binding FrameNextLabel}" AutomationProperties.Name="{Binding FrameNextLabel}" IsEnabled="{Binding CanMoveNextFrame}"><Path Style="{StaticResource IconStyle}" Data="{StaticResource Icon.Next}" /></Button>
+          </StackPanel>
           <StackPanel Orientation="Horizontal">
             <Button Style="{StaticResource ToolbarButtonStyle}" Command="{Binding PreviousCommand}" ToolTip="{Binding PreviousLabel}" AutomationProperties.Name="{Binding PreviousLabel}"><Path Style="{StaticResource IconStyle}" Data="{StaticResource Icon.Previous}" /></Button>
             <Button Style="{StaticResource ToolbarButtonStyle}" Command="{Binding NextCommand}" ToolTip="{Binding NextLabel}" AutomationProperties.Name="{Binding NextLabel}"><Path Style="{StaticResource IconStyle}" Data="{StaticResource Icon.Next}" /></Button>
@@ -150,9 +178,10 @@
             <Border Style="{StaticResource ToolDividerStyle}" />
             <Button Style="{StaticResource ToolbarButtonStyle}" Click="OnSettingsClick" ToolTip="{Binding SettingsLabel}" AutomationProperties.Name="{Binding SettingsLabel}"><Path Style="{StaticResource IconStyle}" Data="{StaticResource Icon.More}" /></Button>
           </StackPanel>
+          </StackPanel>
         </Border>
       <Border x:Name="InformationPanel" Panel.ZIndex="30" HorizontalAlignment="Right" Width="272" CornerRadius="12" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1">
-        <Border.Style><Style TargetType="Border"><Setter Property="Margin" Value="12,12,12,92" /><Setter Property="Visibility" Value="Collapsed" /><Style.Triggers><MultiDataTrigger><MultiDataTrigger.Conditions><Condition Binding="{Binding ShowInformation}" Value="True" /><Condition Binding="{Binding IsChromeVisible, RelativeSource={RelativeSource AncestorType=Window}}" Value="True" /></MultiDataTrigger.Conditions><Setter Property="Visibility" Value="Visible" /></MultiDataTrigger><MultiDataTrigger><MultiDataTrigger.Conditions><Condition Binding="{Binding IsFullScreen}" Value="True" /><Condition Binding="{Binding IsFilmstripVisible}" Value="True" /></MultiDataTrigger.Conditions><Setter Property="Margin" Value="12,12,12,238" /></MultiDataTrigger></Style.Triggers></Style></Border.Style>
+        <Border.Style><Style TargetType="Border"><Setter Property="Margin" Value="12,12,12,92" /><Setter Property="Visibility" Value="Collapsed" /><Style.Triggers><MultiDataTrigger><MultiDataTrigger.Conditions><Condition Binding="{Binding ShowInformation}" Value="True" /><Condition Binding="{Binding IsChromeVisible, RelativeSource={RelativeSource AncestorType=Window}}" Value="True" /></MultiDataTrigger.Conditions><Setter Property="Visibility" Value="Visible" /></MultiDataTrigger><DataTrigger Binding="{Binding HasFrameSequence}" Value="True"><Setter Property="Margin" Value="12,12,12,136" /></DataTrigger><MultiDataTrigger><MultiDataTrigger.Conditions><Condition Binding="{Binding IsFullScreen}" Value="True" /><Condition Binding="{Binding IsFilmstripVisible}" Value="True" /></MultiDataTrigger.Conditions><Setter Property="Margin" Value="12,12,12,238" /></MultiDataTrigger><MultiDataTrigger><MultiDataTrigger.Conditions><Condition Binding="{Binding IsFullScreen}" Value="True" /><Condition Binding="{Binding IsFilmstripVisible}" Value="True" /><Condition Binding="{Binding HasFrameSequence}" Value="True" /></MultiDataTrigger.Conditions><Setter Property="Margin" Value="12,12,12,282" /></MultiDataTrigger></Style.Triggers></Style></Border.Style>
         <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
           <ScrollViewer.Resources><Style TargetType="ScrollBar" BasedOn="{StaticResource PanelScrollBarStyle}" /></ScrollViewer.Resources>
           <StackPanel Margin="22,18">
@@ -163,6 +192,13 @@
             <TextBlock Style="{StaticResource PanelLabelStyle}" Text="{Binding FormatLabel}" /><TextBlock Style="{StaticResource PanelValueStyle}" Text="{Binding FormatText}" />
             <TextBlock Style="{StaticResource PanelLabelStyle}" Text="{Binding FileSizeLabel}" /><TextBlock Style="{StaticResource PanelValueStyle}" Text="{Binding FileSizeText}" />
             <TextBlock Style="{StaticResource PanelLabelStyle}" Text="{Binding ModifiedLabel}" /><TextBlock Style="{StaticResource PanelValueStyle}" Text="{Binding ModifiedText}" />
+            <StackPanel Visibility="{Binding HasFrameSequence, Converter={StaticResource BooleanToVisibilityConverter}}">
+              <TextBlock Style="{StaticResource PanelLabelStyle}" Text="{Binding FramePositionLabel}" /><TextBlock Style="{StaticResource PanelValueStyle}" Text="{Binding FrameStatusText}" />
+              <StackPanel Visibility="{Binding IsAnimation, Converter={StaticResource BooleanToVisibilityConverter}}">
+                <TextBlock Style="{StaticResource PanelLabelStyle}" Text="{Binding FrameDurationLabel}" /><TextBlock Style="{StaticResource PanelValueStyle}" Text="{Binding FrameDurationText}" />
+                <TextBlock Style="{StaticResource PanelLabelStyle}" Text="{Binding FrameLoopLabel}" /><TextBlock Style="{StaticResource PanelValueStyle}" Text="{Binding FrameLoopText}" />
+              </StackPanel>
+            </StackPanel>
             <StackPanel Margin="0,26,0,0" Visibility="{Binding HasMetadata, Converter={StaticResource BooleanToVisibilityConverter}}">
               <Border BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,1,0,0" Padding="0,20,0,0"><TextBlock Text="{Binding ExifLabel}" FontSize="14" FontWeight="SemiBold" /></Border>
               <ItemsControl ItemsSource="{Binding MetadataItems}" Margin="0,12,0,0">
