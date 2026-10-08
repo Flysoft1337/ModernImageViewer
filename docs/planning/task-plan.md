@@ -7,7 +7,7 @@
 - [x] WebP ANIM背景、透明/局部/Source/Over/dispose兼容修复；新增29项固定像素回归，完整598通过/1跳过。
 - [x] 真实Windows应用动画八轮/180秒、150%DPI及0.5→0.6升级/重装/卸载通过；物理截图工具失败，人工拖拽/混合DPI设备验收保留，详见收口记录。
 - [x] README、0.6.0 Release Notes、已知限制统一；保持版本0.6.0，发布脚本读取手写说明，不发布。
-- [ ] 最终候选提交格式/Release构建/完整测试/审计/既有Windows CI全部通过，保留发布边界。
+- [x] 最终候选本地格式/Release构建/完整598通过/1跳过、审计与观察/安装检查完成，提交[PR #34](https://github.com/Flysoft1337/ModernImageViewer/pull/34)；完整Windows CI完成状态由PR最终候选检查记录，不以旧CI替代，不发布。
 
 ## 2026-10-06：0.6 动画与多页（基线 9cdcde9，开发与自动化验收完成）
 

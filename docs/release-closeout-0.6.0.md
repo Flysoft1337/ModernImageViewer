@@ -63,12 +63,14 @@ Skia原WebP动画路径将ANIM背景按透明处理。新实现读取有界RIFF/
 
 采样主帧/参考各最多270,000B，native session最多1、decoder最多2（WebP容器加短时局部decoder）、timer/pin各最多1。WS/private峰值221,900,800 / 266,686,464B、handles736；末次采样206,491,648 / 171,474,944B、handles724。切静态后帧资源归零，清来源/空闲/关闭时wrapper、pin、bitmap、timer、session、decoder及retained/snapshot全部0。只证明此样本内项目计数有界并回收，不宣称整个进程不泄漏或跨设备长期达标。
 
+4096×4096固定GIF与真实WebP/TIFF/JPG的两轮混合观察另通过（`animation-large.json`，持续段为WebP60秒）；随后专门将大GIF作为最后动画，`animation-large-gif.json`证实3帧GIF持续60秒（总约68.4秒），无强杀、关闭计数全部0。持续段主帧/参考各2,090,916B，采样峰值WS/private283,484,160 / 358,567,936B、handles735，末次203,284,480 / 162,603,008B、handles720，存在回落。源native工作区未包含在帧输出预算，不用这些数据承诺整个进程上限。
+
 真实窗口Computer Use截图多次返回`FrameArrived/window capture timed out`，重置连接后仍失败；本轮实际设备的视觉截图及鼠标拖拽人工验收未完成，不能以RenderTarget截图替代。真实混合DPI多屏和跨设备低内存长期观察继续保留。
 
 ## 安装与最终CI边界
 
 12类真实格式及动画/多页文件激活通过，单实例PNG/WebP重复请求正常。本机使用固定0.5与本轮0.6 self-contained安装器执行`check-installer.ps1`，`installer-smoke/lifecycle.json`确认0.5.0安装→0.6.0升级→0.6.0同版本重装；程序集hash从`d7fcfba3...1284a`变为`9f1de60d...697ef`，重装后不变，卸载identity一致，卸载及独占临时目录清理成功。安装前无真实ModernImageViewer安装，现有默认关联、portable及其他候选、用户文件保护断言通过；没有把同版本重装充作跨版本升级。
 
-本轮最终提交通过PR复用原Windows CI，包含格式、Release构建、598项完整测试、依赖审计、100MP/启动/浏览/动画观察、便携/安装版激活、真实0.5→0.6升级、同版本重装/卸载。此处是验证范围，执行结果以交付PR中最终候选提交对应的Actions记录为准，不能用前一轮绿色CI代替。PR CI和合并不会发布Release，不触发`publish_release=true`，不创建版本标签。
+本轮通过[PR #34](https://github.com/Flysoft1337/ModernImageViewer/pull/34)复用原Windows CI，包含格式、Release构建、598项完整测试、依赖审计、100MP/启动/浏览/动画观察、便携/安装版激活、真实0.5→0.6升级、同版本重装/卸载。此处是验证范围，执行结果以PR中最终候选提交对应的Actions记录为准，不能用前一轮绿色CI代替。PR CI和合并不会发布Release，不触发`publish_release=true`，不创建版本标签。
 
 发布说明见 [0.6.0 Release Notes](release-notes/0.6.0.md)，支持范围见 [格式矩阵](decoder-support.md)，未完成能力集中于 [已知限制](known-limitations.md)。
