@@ -26,6 +26,7 @@ internal sealed class SkiaImageFrameSession : IImageFrameSession
     private readonly PixelSize _source;
     private readonly ushort _orientation;
     private readonly bool[] _completeFrames;
+    private readonly WebPAnimationData? _webp;
     private byte[]? _reference;
     private PixelSize _referenceSize;
     private int _referenceIndex = -1;
@@ -35,7 +36,8 @@ internal sealed class SkiaImageFrameSession : IImageFrameSession
     private bool _releaseQueued;
 
     private SkiaImageFrameSession(string path, FileStream file, SKManagedStream stream, SKCodec codec,
-        PixelSize source, ushort orientation, bool[] completeFrames, ImageSequenceInfo info, ImageFileStamp fileStamp)
+        PixelSize source, ushort orientation, bool[] completeFrames, ImageSequenceInfo info, ImageFileStamp fileStamp,
+        WebPAnimationData? webp)
     {
         _path = path;
         _file = file;
@@ -44,6 +46,7 @@ internal sealed class SkiaImageFrameSession : IImageFrameSession
         _source = source;
         _orientation = orientation;
         _completeFrames = completeFrames;
+        _webp = webp;
         Info = info;
         FileStamp = fileStamp;
         Interlocked.Increment(ref _activeSessions);
@@ -56,6 +59,8 @@ internal sealed class SkiaImageFrameSession : IImageFrameSession
     internal Task Completion => ReleaseCompletion;
     internal static int ActiveSessionCount => Volatile.Read(ref _activeSessions);
     internal static int ActiveDecoderCount => Volatile.Read(ref _activeDecoders);
+    internal static void DecoderCreated() => Interlocked.Increment(ref _activeDecoders);
+    internal static void DecoderReleased() => Interlocked.Decrement(ref _activeDecoders);
 
     internal static async Task<IImageFrameSession?> TryOpenAsync(string path, CancellationToken cancellationToken)
     {
@@ -87,6 +92,7 @@ internal sealed class SkiaImageFrameSession : IImageFrameSession
             if (file.Length > ImageFrameLimits.MaximumInputBytes) { throw new ImageSizeLimitExceededException(); }
             file.Position = 0;
             ImageFileStamp stamp = ImageDecoder.ReadFileStamp(path, file);
+            WebPAnimationData? animation = webp ? WebPAnimationData.TryRead(file, cancellationToken) : null;
             stream = new SKManagedStream(file, disposeManagedStream: false);
             codec = SKCodec.Create(stream) ?? throw new ImageDecodeException(ImageOpenError.CorruptFile);
             Interlocked.Increment(ref _activeDecoders);
@@ -97,6 +103,10 @@ internal sealed class SkiaImageFrameSession : IImageFrameSession
             PixelSize source = new(codec.Info.Width, codec.Info.Height);
             ImageDecodeLimits.Default.ValidateAndGetStride(source);
             int count = codec.FrameCount;
+            if (animation is not null && (animation.Canvas != source || animation.Frames.Length != count))
+            {
+                throw new ImageDecodeException(ImageOpenError.CorruptFile);
+            }
             cancellationToken.ThrowIfCancellationRequested();
             if (count <= 1) { return null; }
             if (count > ImageFrameLimits.MaximumFrames || (long)count * 128 > ImageFrameLimits.MaximumMetadataBytes)
@@ -107,6 +117,11 @@ internal sealed class SkiaImageFrameSession : IImageFrameSession
             ushort orientation = (ushort)codec.EncodedOrigin;
             if (orientation is < 1 or > 8) { orientation = 1; }
             PixelSize canvas = orientation >= 5 ? new(source.Height, source.Width) : source;
+            if (animation is not null)
+            {
+                using SKColorSpace? sourceColorSpace = codec.Info.ColorSpace;
+                animation.ConvertBackground(sourceColorSpace);
+            }
             ImageFrameInfo[] frames = new ImageFrameInfo[count];
             bool[] completeFrames = new bool[count];
             for (int i = 0; i < count; i++)
@@ -116,6 +131,12 @@ internal sealed class SkiaImageFrameSession : IImageFrameSession
                     && frame.RequiredFrame >= -1 && frame.RequiredFrame < i && frame.Duration >= 0
                     && frame.FrameRect.Left >= 0 && frame.FrameRect.Top >= 0 && !frame.FrameRect.IsEmpty
                     && frame.FrameRect.Right <= source.Width && frame.FrameRect.Bottom <= source.Height;
+                if (validInfo && animation is not null)
+                {
+                    WebPAnimationData.Frame parsed = animation.Frames[i];
+                    validInfo = parsed.Bounds == new PixelRect(frame.FrameRect.Left, frame.FrameRect.Top,
+                        frame.FrameRect.Width, frame.FrameRect.Height) && parsed.Duration == frame.Duration;
+                }
                 completeFrames[i] = validInfo && frame.FullyRecieved;
                 if (!completeFrames[i] && i == 0)
                 {
@@ -137,14 +158,16 @@ internal sealed class SkiaImageFrameSession : IImageFrameSession
                         SKCodecAnimationDisposalMethod.RestoreBackgroundColor => ImageFrameDisposal.Background,
                         SKCodecAnimationDisposalMethod.RestorePrevious => ImageFrameDisposal.Previous,
                         _ => ImageFrameDisposal.Keep,
-                    }, frame.RequiredFrame, frame.RequiredFrame >= 0 || bounds.Size != canvas);
+                    }, animation?.RequiredFrame(i) ?? frame.RequiredFrame,
+                    animation is not null || frame.RequiredFrame >= 0 || bounds.Size != canvas);
             }
             int repeat = codec.RepetitionCount;
-            int? totalPlays = repeat < 0 ? null : (int)Math.Min(int.MaxValue, (long)repeat + 1);
+            int? totalPlays = animation is not null ? animation.TotalPlays
+                : repeat < 0 ? null : (int)Math.Min(int.MaxValue, (long)repeat + 1);
             cancellationToken.ThrowIfCancellationRequested();
             ImageDecoder.ValidateFileStamp(path, file, stamp);
             SkiaImageFrameSession session = new(path, file, stream, codec, source, orientation, completeFrames,
-                new ImageSequenceInfo(ImageSequenceKind.Animation, Array.AsReadOnly(frames), totalPlays), stamp);
+                new ImageSequenceInfo(ImageSequenceKind.Animation, Array.AsReadOnly(frames), totalPlays), stamp, animation);
             file = null;
             stream = null;
             codec = null;
@@ -245,6 +268,7 @@ internal sealed class SkiaImageFrameSession : IImageFrameSession
         ImageDecoder.ValidateFileStamp(_path, _file, FileStamp);
         if (!_completeFrames[index]) { throw new ImageDecodeException(ImageOpenError.CorruptFile); }
         PixelSize fitted = FitTarget(maximumSize, maximumDecodedBytes);
+        if (_webp is not null) { return DecodeWebPFrame(index, fitted, cancellationToken); }
         float scale = Math.Min((float)fitted.Width / _source.Width, (float)fitted.Height / _source.Height);
         SKSizeI dimensions = _codec.GetScaledDimensions(scale);
         PixelSize size = new(dimensions.Width, dimensions.Height);
@@ -295,6 +319,26 @@ internal sealed class SkiaImageFrameSession : IImageFrameSession
                 _referenceIndex = -1;
                 Interlocked.Exchange(ref _retainedBytes, 0);
             }
+            return new PixelBuffer(outputSize, checked(outputSize.Width * 4), output,
+                ImageMetadata.Empty with { Orientation = _orientation }, Info.Frames[index].CanvasSize, FileStamp);
+        }
+    }
+
+    private PixelBuffer DecodeWebPFrame(int index, PixelSize size, CancellationToken cancellationToken)
+    {
+        byte[]? reference = _referenceSize == size ? _reference : null;
+        byte[] pixels = _webp!.Decode(_file, index, size, reference, _referenceIndex, cancellationToken);
+        ThrowIfClosed(cancellationToken);
+        ImageDecoder.ValidateFileStamp(_path, _file, FileStamp);
+        byte[] output = _orientation == 1 ? pixels : (byte[])pixels.Clone();
+        PixelSize outputSize = PixelOrientation.ApplyInPlace(output, size, _orientation, cancellationToken);
+        lock (_lifetime)
+        {
+            ThrowIfClosed(cancellationToken);
+            _reference = pixels;
+            _referenceSize = size;
+            _referenceIndex = index;
+            Interlocked.Exchange(ref _retainedBytes, pixels.Length);
             return new PixelBuffer(outputSize, checked(outputSize.Width * 4), output,
                 ImageMetadata.Empty with { Orientation = _orientation }, Info.Frames[index].CanvasSize, FileStamp);
         }

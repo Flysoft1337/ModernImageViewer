@@ -4,7 +4,8 @@ param(
     [ValidateRange(1, 20)][int]$Iterations = 3,
     [string]$ImagePath,
     [ValidateRange(1, 30)][int]$ObservationSeconds = 3,
-    [string]$OutputPath = "startup-results.json"
+    [string]$OutputPath = "startup-results.json",
+    [string]$ObservationCompleteSignalPath
 )
 
 $ErrorActionPreference = "Stop"
@@ -44,6 +45,9 @@ for ($iteration = 1; $iteration -le $Iterations; $iteration++) {
             PeakWorkingSetMiB = [Math]::Round($process.PeakWorkingSet64 / 1MB, 1)
             ObservationSeconds = $ObservationSeconds
         })
+        if ($ObservationCompleteSignalPath -and $iteration -eq $Iterations) {
+            [IO.File]::WriteAllText([IO.Path]::GetFullPath($ObservationCompleteSignalPath), 'ObservationComplete')
+        }
     }
     finally {
         if ($started -and -not $process.HasExited) {

@@ -35,8 +35,12 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - name: Check release publisher boundaries (offline)
-        run: python scripts/test-publish-release.py
+      - name: Check release and observation boundaries (offline)
+        shell: pwsh
+        run: |
+          python scripts/test-publish-release.py
+          if ($LASTEXITCODE -ne 0) { throw 'Release publisher boundary checks failed.' }
+          .\scripts\test-static-comparison.ps1
 
       - name: Validate release request and version
         id: release_metadata

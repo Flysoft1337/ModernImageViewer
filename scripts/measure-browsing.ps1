@@ -10,7 +10,8 @@ param(
     [ValidateRange(1, 120)][int]$IdleSeconds = 5,
     [ValidateRange(10, 3600)][int]$TimeoutSeconds = 180,
     [ValidateSet('Auto', 'FrameworkDependent', 'SelfContained')][string]$BuildKind = 'Auto',
-    [string]$OutputPath = "artifacts/browsing-observation/results.json"
+    [string]$OutputPath = "artifacts/browsing-observation/results.json",
+    [string]$ObservationCompleteSignalPath
 )
 
 $ErrorActionPreference = 'Stop'
@@ -172,6 +173,9 @@ try {
         StressExample = 'measure-browsing.ps1 -AppPath <viewer> -GeneratedImageCount 400 -NeighborSwitches 800 -RefreshEvery 50 -DetailEvery 25 -RapidBurst 20 -IdleSeconds 30 -TimeoutSeconds 1800'
     } | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $destination -Encoding utf8
     Write-Output "Observed $($phases.CompletedNeighborSwitches) neighbor switches across $($inputs.Count) inputs; resource and idle samples recorded. Single run, not P95."
+    if ($ObservationCompleteSignalPath) {
+        [IO.File]::WriteAllText([IO.Path]::GetFullPath($ObservationCompleteSignalPath), 'ObservationComplete')
+    }
 }
 finally {
     if ($started -and -not $process.HasExited) {

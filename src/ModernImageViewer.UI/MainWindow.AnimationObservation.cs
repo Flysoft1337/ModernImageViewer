@@ -3,6 +3,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Text.Json;
 using System.Windows;
+using System.Windows.Media;
 using System.Windows.Threading;
 
 using ModernImageViewer.Application.Images;
@@ -316,10 +317,13 @@ public partial class MainWindow
                 + (state.Region?.Image.Pixels.Length ?? 0) <= ImageFrameLimits.MaximumPixelBytes, "FrameAndPresentationBudgetExceeded");
         }
         if (_animationObservationSamples!.Count >= MaximumAnimationSamples) { _animationDroppedSamples++; return; }
+        DpiScale dpi = VisualTreeHelper.GetDpi(Viewport);
         _animationObservationSamples.Add(new(stage, _animationObservationClock!.Elapsed.TotalMilliseconds,
             state.RequestId, state.Sequence?.Kind ?? ImageSequenceKind.Static, state.FrameIndex,
             state.Sequence?.Count ?? 1, _viewModel.IsAnimationPlaying, IsAnimationCurrentFramePainted(),
-            state.Image?.Pixels.Length ?? 0, state.Region?.Image.Pixels.Length ?? 0, resources));
+            state.Image?.Pixels.Length ?? 0, state.Region?.Image.Pixels.Length ?? 0, resources,
+            new(dpi.DpiScaleX, dpi.DpiScaleY, Viewport.ActualWidth, Viewport.ActualHeight,
+                Viewport.ActualWidth * dpi.DpiScaleX, Viewport.ActualHeight * dpi.DpiScaleY)));
     }
 
     private static bool AreAnimationResourcesReleased(AnimationResourceSnapshot resources) =>
@@ -345,7 +349,7 @@ public partial class MainWindow
             bool released = AreAnimationResourcesReleased(closed);
             string output = JsonSerializer.Serialize(new
             {
-                SchemaVersion = 1,
+                SchemaVersion = 2,
                 Success = _animationDriverCompleted && _animationObservationFailure is null && released,
                 Failure = _animationObservationFailure ?? (!_animationDriverCompleted ? "ClosedBeforeCompletion" : !released ? "ResourcesRetainedAfterClose" : null),
                 CompletedLoops = _animationCompletedLoops,
@@ -358,7 +362,7 @@ public partial class MainWindow
                 PixelObservationScope = "Live PixelBuffer wrappers created while ObserveLifetime is enabled. Shared-array wrappers may be counted repeatedly; these bytes are not managed heap size or pinned-array lifetime.",
                 BitmapObservationScope = "Provider counter for pixel-backed SKBitmaps; SharedPixelBitmap pins are sampled independently. Checkerboard/render surfaces are outside this scope unless the provider counts them.",
                 TimerObservationScope = "Animation frame timers only; ordinary UI/message/slideshow timers are outside this counter.",
-                SnapshotObservationScope = "No explicit previous-disposal snapshot in the current Skia adapter. Reference-frame pixels are included in RetainedFrameBytes.",
+                SnapshotObservationScope = "GIF previous-disposal is handled by SKCodec; retained reference-frame pixels are included in RetainedFrameBytes. WebP uses a bounded composite and temporary local-frame decode; the local work array and native scratch are not retained-byte counters.",
                 Clock = "Monotonic milliseconds since opt-in initialization on the UI dispatcher; process samples use a separate process-launch stopwatch.",
                 Bounds = new { FramePixelBytes = ImageFrameLimits.MaximumPixelBytes, Samples = MaximumAnimationSamples },
                 Limitations = "Opt-in VM/viewport driver. Background availability is explicitly controlled on this window. Paint means current Skia callback, not scanout. Driver awaits ReleaseFrameObservationResourcesAsync and samples released idle before Close; final snapshot follows frame-controls and viewport disposal. DI/VM disposal occurs later in App.OnExit. Null counters are uninstrumented. No forced GC; no paths or file names.",
@@ -387,4 +391,8 @@ public partial class MainWindow
 
 internal sealed record AnimationObservationSample(string Stage, double ElapsedMs, long RequestId,
     ImageSequenceKind Kind, int FrameIndex, int FrameCount, bool Playing, bool CurrentFramePainted,
-    long MainPixelBytes, long RegionPixelBytes, AnimationResourceSnapshot Resources);
+    long MainPixelBytes, long RegionPixelBytes, AnimationResourceSnapshot Resources,
+    AnimationViewportSnapshot Viewport);
+
+internal sealed record AnimationViewportSnapshot(double DpiScaleX, double DpiScaleY,
+    double WidthDip, double HeightDip, double WidthPhysicalPixels, double HeightPhysicalPixels);

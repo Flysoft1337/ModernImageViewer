@@ -11,6 +11,35 @@ namespace ModernImageViewer.Codecs;
 
 public sealed partial class ImageDecoder
 {
+    private static PixelBuffer DecodeWebPRepresentative(Stream stream, WebPAnimationData animation,
+        PixelSize? maximumSize, long? maximumDecodedBytes, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        using SKManagedStream codecStream = new(stream, disposeManagedStream: false);
+        using SKCodec codec = SKCodec.Create(codecStream) ?? throw new ImageDecodeException(ImageOpenError.CorruptFile);
+        if (codec.EncodedFormat != SKEncodedImageFormat.Webp || codec.Info.Width != animation.Canvas.Width
+            || codec.Info.Height != animation.Canvas.Height) { throw new ImageDecodeException(ImageOpenError.CorruptFile); }
+        ushort orientation = (ushort)codec.EncodedOrigin;
+        if (orientation is < 1 or > 8) { orientation = 1; }
+        PixelSize source = animation.Canvas;
+        PixelSize orientedSource = orientation >= 5 ? new(source.Height, source.Width) : source;
+        long budget = Math.Min(maximumDecodedBytes ?? ImageFrameLimits.MaximumFrameBytes, ImageFrameLimits.MaximumFrameBytes);
+        PixelSize size = source;
+        if (maximumSize is PixelSize maximum)
+        {
+            PixelSize rawMaximum = orientation >= 5 ? new(maximum.Height, maximum.Width) : maximum;
+            size = ImageFrameLimits.Fit(source, rawMaximum, budget);
+        }
+        else if (source.PixelCount * 4 > budget) { throw new ImageSizeLimitExceededException(); }
+        using SKColorSpace? sourceColorSpace = codec.Info.ColorSpace;
+        animation.ConvertBackground(sourceColorSpace);
+        byte[] pixels = animation.Decode(stream, 0, size, null, -1, cancellationToken);
+        cancellationToken.ThrowIfCancellationRequested();
+        PixelSize outputSize = PixelOrientation.ApplyInPlace(pixels, size, orientation, cancellationToken);
+        return new PixelBuffer(outputSize, checked(outputSize.Width * 4), pixels,
+            ImageMetadata.Empty with { Orientation = orientation }, orientedSource);
+    }
+
     internal static PixelBuffer DecodeGifRepresentative(Stream stream, PixelSize? maximumSize,
         long? maximumDecodedBytes, CancellationToken cancellationToken)
     {

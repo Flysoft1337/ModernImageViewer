@@ -139,6 +139,11 @@ public sealed partial class ImageDecoder : IPreviewImageDecoder, IThumbnailDecod
 
     internal static PixelBuffer DecodeWebP(Stream stream, PixelSize? maximumSize, long? maximumDecodedBytes, CancellationToken cancellationToken)
     {
+        Frames.WebPAnimationData? animation = Frames.WebPAnimationData.TryRead(stream, cancellationToken);
+        if (animation is not null)
+        {
+            return DecodeWebPRepresentative(stream, animation, maximumSize, maximumDecodedBytes, cancellationToken);
+        }
         // The caller owns the read lock through the final source-version check.
         using SKManagedStream codecStream = new(stream, disposeManagedStream: false);
         using SKCodec? codec = SKCodec.Create(codecStream);

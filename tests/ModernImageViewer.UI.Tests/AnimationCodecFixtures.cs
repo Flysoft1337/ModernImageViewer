@@ -1,3 +1,4 @@
+using System.Buffers.Binary;
 using System.Globalization;
 using System.IO;
 using System.Security.Cryptography;
@@ -11,6 +12,8 @@ internal static class AnimationCodecFixtures
 {
     internal sealed record GifFrame(int X, int Y, int Width, int Height, byte[] Colors,
         int Disposal = 1, int Delay = 3);
+    internal sealed record WebPFrame(int X, int Y, int Width, int Height, SKColor Color,
+        int Flags = 2, int Duration = 30, SKColor[]? Colors = null, bool Lossy = false);
 
     internal static byte[] Gif(int width = 4, int height = 2, int? repeats = null,
         IReadOnlyList<GifFrame>? frames = null)
@@ -78,38 +81,66 @@ internal static class AnimationCodecFixtures
         return output.ToArray();
     }
 
-    internal static byte[] WebP(ushort totalPlays = 2, ushort orientation = 1)
+    internal static byte[] WebP(ushort totalPlays = 2, ushort orientation = 1,
+        SKColor? background = null, int width = 4, int height = 2,
+        IReadOnlyList<WebPFrame>? frames = null, byte[]? profile = null)
     {
         using MemoryStream output = new();
         using BinaryWriter writer = new(output);
         writer.Write("RIFF"u8);
         writer.Write(0);
         writer.Write("WEBP"u8);
-        Chunk(writer, "VP8X", [(byte)(orientation == 1 ? 0x12 : 0x1a), 0, 0, 0, 3, 0, 0, 1, 0, 0]);
-        Chunk(writer, "ANIM", [255, 255, 255, 255, (byte)totalPlays, (byte)(totalPlays >> 8)]);
-        (int X, int Width, SKColor Color, int Flags, int Duration)[] frames =
+        using MemoryStream extended = new();
+        using BinaryWriter extendedWriter = new(extended);
+        extendedWriter.Write(new byte[] { (byte)(0x12 | (orientation != 1 ? 8 : 0) | (profile is not null ? 32 : 0)), 0, 0, 0 });
+        U24(extendedWriter, width - 1);
+        U24(extendedWriter, height - 1);
+        Chunk(writer, "VP8X", extended.ToArray());
+        if (profile is not null) { Chunk(writer, "ICCP", profile); }
+        SKColor canvasColor = background ?? SKColors.White;
+        Chunk(writer, "ANIM", [canvasColor.Blue, canvasColor.Green, canvasColor.Red, canvasColor.Alpha,
+            (byte)totalPlays, (byte)(totalPlays >> 8)]);
+        frames ??=
         [
-            (0, 4, SKColors.Red, 2, 30),
-            (0, 2, new SKColor(0, 255, 0, 128), 1, 10),
-            (2, 2, SKColors.Blue, 2, 40),
+            new(0, 0, 4, 2, SKColors.Red, 2, 30),
+            new(0, 0, 2, 2, new SKColor(0, 255, 0, 128), 1, 10),
+            new(2, 0, 2, 2, SKColors.Blue, 2, 40),
         ];
         foreach (var frame in frames)
         {
-            using SKBitmap bitmap = new(new SKImageInfo(frame.Width, 2, SKColorType.Bgra8888, SKAlphaType.Premul));
+            using SKBitmap bitmap = new(new SKImageInfo(frame.Width, frame.Height, SKColorType.Bgra8888, SKAlphaType.Premul));
             bitmap.Erase(frame.Color);
+            if (frame.Colors is not null)
+            {
+                for (int y = 0; y < frame.Height; y++)
+                {
+                    for (int x = 0; x < frame.Width; x++) { bitmap.SetPixel(x, y, frame.Colors[y * frame.Width + x]); }
+                }
+            }
             using SKPixmap pixmap = bitmap.PeekPixels();
             using SKData encoded = SKWebpEncoder.Encode(pixmap,
-                new SKWebpEncoderOptions(SKWebpEncoderCompression.Lossless, 100))!;
+                new SKWebpEncoderOptions(frame.Lossy ? SKWebpEncoderCompression.Lossy : SKWebpEncoderCompression.Lossless, 100))!;
             byte[] bytes = encoded.ToArray();
             using MemoryStream payload = new();
             using BinaryWriter frameWriter = new(payload);
             U24(frameWriter, frame.X / 2);
-            U24(frameWriter, 0);
+            U24(frameWriter, frame.Y / 2);
             U24(frameWriter, frame.Width - 1);
-            U24(frameWriter, 1);
+            U24(frameWriter, frame.Height - 1);
             U24(frameWriter, frame.Duration);
             frameWriter.Write((byte)frame.Flags);
-            frameWriter.Write(bytes, 12, bytes.Length - 12);
+            int imageOffset = 12;
+            while (imageOffset < bytes.Length)
+            {
+                int imageLength = BinaryPrimitives.ReadInt32LittleEndian(bytes.AsSpan(imageOffset + 4, 4));
+                int chunkLength = 8 + imageLength + (imageLength & 1);
+                ReadOnlySpan<byte> type = bytes.AsSpan(imageOffset, 4);
+                if (type.SequenceEqual("ALPH"u8) || type.SequenceEqual("VP8 "u8) || type.SequenceEqual("VP8L"u8))
+                {
+                    frameWriter.Write(bytes, imageOffset, chunkLength);
+                }
+                imageOffset += chunkLength;
+            }
             frameWriter.Flush();
             Chunk(writer, "ANMF", payload.ToArray());
         }
