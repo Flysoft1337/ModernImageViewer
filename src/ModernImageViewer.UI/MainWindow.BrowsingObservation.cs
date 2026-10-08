@@ -59,6 +59,10 @@ public partial class MainWindow
             _observedRequestId = state.RequestId;
             observation.OpenRequested(state.RequestId, _observingNeighborSwitch);
         }
+        if (state.Status == ImageOpenStatus.Loaded)
+        {
+            observation.PreviewPublished(state.RequestId);
+        }
         if (state.Status == ImageOpenStatus.Loaded && _viewModel.IsNavigationReady)
         {
             observation.NavigationAvailable(_observedRequestId);
@@ -208,7 +212,7 @@ public partial class MainWindow
         var dpi = VisualTreeHelper.GetDpi(Viewport);
         string output = JsonSerializer.Serialize(new
         {
-            SchemaVersion = 1,
+            SchemaVersion = 2,
             Success = success,
             AllRequiredDetailsPainted = success && !observation.Samples.Any(sample => sample.Phase == BrowsingPhase.DetailBudgetLimited),
             DetailBudgetLimitedCount = observation.Samples.Count(sample => sample.Phase == BrowsingPhase.DetailBudgetLimited),
@@ -247,6 +251,8 @@ public partial class MainWindow
             },
             Clock = "Milliseconds since observation initialization; not process creation. All phases share a monotonic clock.",
             OpenDefinition = "VM entry receives the open request; retained monotonic timestamp is mapped to the coordinator Loading generation. Picker/coordinator-only requests fall back to Loading publication. Not raw OS activation receipt.",
+            LoadingDefinition = "Coordinator Loading generation observed on the UI thread; the request-to-Loading interval includes input filtering and notification delivery.",
+            PreviewDefinition = "Current Loaded pixels first observed through VM notification, before paint. Loading-to-preview includes decoding, scheduling and UI notification; not native-only codec time.",
             PaintDefinition = "Skia draw callback completed for current identity/pixel reference; not GPU scanout or proof of human recognition.",
             DetailDefinition = "Current viewport demand satisfied; may be sufficient preview, full pixels or current region. Not necessarily full-source decode.",
             BudgetDefinition = "DetailBudgetLimited is a terminal budget outcome, not painted detail. Driver success means its sequence completed; AllRequiredDetailsPainted reports quality completion separately.",

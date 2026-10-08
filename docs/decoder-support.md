@@ -1,6 +1,6 @@
 # 解码器与图片格式支持
 
-> 最新状态（2026-10-09）：0.6.0 Release收口候选。WebP ANIM背景、透明Source/Over及矩形disposal已补固定像素回归，本地598通过/1本机RAW样本跳过；最终候选静态对照、实际Windows验收及完整CI见[收口验收](release-closeout-0.6.0.md)。[上一轮记录](animation-multipage-validation.md)保留历史CI数字。当前源码未发布，公开下载仍v0.4.0；真实混合DPI/跨设备低内存长测未完成，不承诺所有变体或零性能退化。
+> 最新状态（2026-10-09）：0.6.0 Release收口候选。WebP ANIM背景、透明Source/Over及矩形disposal已补固定像素回归，追加阶段诊断后本地599通过/1本机RAW样本跳过；最终候选静态对照、实际Windows验收及完整CI见[收口验收](release-closeout-0.6.0.md)。[上一轮记录](animation-multipage-validation.md)保留历史CI数字。当前源码未发布，公开下载仍v0.4.0；真实人工交互、混合DPI/跨设备低内存长测未完成，不承诺所有变体或零性能退化。
 
 ## 实际解码与绘制路径
 
