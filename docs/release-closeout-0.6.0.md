@@ -71,6 +71,6 @@ Skia原WebP动画路径将ANIM背景按透明处理。新实现读取有界RIFF/
 
 12类真实格式及动画/多页文件激活通过，单实例PNG/WebP重复请求正常。本机使用固定0.5与本轮0.6 self-contained安装器执行`check-installer.ps1`，`installer-smoke/lifecycle.json`确认0.5.0安装→0.6.0升级→0.6.0同版本重装；程序集hash从`d7fcfba3...1284a`变为`9f1de60d...697ef`，重装后不变，卸载identity一致，卸载及独占临时目录清理成功。安装前无真实ModernImageViewer安装，现有默认关联、portable及其他候选、用户文件保护断言通过；没有把同版本重装充作跨版本升级。
 
-本轮通过[PR #34](https://github.com/Flysoft1337/ModernImageViewer/pull/34)复用原Windows CI，包含格式、Release构建、598项完整测试、依赖审计、100MP/启动/浏览/动画观察、便携/安装版激活、真实0.5→0.6升级、同版本重装/卸载。此处是验证范围，执行结果以PR中最终候选提交对应的Actions记录为准，不能用前一轮绿色CI代替。PR CI和合并不会发布Release，不触发`publish_release=true`，不创建版本标签。
+本轮通过[PR #34](https://github.com/Flysoft1337/ModernImageViewer/pull/34)复用原Windows CI，最终候选143e1df的[CI 37814873158](https://github.com/Flysoft1337/ModernImageViewer/actions/runs/37814873158)完整通过：格式、Release构建、核心187+UI/codec411=598通过/1本机RAW样本跳过、依赖审计、100MP/启动/浏览/动画观察、便携/安装版激活、真实0.5→0.6升级、同版本重装/卸载成功，Release job skipped。已合并为master 0849118；随后文档状态修正的最终master完整CI结果在该PR中记录，不能用前一轮绿色CI代替。PR CI和合并不会发布Release，不触发`publish_release=true`，不创建版本标签。
 
 发布说明见 [0.6.0 Release Notes](release-notes/0.6.0.md)，支持范围见 [格式矩阵](decoder-support.md)，未完成能力集中于 [已知限制](known-limitations.md)。

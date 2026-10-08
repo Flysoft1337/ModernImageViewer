@@ -146,7 +146,7 @@ dotnet run --project .\benchmarks\ModernImageViewer.Benchmarks\ModernImageViewer
 应用端外部打开、窗口复用和便携关联已实现，新增当前用户 EXE 安装路径；可信签名、MSIX 和 Windows Shell 人工验收继续推进。0.3.0 增加静态格式与缩略图字节缓存、单图先显示后索引；0.4.0 增加主图预览、按需细化和手动 Release 发布流程。PR #21 已合并区域细节、邻图预取与紧凑/全屏交互。N1 排序、文件定位和快捷键帮助已合并；开发代码已接入 N2 会话方向与偏好、N3 剪贴板及 N4 GIF/WebP 动画与 TIFF 分页，N4 本批自动化验收已通过；ICO 多尺寸仍待实现。详细完成条件见 [下一批功能实施方案](docs/feature-expansion-plan.md)。仍需补齐以下能力：
 
 - **近期 P1：** 固定机器长期/多格式浏览与混合DPI多屏验收；完整分块缓存、WebP区域与native/surface全管线预算；剪贴板外部应用互通实机验收。自适应预览、优先级和阶段观察已接入本轮开发代码。
-- **发布前验证：** 固定机交替重复静态性能测量、真实动画样本/低内存长测；WebP ANIM 背景颜色兼容修正。已完成的固定像素、生命周期和安装验收见[记录](docs/animation-multipage-validation.md)。
+- **发布收口：** WebP ANIM 背景修复、固定机八组有效交替复测及真实 Windows 150% DPI 动画/升级验收已完成；切图中位数接近，首图比同批0.5偏慢约22.2ms。真实窗口视觉/鼠标拖拽、混合DPI多屏与跨设备低内存长测仍未完成，详见[收口验收](docs/release-closeout-0.6.0.md)。
 - **随后 P2：** ICO 多尺寸、完整SVG、专业RAW；显示器ICC、原profile保留、高位深与签名发布。开发能力不代表公开v0.4.0已包含；本批不扩大编辑范围。
 
 性能目标仍需固定 Windows 机器实测，当前不承诺整进程内存上限或速度提升百分比。

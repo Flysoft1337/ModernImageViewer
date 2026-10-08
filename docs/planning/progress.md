@@ -11,6 +11,7 @@
 - 实际150%DPI Windows self-contained候选以Google公开GIF/WebP、自有TIFF/JPG完成八轮/32输入与180秒持续播放，约234秒成功、无强杀/丢样本；清图/空闲/关闭资源计数归零。真实截图工具连续timeout，重置后仍失败，未宣称物理截图或鼠标拖拽验收完成。
 - 本机12类文件激活、真实0.5安装→0.6升级→0.6重装→卸载成功；lifecycle版本/hash/identity、默认关联/其他候选/portable/用户文件保护与临时清理已核对。本轮候选文档统一，等待最终提交完整CI，不触发Release。
 - [PR #34](https://github.com/Flysoft1337/ModernImageViewer/pull/34)已创建，最终CI以末次提交为准。4096大GIF持续60秒专项通过，WS/private从283.5/358.6MB峰值回落到203.3/162.6MB，清图/空闲/关闭计数归零；两轮大GIF与真实WebP/TIFF/JPG混合也通过。没有强制GC，不宣称整个进程不泄漏。
+- PR #34最终候选143e1df的[Windows CI 37814873158](https://github.com/Flysoft1337/ModernImageViewer/actions/runs/37814873158)完整通过，已核对TRX核心187+UI/codec411=598通过/1本机RAW样本跳过、动画资源归零及真实升级/重装/卸载；合并为0849118。合并后复核发现README底部与功能实施表仍列已完成复测/WebP背景为待办，修正状态并统一人工视觉/鼠标拖拽未完成和首图偏慢边界；最后文档提交的完整master CI以PR记录为准，未创建标签或Release。
 
 ## 2026-10-06：0.6 动画与多页方案分析
 

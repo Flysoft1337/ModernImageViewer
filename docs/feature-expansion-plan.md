@@ -4,7 +4,7 @@
 
 GIF/WebP/TIFF统一帧能力已交付，本轮只复测静态性能、修复WebP ANIM背景兼容、实际Windows动画/DPI/安装升级和发布资料；不增加编辑、标注、滤镜、批处理或大型功能。WebP新增29项固定像素回归，本地完整598通过/1跳过；最终候选与CI证据见[收口验收](release-closeout-0.6.0.md)，能力与未完成项以[支持矩阵](decoder-support.md)和[已知限制](known-limitations.md)为准。
 
-## 2026-10-06：0.6 最新状态覆盖
+## 2026-10-06：0.6 实现与历史验收
 
 用户已确认[动画与多页方案](animation-multipage-plan.md)。N4的GIF/WebP动画与TIFF多页已通过固定样本与Windows CI，实际边界和569通过/1跳过、安装及压力结果见[验收记录](animation-multipage-validation.md)；ICO多尺寸仍未实现。当前源码为0.6.0未发布开发版，最新公开下载仍为v0.4.0。本节覆盖下文历史段落中的“N4待实现”，保留历史验证，本批继续冻结编辑范围，不扩完整RAW。
 
@@ -12,7 +12,7 @@ GIF/WebP/TIFF统一帧能力已交付，本轮只复测静态性能、修复WebP
 
 动画按目标解码、单输出最多8MiB，应用掌控帧/参考/交接按32MiB处理并纳入已有主图边界；source的 `宽×高×4` 最多92MiB才准入，这是native工作区的源尺寸规则，非进程cap。TIFF页用静态32MiB预览/92MiB完整细节和2048×2048/16MiB区域预算，完整页无4096强限。native真实返回后才完成取消和释放晚结果，Dispose不阻UI，ReleaseCompletion用于真实释放观测。输入256MiB、帧/页10,000、元信息2MiB及源32768单边/100MP限制继续适用。
 
-固定样本/生命周期、双语主题UI/F6、混合压力、Windows CI与真实升级安装验收已记录；固定机静态性能与混合DPI/跨设备长测仍待补。单次CI静态时间偏慢，不写成性能无退化。新增能力不替代性能测量，不触发Release；已有[浏览收口](browsing-core-closeout.md)和[格式编辑记录](raw-modern-editing.md)保留各自历史范围。
+固定样本/生命周期、双语主题UI/F6、混合压力、Windows CI与真实升级安装验收已记录；固定机八组交替复测及实际150%DPI动画验收本轮完成，真实窗口视觉/鼠标拖拽、混合DPI/跨设备长测仍未完成。修复后候选首图比同批0.5偏慢约22.2ms，不写成性能无退化。实际数据见[收口验收](release-closeout-0.6.0.md)；已有[浏览收口](browsing-core-closeout.md)和[格式编辑记录](raw-modern-editing.md)保留各自历史范围。
 
 ## 0.5历史优先级：浏览核心收口
 
@@ -101,7 +101,7 @@ Ctrl+C复制整张图片预览，包含查看方向，不把中心ROI合成为�
 |---|---|---|
 | GIF 动画 | 随包SKCodec持久会话，固定像素/CI通过 | 透明/局部/disposal依赖合成；播放/暂停/重播/定位/循环；无动画ROI |
 | TIFF 多页 | 系统WIC COM持久decoder/只读流，固定页像素/CI通过 | 页数与定位、每页尺寸/方向；换页丢弃旧区域，同页完整/ROI细化；owned线程确定释放 |
-| WebP 动画 | 随包SKCodec持久会话，固定像素/CI通过 | Alpha/Source-Over与依赖帧合成、方向/RGB ICC→sRGB；播放控制/定位/循环；无ROI；ANIM背景颜色兼容修正未完成 |
+| WebP 动画 | 随包SKCodec局部解码与有界ANIM/ANMF合成，固定像素/CI通过 | ANIM背景alpha、局部帧Source/Over与矩形disposal、方向/RGB ICC→sRGB；播放控制/定位/循环；无ROI；非线性光混合 |
 | ICO 尺寸选择 | 第一图标帧 | 显示可用尺寸，按视口选合适帧；不将图标尺寸列表伪装为动画 |
 | AVIF / HEIF | 固定Magick.NET-Q8-x64 14.17.2已接入 | 静态首图/预览/缩略图/预算内细化；32MP/128MiB输入、native全图后缩放；容器方向一次纠正/RGB ICC→sRGB，无ROI/序列/HDR保证 |
 | RAW | 固定LibRaw0.22.2预览桥接已接入 | JPEG/RGB8/RGB16内嵌预览、独立方向、有界输出；无预览明确反馈，不解包传感器或显影 |
