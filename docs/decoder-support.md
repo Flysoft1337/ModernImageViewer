@@ -1,10 +1,10 @@
 # 解码器与图片格式支持
 
-> 最新状态（2026-10-06）：GIF/WebP动画与TIFF分页已通过固定像素样本和Windows CI，569通过/1本机RAW样本跳过，实际边界见[验收记录](animation-multipage-validation.md)。当前源码0.6.0未发布，最新公开下载仍v0.4.0，本轮不触发Release。固定机静态性能、混合DPI/跨设备长测与WebP背景提示兼容仍待补，不宣称全部变体或性能无退化。
+> 最新状态（2026-10-09）：0.6.0 Release收口候选。WebP ANIM背景、透明Source/Over及矩形disposal已补固定像素回归，本地598通过/1本机RAW样本跳过；最终候选静态对照、实际Windows验收及完整CI见[收口验收](release-closeout-0.6.0.md)。[上一轮记录](animation-multipage-validation.md)保留历史CI数字。当前源码未发布，公开下载仍v0.4.0；真实混合DPI/跨设备低内存长测未完成，不承诺所有变体或零性能退化。
 
 ## 实际解码与绘制路径
 
-JPEG、PNG、BMP、单页 TIFF、ICO 和 JPEG XR 沿用 WPF/WIC 静态路径；GIF 代表帧和 GIF/WebP 动画使用随包 SkiaSharp 4.153.1 的 `SKCodec`。WebP 静态路径也使用 Skia；多页 TIFF 使用最小系统 WIC COM adapter，在专有串行线程持有 decoder 和只读流，按页取得 frame/scaler/converter 并显式释放，不靠 WPF finalizer，也不每页重开容器。无需新增 native 包或系统 WebP 扩展。所有显示输出均为预乘 Alpha 的 8-bit BGRA；受限 SVG 按目标栅格化，所有路径不修改原文件。
+JPEG、PNG、BMP、单页 TIFF、ICO 和 JPEG XR 沿用 WPF/WIC 静态路径；GIF 代表帧与动画使用随包 SkiaSharp 4.153.1 的 `SKCodec` 依赖合成。静态 WebP 使用 Skia；WebP 动画按 ANIM/ANMF 元信息用同一 SKCodec 解压局部位流，再在有界画布处理背景、Source/Over 和矩形disposal，复用统一会话/播放器。动画代表帧、缩略图和预取使用同一合成入口。多页 TIFF 使用最小系统 WIC COM adapter，在专有串行线程持有 decoder 和只读流，按页取得 frame/scaler/converter 并显式释放，不靠 WPF finalizer，也不每页重开容器。无需新增 native 包或系统 WebP 扩展。所有显示输出均为预乘 Alpha 的 8-bit BGRA；受限 SVG 按目标栅格化，所有路径不修改原文件。
 
 普通静态图片、单帧 GIF、静态 WebP 和单页 TIFF 不建立活动帧会话、不显示帧控件、不启动动画时钟。缩略图和邻图缓存只保存代表帧/首页。动画时钟与 `F6` 文件幻灯片独立；内部帧/页变化不改变目录位置或重置文件停留时间，也不等待动画完整循环。GIF/WebP 支持播放、暂停、重播、定位与有限/无限循环，用户定位暂停播放；不可见、失活、最小化与卸载暂停呈现，恢复不解除用户暂停。TIFF 页切换重置页面视口身份并清除旧页区域，同页升级保留视口。
 
@@ -29,7 +29,7 @@ JPEG、PNG、BMP、单页 TIFF、ICO 和 JPEG XR 沿用 WPF/WIC 静态路径；G
 | GIF | `.gif` | 静态/动画固定样本与CI通过 | SkiaSharp SKCodec；单帧区域用WIC | 代表帧及动画；透明/局部/disposal依赖合成；播放、暂停、重播、定位和循环 |
 | TIFF | `.tif`、`.tiff` | 静态/分页固定样本与CI通过 | 单页 WPF/WIC；多页系统 WIC COM | 页数/定位、异尺寸和逐页方向；当前页预览/完整/区域读取；高位深转为8-bit |
 | ICO | `.ico` | 支持 | WIC | 仅第一个图标帧；没有多尺寸/多帧选择，不承诺总能自动选最大尺寸 |
-| WebP | `.webp` | 静态/动画固定样本与CI通过 | SkiaSharp SKCodec | 静态/动画、Alpha、Source/Over 与依赖帧合成；播放、暂停、重播、定位和循环；无ROI；ANIM背景颜色未独立修正 |
+| WebP | `.webp` | 静态/动画及ANIM背景固定像素回归通过；最终CI见收口记录 | SkiaSharp SKCodec + ANIM/ANMF有界合成 | 背景alpha、局部首帧、透明Source/Over、矩形disposal；播放、暂停、重播、定位和循环；无ROI；非线性光合成 |
 | JPEG XR / HD Photo | `.jxr`、`.wdp`、`.hdp` | 开发代码支持 | WIC | 主图、预览、缩略图与ROI；输出BGRA8，不保证HDR/高位深准确输出 |
 | 受限 SVG | `.svg` | 开发代码支持 | Svg.Skia 5.2.3 + Skia | 基础形状/路径/变换/本地渐变，直接完整目标栅格化；文字/图片/脚本/外部引用/use/clip/mask/filter/动画不支持 |
 | HEIF/HEIC、AVIF | `.heif`、`.heic`、`.avif` | 开发代码支持 | Magick.NET-Q8-x64 14.17.2 | 静态首图；容器方向一次纠正，RGB ICC→sRGB；源32MP/32768边/文件128MiB，序列与ROI不支持，HDR不保证 |
@@ -39,7 +39,7 @@ JPEG、PNG、BMP、单页 TIFF、ICO 和 JPEG XR 沿用 WPF/WIC 静态路径；G
 
 ## 当前能力矩阵
 
-此表描述已验证的当前代码，支持不代表所有变体都可打开。WebP当前Skia对ANIM背景提示按透明背景处理，固定样本已记录该语义，不承诺全部背景颜色变体完整兼容。ICC指嵌入profile处理，未实现显示器profile切换或HDR管线。EXIF字段展示与方向纠正是不同能力。Edit指进入已有静态编辑器并安全导出PNG/JPEG/WebP，不代表原格式回写。
+此表描述已验证的当前代码，支持不代表所有变体都可打开。WebP背景兼容固定样本覆盖背景alpha=0/128/255、局部首帧、透明/半透明Source与Over、矩形销毁、随机定位、缩放/方向1–8和ICC一致性。Over采用预乘sRGB计算，未实现线性光混合；详细样本见[说明](../tests/ModernImageViewer.UI.Tests/Fixtures/AnimationFixtures.md)。ICC指嵌入profile处理，未实现显示器profile切换或HDR管线。EXIF字段展示与方向纠正是不同能力。Edit指进入已有静态编辑器并安全导出PNG/JPEG/WebP，不代表原格式回写。
 
 | 格式/路径 | Static 静态 | Animation 动画 | Pages 多页 | Transparency 透明 | ICC | EXIF | Region 区域 | Edit 编辑 |
 |---|---|---|---|---|---|---|---|---|
@@ -52,7 +52,7 @@ JPEG、PNG、BMP、单页 TIFF、ICO 和 JPEG XR 沿用 WPF/WIC 静态路径；G
 | 多页TIFF | 代表首页用于缓存 | 无 | 随机按页读取，页尺寸独立 | 依WIC变体 | 未接ICC色彩转换 | 每页Orientation 1–8；不读取摄影字段 | 当前页ROI | 禁用 |
 | ICO | 第一个图标 | 无 | 无尺寸选择 | 依首个图标变体 | 未显式转换 | 仅WIC可读元数据 | 首图标WIC ROI | 既有静态编辑 |
 | 静态WebP | 支持 | 无 | 无 | Alpha | RGB ICC→sRGB | 方向1–8；无摄影字段 | 无 | 既有静态编辑 |
-| WebP动画 | 代表帧用于缓存/超限反馈 | 播放/暂停/重播/定位/循环，codec合成 | 无 | Alpha、Source/Over合成 | RGB ICC→sRGB | codec方向1–8；无摄影字段 | 无 | 禁用 |
+| WebP动画 | 同一合成入口的代表帧用于缓存/超限反馈 | 播放/暂停/重播/定位/循环，局部codec及有界画布 | 无 | ANIM背景alpha、Source/Over、矩形disposal | RGB ICC→sRGB，背景与帧一致 | codec方向1–8；无摄影字段 | 无 | 禁用 |
 | JPEG XR | WIC支持的变体 | 无 | 无 | 依变体 | 浏览未显式转换 | WIC可读字段/方向 | WIC ROI | 既有静态编辑；输出8-bit |
 | 受限SVG | 目标栅格化 | 无 | 无 | 支持 | 无嵌入profile管线 | 无 | 无 | 既有栅格编辑；非矢量回写 |
 | AVIF/HEIF | 首图 | 无 | 无 | 依Magick支持的变体 | RGB ICC→sRGB | 容器方向；非完整摄影字段 | 无 | 既有静态编辑；非HDR |

@@ -8,6 +8,7 @@ using ModernImageViewer.Imaging;
 
 namespace ModernImageViewer.UI.Tests;
 
+[Collection("Region decoder slot")]
 public sealed class SkiaImageFrameSessionTests
 {
     private static CancellationToken Token => TestContext.Current.CancellationToken;
@@ -126,7 +127,8 @@ public sealed class SkiaImageFrameSessionTests
                 0 => Pixels(1, 1, 1, 1, 1, 1, 1, 1),
                 1 => [0, 128, 127, 255, 0, 128, 127, 255, 0, 0, 255, 255, 0, 0, 255, 255,
                       0, 128, 127, 255, 0, 128, 127, 255, 0, 0, 255, 255, 0, 0, 255, 255],
-                _ => Pixels(0, 0, 3, 3, 0, 0, 3, 3),
+                _ => [255, 255, 255, 255, 255, 255, 255, 255, 255, 0, 0, 255, 255, 0, 0, 255,
+                      255, 255, 255, 255, 255, 255, 255, 255, 255, 0, 0, 255, 255, 0, 0, 255],
             };
             Assert.Equal(expected, image.Pixels.ToArray());
         }
@@ -169,7 +171,8 @@ public sealed class SkiaImageFrameSessionTests
         Assert.Equal(new PixelRect(0, 2, 2, 2), session.Info.Frames[2].Bounds);
         using PixelBuffer first = await session.DecodeFrameAsync(0, new PixelSize(2, 4), 32, Token);
         using PixelBuffer last = await session.DecodeFrameAsync(2, new PixelSize(2, 4), 32, Token);
-        Assert.Equal(Pixels(0, 0, 0, 0, 3, 3, 3, 3), last.Pixels.ToArray());
+        Assert.Equal(new byte[] { 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
+            255, 0, 0, 255, 255, 0, 0, 255, 255, 0, 0, 255, 255, 0, 0, 255 }, last.Pixels.ToArray());
         Assert.Equal(Pixels(1, 1, 1, 1, 1, 1, 1, 1), first.Pixels.ToArray());
         await Close(session);
     }

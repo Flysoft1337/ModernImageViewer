@@ -1,5 +1,9 @@
 # 下一批功能实施方案
 
+## 2026-10-09：0.6.0 Release 收口范围
+
+GIF/WebP/TIFF统一帧能力已交付，本轮只复测静态性能、修复WebP ANIM背景兼容、实际Windows动画/DPI/安装升级和发布资料；不增加编辑、标注、滤镜、批处理或大型功能。WebP新增29项固定像素回归，本地完整598通过/1跳过；最终候选与CI证据见[收口验收](release-closeout-0.6.0.md)，能力与未完成项以[支持矩阵](decoder-support.md)和[已知限制](known-limitations.md)为准。
+
 ## 2026-10-06：0.6 最新状态覆盖
 
 用户已确认[动画与多页方案](animation-multipage-plan.md)。N4的GIF/WebP动画与TIFF多页已通过固定样本与Windows CI，实际边界和569通过/1跳过、安装及压力结果见[验收记录](animation-multipage-validation.md)；ICO多尺寸仍未实现。当前源码为0.6.0未发布开发版，最新公开下载仍为v0.4.0。本节覆盖下文历史段落中的“N4待实现”，保留历史验证，本批继续冻结编辑范围，不扩完整RAW。

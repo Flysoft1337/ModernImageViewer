@@ -24,6 +24,12 @@ class ReleasePublisherTests(unittest.TestCase):
         self.directory = tempfile.TemporaryDirectory()
         self.addCleanup(self.directory.cleanup)
         self.assets = Path(self.directory.name)
+        self.source_directory = tempfile.TemporaryDirectory()
+        self.addCleanup(self.source_directory.cleanup)
+        self.source = Path(self.source_directory.name)
+        root = patch.object(publisher, "ROOT", self.source)
+        root.start()
+        self.addCleanup(root.stop)
         self.version = "0.4.0"
         self.commit = "a" * 40
         for suffix in ("Setup.exe", "Portable.zip"):
@@ -106,6 +112,24 @@ class ReleasePublisherTests(unittest.TestCase):
         self.assertEqual(len(self.release["assets"]), 4)
         self.assertEqual(self.mutations[1][2]["sha"], self.commit)
         self.assertEqual(self.mutations[-1][1], "PATCH")
+        self.assertTrue(self.release["body"].endswith("Changes"))
+
+    def test_checked_in_notes_are_included_with_generated_notes(self):
+        notes = self.source / "docs" / "release-notes" / f"{self.version}.md"
+        notes.parent.mkdir(parents=True)
+        notes.write_text("# Release notes\n\nKnown limits: bounded animation frames.\n", encoding="utf-8")
+        self.publish()
+        self.assertIn("# Release notes\n\nKnown limits: bounded animation frames.\n\nChanges", self.release["body"])
+        self.assertIn(self.marker, self.release["body"])
+
+    def test_empty_checked_in_notes_are_rejected_before_mutation(self):
+        notes = self.source / "docs" / "release-notes" / f"{self.version}.md"
+        notes.parent.mkdir(parents=True)
+        notes.write_text(" \n", encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "must not be empty"):
+            self.publish()
+        self.assertEqual(self.mutations, [])
+        self.assertEqual(self.uploads, 0)
 
     def test_partial_owned_draft_can_be_repaired(self):
         self.release = {"id": 1, "tag_name": "v0.4.0", "draft": True, "prerelease": False,

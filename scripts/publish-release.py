@@ -101,6 +101,16 @@ def assert_recoverable(release, marker, prerelease):
         raise ValueError("Existing draft was not created by this workflow for the same commit and release type; refusing to alter it.")
 
 
+def curated_notes(version):
+    path = ROOT / "docs" / "release-notes" / f"{version}.md"
+    if not path.is_file():
+        return ""
+    notes = path.read_text(encoding="utf-8-sig").strip()
+    if not notes:
+        raise ValueError("Checked-in release notes must not be empty.")
+    return notes + "\n\n"
+
+
 def publish(arguments):
     if os.environ.get("GITHUB_EVENT_NAME") != "workflow_dispatch" or os.environ.get("GITHUB_REF") != "refs/heads/master":
         raise ValueError("Publishing is allowed only for a manual workflow run on master.")
@@ -115,6 +125,7 @@ def publish(arguments):
     prerelease = arguments.prerelease == "true"
     tag = f"v{arguments.version}"
     assets = verified_assets(arguments.assets, arguments.version)
+    release_notes = curated_notes(arguments.version)
     # A newer master commit is fine while a long-running build finishes; unrelated commits are not.
     comparison = api(f"repos/{repository}/compare/{commit}...master")
     if comparison["status"] not in ("ahead", "identical"):
@@ -136,7 +147,7 @@ def publish(arguments):
         body = (
             f"{marker}\n\nWindows x64 安装器与便携包；由已通过 CI 验证的提交 `{commit}` 构建。\n\n"
             "安装器为当前用户安装，应用自带 .NET 运行时；安装器暂未签名。"
-            "两份 `.sha256` 文件用于核对下载文件的 SHA256。\n\n" + notes["body"]
+            "两份 `.sha256` 文件用于核对下载文件的 SHA256。\n\n" + release_notes + notes["body"]
         )
         release = api(f"repos/{repository}/releases", "POST", {
             "tag_name": tag, "target_commitish": commit, "name": f"ModernImageViewer {tag}",

@@ -27,7 +27,7 @@ gh workflow run ci.yml --ref master -f publish_release=true -f prerelease=false
 - `ModernImageViewer-<version>-win-x64-Portable.zip`
 - `ModernImageViewer-<version>-win-x64-Portable.zip.sha256`
 
-安装器为当前用户安装，便携包解压即可运行，两者都自带 .NET 运行时。安装器暂未签名。Release 文件不受 Actions artifact 的 30 天保留期限制。Release 说明包含精确源代码提交、自动生成的提交/PR 说明与安装信息。
+安装器为当前用户安装，便携包解压即可运行，两者都自带 .NET 运行时。安装器暂未签名。Release 文件不受 Actions artifact 的 30 天保留期限制。Release 说明包含精确源代码提交、安装信息、仓库中对应版本的 `docs/release-notes/<version>.md`（存在时）以及自动生成的提交/PR 说明。版本说明文件存在但为空会在远端修改前拒绝发布；旧版本没有该文件时沿用自动说明。
 
 核对安装器下载的哈希：
 

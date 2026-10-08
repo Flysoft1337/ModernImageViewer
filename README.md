@@ -6,7 +6,7 @@
 
 **当前开发格式：12 类、25 个扩展名。** 常见静态格式、JPEG XR、受限 SVG、AVIF、HEIF，以及 RAW 内嵌预览（DNG/CR2/CR3/NEF/ARW/RAF/RW2/ORF/PEF）。AVIF/HEIF 使用随包 Magick.NET，静态首图、最大32MP/128MiB输入；RAW使用固定LibRaw0.22.2桥接，最大256MiB输入/32MiB预览，尺寸代表内嵌预览，不是传感器；没有可读预览时反馈，不进行完整显影。GIF/WebP 动画与 TIFF 分页已实现；ICO仍仅首个图标，受限SVG不支持文字、外部资源、复杂合成和动画。缩略图与邻图缓存继续只保存代表帧/首页，不持有播放会话。详细边界见[格式支持](docs/decoder-support.md)；[格式与编辑记录](docs/raw-modern-editing.md)是此前批次的验收记录。公开v0.4.0仍只有原9扩展名。
 
-**0.6.0 尚未发布**，当前源码版本号为0.6.0。[Windows CI](https://github.com/Flysoft1337/ModernImageViewer/actions/runs/37459778269) 569通过/1本机RAW样本跳过，启动、文件激活、动画资源smoke和真实0.5→0.6升级/重装/卸载通过。本轮不发布新版本，最新公开下载仍为[v0.4.0](https://github.com/Flysoft1337/ModernImageViewer/releases/tag/v0.4.0)。固定机静态性能、混合DPI与跨设备长测仍待补；单次CI时间偏慢，不宣称性能无退化。
+**0.6.0 尚未发布**，当前为 Release 收口候选。WebP ANIM 背景兼容已补齐固定像素回归，本地完整测试598通过/1本机RAW样本跳过；同机交替静态复测、实际Windows动画/DPI/安装及最终候选CI以[收口验收](docs/release-closeout-0.6.0.md)为准。最新公开下载仍为[v0.4.0](https://github.com/Flysoft1337/ModernImageViewer/releases/tag/v0.4.0)，本轮不创建新Release。[0.6.0 Release Notes](docs/release-notes/0.6.0.md)与[已知限制](docs/known-limitations.md)统一说明候选能力；真实混合DPI与跨设备低内存长测尚未完成，不宣称所有格式零退化或P95。
 
 ### 开发能力矩阵
 
@@ -15,7 +15,7 @@
 | 格式/路径 | Static 静态 | Animation 动画 | Pages 多页 | Transparency 透明 | ICC | EXIF | Region 区域 | Edit 编辑 |
 |---|---|---|---|---|---|---|---|---|
 | GIF | 单帧/代表帧 | 播放、暂停、定位、循环 | 无 | 支持帧透明与合成 | 输出 sRGB；嵌入 ICC 不承诺 | 动画取 codec 方向；无摄影字段 | 单帧静态路径可用；动画无 | 仅单帧，动画禁用 |
-| WebP | 支持 | 播放、暂停、定位、循环 | 无 | 支持 Alpha 与合成 | RGB ICC→sRGB | 方向 1–8；无摄影字段 | 无 | 仅静态，动画禁用 |
+| WebP | 支持 | 播放、暂停、定位、循环 | 无 | ANIM背景、Alpha、Source/Over、矩形disposal | RGB ICC→sRGB | 方向 1–8；无摄影字段 | 无 | 仅静态，动画禁用 |
 | TIFF | 单页/代表首页 | 无 | 持久会话，按页尺寸/方向 | 依 WIC 支持的变体 | 浏览未显式转换 | 单页可读字段；多页只读逐页方向 | 当前页，2048×2048/16MiB | 仅单页，多页禁用 |
 | 其他静态格式 | 既有支持范围 | 无 | 无；ICO 只取首个图标 | 依格式/codec | 依静态路径，非完整色彩管理 | 依格式；RAW 为预览方向 | WIC 支持格式可用，其余见完整表 | 既有静态编辑；RAW 仅预览 |
 
