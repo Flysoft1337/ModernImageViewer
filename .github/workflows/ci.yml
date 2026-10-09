@@ -327,13 +327,17 @@ jobs:
           # Same source, runtime, language resources and native dependencies isolate bundling/compression.
           dotnet publish .\src\ModernImageViewer.App\ModernImageViewer.App.csproj --configuration Release --runtime win-x64 --self-contained true --no-restore --output .\artifacts\packaging-flat-comparison -p:PublishSingleFile=false -p:EnableCompressionInSingleFile=false
           if ($LASTEXITCODE -ne 0) { throw 'Flat comparison publish failed.' }
-          try {
-            .\scripts\measure-static-comparison.ps1 -BaselineAppPath .\artifacts\packaging-flat-comparison\ModernImageViewer.App.exe -CandidateAppPath .\artifacts\publish\win-x64\ModernImageViewer.App.exe -Pairs 3 -WarmupPairs 1 -OutputDirectory .\artifacts\packaging\static-comparison
-          }
-          catch {
-            # A transient desktop focus loss invalidates the comparison, but must not hide the
-            # already completed package/installation evidence. The failed report is uploaded.
-            Write-Warning "Static packaging comparison was inconclusive: $($_.Exception.Message)"
+          # The observer exits with code 1 for invalid runs; isolate that exit from this job shell.
+          & pwsh -NoProfile -File .\scripts\measure-static-comparison.ps1 -BaselineAppPath .\artifacts\packaging-flat-comparison\ModernImageViewer.App.exe -CandidateAppPath .\artifacts\publish\win-x64\ModernImageViewer.App.exe -Pairs 3 -WarmupPairs 1 -OutputDirectory .\artifacts\packaging\static-comparison
+          $comparisonExitCode = $LASTEXITCODE
+          $global:LASTEXITCODE = 0
+          if ($comparisonExitCode -ne 0) {
+            $comparison = Get-Content .\artifacts\packaging\static-comparison\index.json -Raw | ConvertFrom-Json
+            if ($comparison.Success -ne $false -or $comparison.Failure -notin @('ForegroundWindowLost', 'ForegroundNotObserved')) {
+              throw 'Static packaging comparison failed; inspect its report.'
+            }
+            # Retain the failed report; desktop focus failures provide no performance conclusion.
+            Write-Warning "Static packaging comparison was inconclusive: $($comparison.Failure)"
           }
 
       - name: Upload compact packaging verification
