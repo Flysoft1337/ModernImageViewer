@@ -55,4 +55,8 @@ Windows CI启动、完整观察和安装升级已通过；交替性能报告已�
 
 旧app布局升级仅在安装前标记哈希匹配且旧入口存在时识别已知GLFW，安装后再核对GLFW哈希才删除；未知或修改过的同名文件保留。现有安装smoke复用原升级/重装步骤，验证修改文件保护与已知GLFW回收，不新增安装测试矩阵。公开旧散装布局继续由原哈希清单清理。
 
-本地format verify、Release构建0警告0错误、604通过/1真实RAW样本跳过、在线依赖审计和100MP观察通过。测试在清理后的输出中运行，不含OpenTK/GLWpfControl/GLFW；不增加测试数量。最终Windows CI启动、激活、浏览、动画及升级/重装/卸载待本轮PR检查，不以本地测试替代安装验收。
+本地format verify、Release构建0警告0错误、604通过/1真实RAW样本跳过、在线依赖审计和100MP观察通过。测试在清理后的输出中运行，不含OpenTK/GLWpfControl/GLFW；不增加测试数量。
+
+398f7b8的[首轮Windows CI 37937597264](https://github.com/Flysoft1337/ModernImageViewer/actions/runs/37937597264)格式/构建/604通过1跳过/审计/100MP/启动/激活/浏览/动画和两条安装升级路径都通过。CI载荷115,513,838字节、ZIP80,237,155字节、46文件/app12；与本地runtime版本不同，不混用为同机改善比例。公开v0.6升级后123,755,048字节，重装后123,797,576字节（包含smoke保护文件及保留的旧许可证）；已知GLFW回收、修改同名文件保护、关联保护和卸载通过。
+
+该轮最终状态失败：性能预热中发生ForegroundWindowLost，报告无有效配对；已有CI的try/catch无法拦截观测脚本的exit 1。改为子PowerShell执行，仅在完整失败报告明确为焦点丢失/未获取焦点时记录warning，其它失败仍阻断CI。不改变测量逻辑、不忽略性能数据；最终CI状态以[PR #41](https://github.com/Flysoft1337/ModernImageViewer/pull/41)最后提交的检查和artifact为准。压缩包与散装的性能差异仍没有有效成对结论。
