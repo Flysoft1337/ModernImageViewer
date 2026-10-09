@@ -3,11 +3,15 @@ param(
     [Parameter(Mandatory)][string]$InstallerPath,
     [string]$BaselineInstallerPath,
     [string]$FixtureDirectory,
-    [string]$LogDirectory = (Join-Path $PSScriptRoot "../artifacts/installer-smoke")
+    [string]$LogDirectory = (Join-Path $PSScriptRoot "../artifacts/installer-smoke"),
+    [ValidateSet('0.4.0', '0.5.0')][string]$BaselineVersion = '0.5.0'
 )
 
 $ErrorActionPreference = "Stop"
 if (-not $IsWindows) { throw "Installer verification requires Windows." }
+if ($env:GITHUB_ACTIONS -ne 'true' -or $env:RUNNER_ENVIRONMENT -ne 'github-hosted') {
+    throw 'Installer verification requires a disposable GitHub-hosted Windows runner.'
+}
 $installer = (Resolve-Path $InstallerPath).Path
 $baselineInstaller = if ($BaselineInstallerPath) { (Resolve-Path -LiteralPath $BaselineInstallerPath).Path } else { $null }
 if ($baselineInstaller -and (Get-FileHash -LiteralPath $baselineInstaller).Hash -eq (Get-FileHash -LiteralPath $installer).Hash) {
@@ -22,9 +26,14 @@ $progId = "ModernImageViewer.Installed.Image"
 $progIdKey = "Software\Classes\$progId"
 $registeredApplicationsKey = "Software\RegisteredApplications"
 $extensions = @(".jpg", ".jpeg", ".png", ".bmp", ".gif", ".tif", ".tiff", ".ico", ".webp", ".jxr", ".wdp", ".hdp", ".svg", ".avif", ".heif", ".heic", ".dng", ".cr2", ".cr3", ".nef", ".arw", ".raf", ".rw2", ".orf", ".pef")
+$baselineExtensions = if ($BaselineVersion -eq '0.4.0') {
+    @('.jpg', '.jpeg', '.png', '.bmp', '.gif', '.tif', '.tiff', '.ico', '.webp')
+} else { $extensions }
+$portableProgId = 'ModernImageViewer.Portable.Image'
 $foreignCandidate = "ModernImageViewer.InstallerSmoke." + [Guid]::NewGuid().ToString("N")
 $currentUser = [Microsoft.Win32.Registry]::CurrentUser
 $candidateKeys = [Collections.Generic.List[string]]::new()
+$portableCandidateKeys = [Collections.Generic.List[string]]::new()
 $uninstallCompleted = $false
 $lifecycle = [Collections.Generic.List[object]]::new()
 $verificationSucceeded = $false
@@ -105,7 +114,7 @@ function Invoke-Setup([string]$Path, [string[]]$SetupArguments) {
     finally { $process.Dispose() }
 }
 
-function Assert-Registration {
+function Assert-Registration([string[]]$ExpectedExtensions = $extensions) {
     Assert-Equal (Read-RegistryValue $applicationKey "Owner") "ModernImageViewer.Installed.v1" "Installed application ownership is missing."
     Assert-Equal (Read-RegistryValue $applicationKey "ExecutablePath") $executable "Installed application path is incorrect."
     Assert-Equal (Read-RegistryValue $progIdKey "Owner") "ModernImageViewer.Installed.v1" "Installed ProgID ownership is missing."
@@ -114,7 +123,11 @@ function Assert-Registration {
     Assert-Equal (Read-RegistryValue "$applicationKey\Capabilities" "ApplicationName") "Modern Image Viewer" "Application capabilities are missing."
     Assert-Equal (Read-RegistryValue "$applicationKey\Capabilities" "ApplicationDescription") "Browse supported images with Modern Image Viewer." "The capabilities description was not updated."
     Assert-Equal (Read-RegistryValue $registeredApplicationsKey "ModernImageViewer.Installed") "$applicationKey\Capabilities" "RegisteredApplications does not reference the installed capabilities."
-    foreach ($extension in $extensions) {
+    $associations = $currentUser.OpenSubKey("$applicationKey\Capabilities\FileAssociations")
+    if ($null -eq $associations) { throw 'Installed file associations are missing.' }
+    try { Assert-Equal ($associations.GetValueNames().Count) $ExpectedExtensions.Count 'The installed association count does not match its version.' }
+    finally { $associations.Dispose() }
+    foreach ($extension in $ExpectedExtensions) {
         Assert-Equal (Read-RegistryValue "$applicationKey\Capabilities\FileAssociations" $extension) $progId "A supported format is missing from capabilities."
         $key = $currentUser.OpenSubKey("Software\Classes\$extension\OpenWithProgids")
         if ($null -eq $key) { throw "A supported format is missing its Open with candidate." }
@@ -125,6 +138,31 @@ function Assert-Registration {
         }
         finally { $key.Dispose() }
     }
+    foreach ($extension in $extensions) {
+        if ($extension -notin $ExpectedExtensions -and (Test-RegistryValue "Software\Classes\$extension\OpenWithProgids" $progId)) {
+            throw 'The baseline registered a format it does not support.'
+        }
+    }
+}
+
+function Assert-ProtectedState {
+    foreach ($extension in $extensions) {
+        $path = "Software\Classes\$extension\OpenWithProgids"
+        Assert-Equal (Read-OtherCandidates $path) $otherCandidates[$extension] 'Installation modified another existing Open with candidate.'
+        $key = $currentUser.OpenSubKey($path)
+        if ($null -eq $key) { throw 'Installation removed other Open with candidates.' }
+        try {
+            Assert-Equal ($key.GetValueKind($foreignCandidate)) ([Microsoft.Win32.RegistryValueKind]::None) 'Installation removed another Open with candidate.'
+            $value = $key.GetValue($foreignCandidate)
+            if ($value -isnot [byte[]] -or $value.Length -ne 0) { throw 'Installation changed another Open with candidate.' }
+        }
+        finally { $key.Dispose() }
+    }
+    foreach ($path in $protected.Keys) {
+        $actual = if ($path -match '^Software\\Classes\\\.(jpg|jpeg|png|bmp|gif|tif|tiff|ico|webp|jxr|wdp|hdp|svg|avif|heif|heic|dng|cr2|cr3|nef|arw|raf|rw2|orf|pef)$') { Read-RegistryValue $path "" } else { Read-RegistrySnapshot $path }
+        Assert-Equal $actual $protected[$path] 'Installation changed an existing default choice or portable identity.'
+    }
+    Assert-Equal (Read-RegistryValue $registeredApplicationsKey 'ModernImageViewer.Portable') $portableRegistration 'Installation changed the portable RegisteredApplications value.'
 }
 
 function Read-UninstallIdentity {
@@ -166,9 +204,11 @@ function Read-InstalledVersion([string]$Stage) {
     return $fileVersion
 }
 
-function Assert-InstalledPayload {
+function Assert-InstalledPayload([version]$Version) {
     if (-not [IO.File]::Exists($executable)) { throw 'The installed executable is missing.' }
-    foreach ($native in @('libSkiaSharp.dll', 'Magick.Native-Q8-x64.dll', 'ModernImageViewer.RawBridge.dll')) {
+    $nativeFiles = @('libSkiaSharp.dll')
+    if ($Version -ge [version]'0.5.0') { $nativeFiles += @('Magick.Native-Q8-x64.dll', 'ModernImageViewer.RawBridge.dll') }
+    foreach ($native in $nativeFiles) {
         if (@(Get-ChildItem -LiteralPath $directory -Recurse -File -Filter $native).Count -ne 1) {
             throw 'A required installed native dependency is missing or ambiguous.'
         }
@@ -177,7 +217,7 @@ function Assert-InstalledPayload {
     Assert-Equal $marker.distribution 'installer' 'The installed distribution marker is incorrect.'
 }
 
-# Refuse to overwrite a real installed copy when this script is run outside CI.
+# The disposable runner must also start without an installed identity.
 foreach ($path in @($applicationKey, $progIdKey, 'Software\Microsoft\Windows\CurrentVersion\Uninstall\{A2E8F5A0-6526-4C87-ADE1-04DE4A7F41C0}_is1')) {
     $key = $currentUser.OpenSubKey($path)
     if ($null -ne $key) { $key.Dispose(); throw "An installed application identity already exists; use a disposable Windows account." }
@@ -196,7 +236,6 @@ $otherCandidates = [ordered]@{}
 foreach ($extension in $extensions) {
     $protected["Software\Microsoft\Windows\CurrentVersion\Explorer\FileExts\$extension\UserChoice"] = Read-RegistrySnapshot "Software\Microsoft\Windows\CurrentVersion\Explorer\FileExts\$extension\UserChoice"
     $protected["Software\Classes\$extension"] = Read-RegistryValue "Software\Classes\$extension" ""
-    $otherCandidates[$extension] = Read-OtherCandidates "Software\Classes\$extension\OpenWithProgids"
 }
 foreach ($path in @("Software\ModernImageViewer\Portable", "Software\Classes\ModernImageViewer.Portable.Image")) {
     $protected[$path] = Read-RegistrySnapshot $path
@@ -208,31 +247,43 @@ try {
     foreach ($extension in $extensions) {
         $path = "Software\Classes\$extension\OpenWithProgids"
         $key = $currentUser.CreateSubKey($path)
-        try { $key.SetValue($foreignCandidate, [byte[]]::new(0), [Microsoft.Win32.RegistryValueKind]::None) }
+        try {
+            $key.SetValue($foreignCandidate, [byte[]]::new(0), [Microsoft.Win32.RegistryValueKind]::None)
+            $candidateKeys.Add($path)
+            # Seed a portable candidate so preservation is exercised on a clean VM.
+            if ($key.GetValueNames() -notcontains $portableProgId) {
+                $key.SetValue($portableProgId, [byte[]]::new(0), [Microsoft.Win32.RegistryValueKind]::None)
+                $portableCandidateKeys.Add($path)
+            }
+        }
         finally { $key.Dispose() }
-        $candidateKeys.Add($path)
+        $otherCandidates[$extension] = Read-OtherCandidates $path
     }
     $common = @("/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/SP-", "/DIR=$directory", "/TASKS=fileassoc")
     $firstInstaller = if ($baselineInstaller) { $baselineInstaller } else { $installer }
     $firstLog = if ($baselineInstaller) { 'baseline-install.log' } else { 'install.log' }
     Invoke-Setup $firstInstaller ($common + @("/LOG=$(Join-Path $logs $firstLog)"))
-    Assert-InstalledPayload
-    Assert-Registration
     $uninstallIdentity = Read-UninstallIdentity
     $initialVersion = Read-InstalledVersion $(if ($baselineInstaller) { 'BaselineInstall' } else { 'Install' })
-    if ($baselineInstaller -and $initialVersion -ne [version]'0.5.0') { throw 'The actual installed baseline must be version 0.5.0.' }
-    & (Join-Path $PSScriptRoot "check-file-activation.ps1") -AppPath $executable -FixtureDirectory $FixtureDirectory
+    if ($baselineInstaller -and $initialVersion -ne [version]$BaselineVersion) { throw "The actual installed baseline must be version $BaselineVersion." }
+    Assert-InstalledPayload $initialVersion
+    Assert-Registration $(if ($baselineInstaller) { $baselineExtensions } else { $extensions })
+    Assert-ProtectedState
+    # 0.4 can open the generated PNG/WebP, but not the newer codec fixture groups.
+    $initialFixtures = if ($baselineInstaller -and $BaselineVersion -eq '0.4.0') { $null } else { $FixtureDirectory }
+    & (Join-Path $PSScriptRoot "check-file-activation.ps1") -AppPath $executable -FixtureDirectory $initialFixtures
 
     $preferences = Join-Path $directory "custom-user-preferences.json"
     [IO.File]::WriteAllText($preferences, '{"keep":"user data"}')
     if ($baselineInstaller) {
-        Invoke-Setup $installer ($common + @("/LOG=$(Join-Path $logs 'upgrade-0.5-to-0.6.log')"))
-        Assert-InstalledPayload
-        Assert-Registration
+        Invoke-Setup $installer ($common + @("/LOG=$(Join-Path $logs "upgrade-$BaselineVersion-to-0.6.0.log")"))
         $upgradedVersion = Read-InstalledVersion 'CrossVersionUpgrade'
         if ($upgradedVersion -ne [version]'0.6.0' -or $upgradedVersion -le $initialVersion) {
-            throw 'The actual cross-version upgrade must replace 0.5.0 with 0.6.0.'
+            throw "The actual cross-version upgrade must replace $BaselineVersion with 0.6.0."
         }
+        Assert-InstalledPayload $upgradedVersion
+        Assert-Registration
+        Assert-ProtectedState
         if ($lifecycle[0].AssemblySha256 -eq $lifecycle[1].AssemblySha256) { throw 'Upgrade did not replace the application assembly.' }
         Assert-Equal (Read-UninstallIdentity) $uninstallIdentity 'Upgrade created a different uninstall identity.'
         Assert-Equal ([IO.File]::ReadAllText($preferences)) '{"keep":"user data"}' 'Upgrade modified a custom user file.'
@@ -255,8 +306,9 @@ try {
     finally { $formats.Dispose() }
     $beforeReinstallHash = $lifecycle[-1].AssemblySha256
     Invoke-Setup $installer ($common + @("/LOG=$(Join-Path $logs 'same-version-reinstall.log')"))
-    Assert-InstalledPayload
+    Assert-InstalledPayload $upgradedVersion
     Assert-Registration
+    Assert-ProtectedState
     Assert-Equal (Read-InstalledVersion 'SameVersionReinstall') $upgradedVersion 'Same-version reinstall changed the installed version.'
     Assert-Equal $lifecycle[-1].AssemblySha256 $beforeReinstallHash 'Same-version reinstall changed the application assembly.'
     Assert-Equal (Read-UninstallIdentity) $uninstallIdentity "Reinstall created a different uninstall identity."
@@ -278,20 +330,10 @@ try {
     foreach ($extension in $extensions) {
         $path = "Software\Classes\$extension\OpenWithProgids"
         if (Test-RegistryValue $path $progId) { throw "Uninstall left an owned Open with candidate behind." }
-        Assert-Equal (Read-OtherCandidates $path) $otherCandidates[$extension] "Installation modified another existing Open with candidate."
-        $key = $currentUser.OpenSubKey($path)
-        try {
-            Assert-Equal ($key.GetValueKind($foreignCandidate)) ([Microsoft.Win32.RegistryValueKind]::None) "Uninstall removed another Open with candidate."
-        }
-        finally { if ($null -ne $key) { $key.Dispose() } }
     }
-    foreach ($path in $protected.Keys) {
-        $actual = if ($path -match '^Software\\Classes\\\.(jpg|jpeg|png|bmp|gif|tif|tiff|ico|webp|jxr|wdp|hdp|svg|avif|heif|heic|dng|cr2|cr3|nef|arw|raf|rw2|orf|pef)$') { Read-RegistryValue $path "" } else { Read-RegistrySnapshot $path }
-        Assert-Equal $actual $protected[$path] "Installation changed an existing default choice or portable identity."
-    }
-    Assert-Equal (Read-RegistryValue $registeredApplicationsKey "ModernImageViewer.Portable") $portableRegistration "Installation changed the portable RegisteredApplications value."
+    Assert-ProtectedState
     $verificationSucceeded = $true
-    $upgradeResult = if ($baselineInstaller) { 'verified actual 0.5.0 -> 0.6.0 upgrade' } else { 'cross-version upgrade not requested or verified' }
+    $upgradeResult = if ($baselineInstaller) { "verified actual $initialVersion -> $upgradedVersion upgrade" } else { 'cross-version upgrade not requested or verified' }
     Write-Output "Installer verification passed: current-user install, $upgradeResult, same-version reinstall, installed file activation and clean uninstall."
 }
 finally {
@@ -307,7 +349,10 @@ finally {
     foreach ($path in $candidateKeys) {
         $key = $currentUser.OpenSubKey($path, $true)
         if ($null -ne $key) {
-            try { $key.DeleteValue($foreignCandidate, $false) }
+            try {
+                $key.DeleteValue($foreignCandidate, $false)
+                if ($portableCandidateKeys.Contains($path)) { $key.DeleteValue($portableProgId, $false) }
+            }
             finally { $key.Dispose() }
         }
     }
@@ -318,6 +363,8 @@ finally {
             Success = $verificationSucceeded
             CrossVersionUpgradeRequested = [bool]$baselineInstaller
             CrossVersionUpgradeVerified = $verificationSucceeded -and [bool]$baselineInstaller
+            ExpectedBaselineVersion = if ($baselineInstaller) { $BaselineVersion } else { $null }
+            PortableCandidatesSeeded = $portableCandidateKeys.Count
             BaselineInstallerSha256 = if ($baselineInstaller) { (Get-FileHash -LiteralPath $baselineInstaller -Algorithm SHA256).Hash } else { $null }
             TargetInstallerSha256 = (Get-FileHash -LiteralPath $installer -Algorithm SHA256).Hash
             Lifecycle = $lifecycle

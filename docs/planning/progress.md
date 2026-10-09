@@ -1,5 +1,14 @@
 # 进度日志
 
+## 2026-10-09：0.6.0菜单最终修复
+
+- 最新master eba2818已fetch并快进，本轮分支codex/0.6-menu-closeout，工作区起点干净。版本0.6.0，禁止发版/建标签。
+- 根ContextMenu只设颜色、未覆盖系统模板；MenuItem模板无Icon Presenter；F6/F11标题资源和InputGestureText重复。资源复用与子菜单/DPI布局继续核对。
+- 沿用planning-with-files-zh与computer-use，计划两个不重叠代理处理本地化/升级CI，主任务负责主题模板/布局/必要回归。真实桌面与合成截图分别记录。
+- 主题根/子菜单、Icon与勾选共存、主题分隔线/禁用色、工作区DPI边界与滚动、菜单快捷键转发、标题栏焦点和空状态词换行修复；未改解码/缓存/编辑能力。新增两项本地化案例，其余真实WPF回归复用原fixture。
+- 本地最终format verify、Release0警告0错误、核心188+UI/codec413=601通过/1RAW样本跳过、在线传递依赖审计、100MP以及9项发布边界/24项观察脚本断言通过。18张本轮菜单RenderTarget截图保留为渲染证据，物理桌面捕获两次超时，完整人工鼠标/Shell/混合DPI仍待办。
+- 公开v0.4实包SHA256/大小/版本核验后接入一次性Windows CI升级，保留0.5静态对照。用户安装版正在运行，本机不执行会打到其单实例的应用观察和安装流程；最终启动/激活/浏览/动画/升级以PR完整CI为准，不触发Release。
+
 ## 2026-10-09：0.6.0公开测试准备
 
 - 从master 5c024fb创建codex/0.6-prerelease；基线完整Windows CI为599通过/1RAW样本跳过，升级/重装/卸载成功，无既有v0.6.0标签或Release。

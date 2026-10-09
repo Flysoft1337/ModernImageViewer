@@ -123,10 +123,12 @@ public sealed partial class MainWindowViewModel : INotifyPropertyChanged, IDispo
     public string WelcomeTitle => Text("Welcome_Title");
     public string WelcomeHint => Text("Welcome_Hint");
     public string FullScreenLabel => Text("Command_FullScreen");
+    public string FullScreenMenuLabel => Text("Menu_FullScreen");
     public string InformationLabel => Text("Command_Information");
     public string FilmstripLabel => Text("Command_Filmstrip");
     public string OpenFolderLabel => Text("Command_OpenFolder");
     public string SlideshowLabel => Text(IsSlideshowPlaying ? "Command_PauseSlideshow" : "Command_Slideshow");
+    public string SlideshowMenuLabel => Text(IsSlideshowPlaying ? "Menu_PauseSlideshow" : "Menu_Slideshow");
     public string ExifLabel => Text("Information_Exif");
     public string Slideshow2Label => Text("Slideshow_2Seconds");
     public string Slideshow5Label => Text("Slideshow_5Seconds");
@@ -143,6 +145,7 @@ public sealed partial class MainWindowViewModel : INotifyPropertyChanged, IDispo
             _isSlideshowPlaying = value && CanPlaySlideshow;
             OnPropertyChanged();
             OnPropertyChanged(nameof(SlideshowLabel));
+            OnPropertyChanged(nameof(SlideshowMenuLabel));
         }
     }
     public int SlideshowSeconds

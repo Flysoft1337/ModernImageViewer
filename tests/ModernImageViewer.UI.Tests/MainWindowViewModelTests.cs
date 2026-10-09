@@ -169,6 +169,7 @@ public sealed class MainWindowViewModelTests
                     Assert.IsType<System.Windows.Media.SolidColorBrush>(associations.FindResource("SurfaceBrush"));
                     Assert.Equal(theme, themes.CurrentTheme);
                 }
+                MenuUiRegression.VerifyEmptyState(window, themes, localization);
                 Assert.True(coordinator.OpenAsync("preview.png").GetAwaiter().GetResult());
                 DrainBindings(window);
                 Assert.Equal(new PixelSize(4000, 3000), viewModel.CurrentImage!.SourceSize);
@@ -215,6 +216,7 @@ public sealed class MainWindowViewModelTests
                 viewport.FlipHorizontal();
                 CapturePreviewScreenshots(window, themes, localization, "orientation");
                 VerifyOrientationMenus(window, themes, localization);
+                MenuUiRegression.VerifyLoadedState(window, themes, localization);
                 VerifyShortcutHelp(window, themes, localization);
                 VerifyEditor(window, viewModel, themes, localization);
                 VerifyMemoryClipboard(window, viewModel, clipboard, themes, localization);

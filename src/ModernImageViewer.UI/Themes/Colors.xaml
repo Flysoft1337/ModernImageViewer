@@ -7,6 +7,7 @@
   <Color x:Key="Color.Border">#30333D</Color>
   <Color x:Key="Color.TextPrimary">#F1F2F6</Color>
   <Color x:Key="Color.TextSecondary">#A4A8B6</Color>
+  <Color x:Key="Color.TextDisabled">#8B90A0</Color>
   <Color x:Key="Color.Accent">#A9BDFF</Color>
   <Color x:Key="Color.AccentText">#17213B</Color>
   <Color x:Key="Color.AccentSurface">#263149</Color>
@@ -14,6 +15,8 @@
   <Color x:Key="Color.CheckerDark">#202228</Color>
   <Color x:Key="Color.Overlay">#C01C1E24</Color>
   <Color x:Key="Color.Danger">#D44F60</Color>
+  <Color x:Key="Color.DangerPressed">#AB3545</Color>
+  <Color x:Key="Color.DangerText">#FFFFFF</Color>
   <SolidColorBrush x:Key="WindowBackgroundBrush" Color="{StaticResource Color.Window}" />
   <SolidColorBrush x:Key="SurfaceBrush" Color="{StaticResource Color.Surface}" />
   <SolidColorBrush x:Key="SurfaceHoverBrush" Color="{StaticResource Color.SurfaceHover}" />
@@ -21,6 +24,7 @@
   <SolidColorBrush x:Key="BorderBrush" Color="{StaticResource Color.Border}" />
   <SolidColorBrush x:Key="PrimaryTextBrush" Color="{StaticResource Color.TextPrimary}" />
   <SolidColorBrush x:Key="SecondaryTextBrush" Color="{StaticResource Color.TextSecondary}" />
+  <SolidColorBrush x:Key="DisabledTextBrush" Color="{StaticResource Color.TextDisabled}" />
   <SolidColorBrush x:Key="AccentBrush" Color="{StaticResource Color.Accent}" />
   <SolidColorBrush x:Key="AccentTextBrush" Color="{StaticResource Color.AccentText}" />
   <SolidColorBrush x:Key="AccentSurfaceBrush" Color="{StaticResource Color.AccentSurface}" />
@@ -28,4 +32,6 @@
   <SolidColorBrush x:Key="CheckerDarkBrush" Color="{StaticResource Color.CheckerDark}" />
   <SolidColorBrush x:Key="OverlayBrush" Color="{StaticResource Color.Overlay}" />
   <SolidColorBrush x:Key="DangerBrush" Color="{StaticResource Color.Danger}" />
+  <SolidColorBrush x:Key="DangerPressedBrush" Color="{StaticResource Color.DangerPressed}" />
+  <SolidColorBrush x:Key="DangerTextBrush" Color="{StaticResource Color.DangerText}" />
 </ResourceDictionary>
