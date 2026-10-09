@@ -10,6 +10,7 @@
 - 公开v0.4实包SHA256/大小/版本核验后接入一次性Windows CI升级，保留0.5静态对照。用户安装版正在运行，本机不执行会打到其单实例的应用观察和安装流程；最终启动/激活/浏览/动画/升级以PR完整CI为准，不触发Release。
 - 首轮CI 37883267974格式/构建通过，菜单回归在矮工作区发现首次打开实际551DIP超过540DIP限高；后续观察/安装未运行，不记通过。限高初始化移到窗口Loaded/ContextMenuOpening，覆盖直接与Shift+F10打开，修复后重跑原CI。
 - 第二轮37883823605仍同一高度失败。补绑定值断言后本机直接复现PathError与MaxHeight=Infinity，确认共享BAML style中附加属性路径解析失败；改用强类型PropertyPath及子模板TemplateBinding，并在根Border显式约束。增加绑定有效值、根/子继承和受限菜单动态主题回归，不以放宽高度断言处理。
+- 修复后最终候选提交0b4880a的 [Windows CI 37884719519](https://github.com/Flysoft1337/ModernImageViewer/actions/runs/37884719519)全绿：format/Release/601通过1跳过、审计、100MP、启动/激活/普通浏览/动画多页、0.5对照及公开0.4→0.6安装升级/重装/卸载通过；发布job按要求跳过。真实桌面视觉/鼠标、Shell双击、混合DPI仍未完成。
 
 ## 2026-10-09：0.6.0公开测试准备
 
