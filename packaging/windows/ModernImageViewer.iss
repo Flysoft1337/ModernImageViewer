@@ -32,7 +32,7 @@ OutputDir={#InstallerOutputDirectory}
 OutputBaseFilename=ModernImageViewer-{#AppVersion}-win-x64-Setup
 Compression=lzma2
 SolidCompression=yes
-UninstallDisplayIcon={app}\ModernImageViewer.App.exe
+UninstallDisplayIcon={app}\app\ModernImageViewer.App.exe
 CloseApplications=yes
 RestartApplications=no
 ChangesAssociations=yes
@@ -59,16 +59,20 @@ Name: "fileassoc"; Description: "{cm:Associations}"
 Name: "desktopicon"; Description: "{cm:DesktopShortcut}"; Flags: unchecked
 
 [Files]
-Source: "{#PublishDirectory}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs; Excludes: "*.pdb"
-Source: "ModernImageViewer.install.json"; DestDir: "{app}"; Flags: ignoreversion
+Source: "{#PublishDirectory}\*"; DestDir: "{app}\app"; Flags: ignoreversion recursesubdirs createallsubdirs; Excludes: "*.pdb,licenses\*,LICENSE.txt,dependencies.json"
+Source: "{#PublishDirectory}\licenses\*"; DestDir: "{app}\licenses"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "{#PublishDirectory}\LICENSE.txt"; DestDir: "{app}"; Flags: ignoreversion
+Source: "{#PublishDirectory}\dependencies.json"; DestDir: "{app}"; Flags: ignoreversion
+Source: "ModernImageViewer.install.json"; DestDir: "{app}\app"; Flags: ignoreversion
+Source: "legacy-layout.sha256"; Flags: dontcopy
 
 [Icons]
-Name: "{group}\Modern Image Viewer"; Filename: "{app}\ModernImageViewer.App.exe"
+Name: "{group}\Modern Image Viewer"; Filename: "{app}\app\ModernImageViewer.App.exe"
 Name: "{group}\{cm:UninstallViewer}"; Filename: "{uninstallexe}"
-Name: "{userdesktop}\Modern Image Viewer"; Filename: "{app}\ModernImageViewer.App.exe"; Tasks: desktopicon
+Name: "{userdesktop}\Modern Image Viewer"; Filename: "{app}\app\ModernImageViewer.App.exe"; Tasks: desktopicon
 
 [Run]
-Filename: "{app}\ModernImageViewer.App.exe"; Description: "{cm:OpenViewer}"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\app\ModernImageViewer.App.exe"; Description: "{cm:OpenViewer}"; Flags: nowait postinstall skipifsilent
 
 [Code]
 const
@@ -105,7 +109,7 @@ procedure NotifyAssociations(Event: Cardinal; Flags: Cardinal; Item1, Item2: Nat
 
 function ExecutablePath(): String;
 begin
-  Result := ExpandConstant('{app}\ModernImageViewer.App.exe');
+  Result := ExpandConstant('{app}\app\ModernImageViewer.App.exe');
 end;
 
 function OpenCommand(): String;
@@ -316,9 +320,77 @@ begin
   NotifyAssociations($08000000, 0, 0, 0);
 end;
 
+function LegacyAssociationsOwned(): Boolean;
+var
+  LegacyPath: String;
+begin
+  LegacyPath := ExpandConstant('{app}\ModernImageViewer.App.exe');
+  Result := ReadMatching(AppKey, 'Owner', Owner)
+    and ReadMatching(ProgIdKey, 'Owner', Owner)
+    and ReadMatching(AppKey, 'ExecutablePath', LegacyPath)
+    and ReadMatching(ProgIdKey + '\shell\open\command', '', '"' + LegacyPath + '" "%1"')
+    and AssociationIdentityAvailable();
+end;
+
+procedure RegisterExtraCloseApplicationsResources();
+begin
+  { The old executable is no longer a destination in the new [Files] layout. }
+  RegisterExtraCloseApplicationsResource(ExpandConstant('{app}\ModernImageViewer.App.exe'));
+end;
+
+procedure CleanLegacyPayload();
+var
+  Lines: TArrayOfString;
+  I: Integer;
+  Hash, RelativePath, FilePath, LegacyHash, MarkerHash: String;
+  KnownExecutable, KnownMarker: Boolean;
+begin
+  { A marker and a known executable together prove this is an old installed payload. }
+  if not FileExists(ExpandConstant('{app}\ModernImageViewer.install.json'))
+    or not FileExists(ExpandConstant('{app}\ModernImageViewer.App.exe')) then exit;
+  ExtractTemporaryFile('legacy-layout.sha256');
+  if not LoadStringsFromFile(ExpandConstant('{tmp}\legacy-layout.sha256'), Lines) then exit;
+  try
+    LegacyHash := GetSHA256OfFile(ExpandConstant('{app}\ModernImageViewer.App.exe'));
+    MarkerHash := GetSHA256OfFile(ExpandConstant('{app}\ModernImageViewer.install.json'));
+  except
+    Log('Preserved an unverifiable legacy installation.');
+    exit;
+  end;
+  KnownExecutable := False;
+  KnownMarker := False;
+  for I := 0 to GetArrayLength(Lines) - 1 do begin
+    if (Copy(Lines[I], 67, MaxInt) = 'ModernImageViewer.App.exe')
+      and (CompareText(Copy(Lines[I], 1, 64), LegacyHash) = 0) then KnownExecutable := True;
+    if (Copy(Lines[I], 67, MaxInt) = 'ModernImageViewer.install.json')
+      and (CompareText(Copy(Lines[I], 1, 64), MarkerHash) = 0) then KnownMarker := True;
+  end;
+  if not KnownExecutable or not KnownMarker then exit;
+  for I := 0 to GetArrayLength(Lines) - 1 do begin
+    Hash := Copy(Lines[I], 1, 64);
+    RelativePath := Copy(Lines[I], 67, MaxInt);
+    if (Length(Hash) <> 64) or (RelativePath = '') or (Pos('..', RelativePath) <> 0)
+      or (Pos(':', RelativePath) <> 0) or (RelativePath[1] = '/') or (RelativePath[1] = '\') then continue;
+    StringChangeEx(RelativePath, '/', '\', True);
+    FilePath := ExpandConstant('{app}\') + RelativePath;
+    try
+      if FileExists(FilePath) and (CompareText(GetSHA256OfFile(FilePath), Hash) = 0) then begin
+        if not DeleteFile(FilePath) then Log('Preserved a legacy file that could not be removed.');
+        { Remove only empty satellite directories, never recursively delete user content. }
+        if Pos('\', RelativePath) <> 0 then RemoveDir(ExtractFileDir(FilePath));
+      end;
+    except
+      Log('Preserved a legacy file that could not be verified.');
+    end;
+  end;
+end;
+
 procedure CurStepChanged(CurStep: TSetupStep);
 begin
-  if (CurStep = ssPostInstall) and WizardIsTaskSelected('fileassoc') then RegisterAssociations();
+  if CurStep = ssPostInstall then begin
+    if WizardIsTaskSelected('fileassoc') or LegacyAssociationsOwned() then RegisterAssociations();
+    CleanLegacyPayload();
+  end;
 end;
 
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);

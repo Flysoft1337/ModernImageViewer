@@ -75,8 +75,8 @@ function Write-SafeJson($Value, [string]$Path) {
 
 function Get-BinaryIdentity([string]$Executable) {
     $directory = [IO.Path]::GetDirectoryName($Executable)
-    if (-not [IO.File]::Exists([IO.Path]::ChangeExtension($Executable, 'dll'))) { throw 'MissingManagedAssembly' }
-    $assemblies = @(Get-ChildItem -LiteralPath $directory -Filter 'ModernImageViewer*.dll' -File | Sort-Object Name | ForEach-Object {
+    if (-not [IO.File]::Exists($Executable)) { throw 'MissingManagedAssembly' }
+    $assemblies = @(@(Get-Item -LiteralPath $Executable; Get-ChildItem -LiteralPath $directory -Filter 'ModernImageViewer*.dll' -File) | Sort-Object Name | ForEach-Object {
         $version = [Diagnostics.FileVersionInfo]::GetVersionInfo($_.FullName)
         [pscustomobject]@{
             Name = $_.Name

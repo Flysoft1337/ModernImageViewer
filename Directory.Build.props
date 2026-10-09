@@ -7,5 +7,8 @@
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <AnalysisLevel>latest-recommended</AnalysisLevel>
     <Deterministic>true</Deterministic>
+    <!-- The application uses WPF/Win32, with no WinRT projection APIs. -->
+    <IncludeWindowsSDKRefFrameworkReferences>false</IncludeWindowsSDKRefFrameworkReferences>
+    <SatelliteResourceLanguages>en;zh-CN;zh-Hans</SatelliteResourceLanguages>
   </PropertyGroup>
 </Project>

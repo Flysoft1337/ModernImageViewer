@@ -1,5 +1,13 @@
 # 进度日志
 
+## 2026-10-09：安装包收敛
+
+- 只读核对用户安装，先完成单文件压缩试包；不卸载/覆盖用户安装，不发布。
+- 从已通过完整CI的大图修复合并提交1e64972建立fix/compact-packaging。开始收敛发布依赖、安装/便携布局及旧布局安全迁移。
+- 本地Release0警告0错误，完整190核心+414 UI/codec=604通过、1本机RAW样本跳过。旧包下载直连停滞，改代理后完成并逐一校验；867项旧文件哈希只用于精确清理。
+- 首次安装器编译通过；补旧入口运行占用检测时发现Inno 7已移除RegisterExtraCloseApplicationsResource的DisableFsRedir参数，按当前官方签名修正。补充随单文件runtime实际版本分发.NET/WPF许可与NOTICE，未删native、许可证或LibRaw源码。
+- 最终本地format verify/依赖审计通过；Setup76,746,762字节、ZIP82,541,038字节，载荷116,945,656字节/49文件、根目录2文件、app13文件，4份图像native哈希通过。安装后体积及压缩启动代价待隔离CI，不把载荷体积冒充完整安装。
+
 ## 2026-10-09：大PNG缩放反馈
 
 - 在干净master 2978bc6建立codex/large-image-refinement，保持0.6.0、不发版；复用planning-with-files-zh及现有规划文件。

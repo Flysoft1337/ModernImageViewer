@@ -192,6 +192,13 @@ jobs:
         shell: pwsh
         run: .\scripts\build-installer.ps1 -SkipPublish
 
+      - name: Check compact portable layout and native inventory
+        shell: pwsh
+        run: |
+          $archives = @(Get-ChildItem .\artifacts\installer\*-Portable.zip)
+          if ($archives.Count -ne 1) { throw 'Expected exactly one portable package.' }
+          .\scripts\check-package.ps1 -PortableArchive $archives[0].FullName
+
       - name: Check out fixed 0.5 baseline for static comparison
         uses: actions/checkout@v7
         with:
@@ -297,6 +304,39 @@ jobs:
         with:
           name: installer-verification
           path: artifacts/installer-smoke/**
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Check public 0.6 flat-layout migration and packaging performance
+        shell: pwsh
+        run: |
+          $directory = Join-Path $env:GITHUB_WORKSPACE 'artifacts/baseline-0.6-public'
+          [IO.Directory]::CreateDirectory($directory) | Out-Null
+          foreach ($asset in @(
+            @{ Name = 'ModernImageViewer-0.6.0-win-x64-Portable.zip'; Bytes = 98108294; Sha256 = '619d4d193915b57b235a3185170b6cdf7fedff413babbd822782f00f6622728e' },
+            @{ Name = 'ModernImageViewer-0.6.0-win-x64-Setup.exe'; Bytes = 69969305; Sha256 = 'e5d871b50703ddebe0ea5dcb248244088ef455e1734893810703acc31582d6cf' }
+          )) {
+            $path = Join-Path $directory $asset.Name
+            Invoke-WebRequest -Uri ('https://github.com/Flysoft1337/ModernImageViewer/releases/download/v0.6.0/' + $asset.Name) -OutFile $path -TimeoutSec 180
+            if ((Get-Item -LiteralPath $path).Length -ne $asset.Bytes -or (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash -ine $asset.Sha256) {
+              throw 'Public 0.6 baseline asset size/checksum mismatch.'
+            }
+          }
+          $installers = @(Get-ChildItem .\artifacts\installer\*-Setup.exe)
+          if ($installers.Count -ne 1) { throw 'Expected exactly one installer.' }
+          .\scripts\check-installer.ps1 -InstallerPath $installers[0].FullName -BaselineInstallerPath (Join-Path $directory 'ModernImageViewer-0.6.0-win-x64-Setup.exe') -BaselineVersion 0.6.0 -FixtureDirectory .\artifacts\format-fixtures -LogDirectory .\artifacts\installer-smoke-0.6
+          $extracted = Join-Path $directory 'portable'
+          [IO.Compression.ZipFile]::ExtractToDirectory((Join-Path $directory 'ModernImageViewer-0.6.0-win-x64-Portable.zip'), $extracted)
+          .\scripts\measure-static-comparison.ps1 -BaselineAppPath (Join-Path $extracted 'ModernImageViewer.App.exe') -CandidateAppPath .\artifacts\publish\win-x64\ModernImageViewer.App.exe -Pairs 3 -WarmupPairs 1 -OutputDirectory .\artifacts\packaging\static-comparison
+
+      - name: Upload compact packaging verification
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: packaging-verification
+          path: |
+            artifacts/packaging/**
+            artifacts/installer-smoke-0.6/**
           if-no-files-found: warn
           retention-days: 14
 
