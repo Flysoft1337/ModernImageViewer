@@ -29,17 +29,19 @@
 
 - 安装器：`ModernImageViewer-0.6.0-win-x64-Setup.exe`。默认安装到当前用户的 `%LOCALAPPDATA%\Programs\ModernImageViewer`，无需管理员权限；提供开始菜单入口、可选桌面快捷方式、升级和卸载。
 - 安装时可选注册当前25个扩展名的打开方式；安装后在Windows默认应用中选择`Modern Image Viewer`，按需要选择扩展名。安装器不会自动修改默认应用。
-- 便携 ZIP 解压后运行 `ModernImageViewer.App.exe`，需要时在应用设置里注册 `Modern Image Viewer (Portable)`。安装版与便携版使用独立关联身份，可共存；卸载安装版不撤销便携版候选。
+- 便携 ZIP 解压后运行 `app\ModernImageViewer.App.exe`，需要时在应用设置里注册 `Modern Image Viewer (Portable)`。安装版与便携版使用独立关联身份，可共存；卸载安装版不撤销便携版候选。
 - 当前 EXE **未签名**；可信签名发布与 MSIX 继续规划。构建产物和校验清单由 Windows CI 上传，实际安装/卸载验证结果以对应运行记录为准；系统默认选择和 Shell 双击仍需人工验收。
+
+当前源码候选采用压缩托管程序集、外置 native 的自带运行时包，运行文件集中在 `app/`，许可证及必须附带的源码集中在 `licenses/`；候选便携包入口为 `app/ModernImageViewer.App.exe`。公开 v0.6.0 资产仍使用原布局，不会被覆盖。体积与迁移验证见[打包记录](docs/compact-packaging.md)。
 
 从 Windows 开发环境打包（PowerShell 7）：
 
 ```powershell
 # 源码构建需 MSVC x64 Build Tools；发布包运行不需要它
 pwsh .\scripts\build-raw-native.ps1
-pwsh .\scripts\build-installer.ps1
+pwsh .\scripts\build-installer.ps1 -PublishDirectory .\artifacts\publish\compact-win-x64
 # 已完成 win-x64 self-contained publish 时复用发布输出
-pwsh .\scripts\build-installer.ps1 -SkipPublish
+pwsh .\scripts\build-installer.ps1 -SkipPublish -PublishDirectory .\artifacts\publish\compact-win-x64
 ```
 
 脚本使用固定版本、校验SHA-256的Inno Setup编译器。发布输入位于`artifacts/publish/win-x64`，安装器输出位于`artifacts/installer/ModernImageViewer-<Version>-win-x64-Setup.exe`（当前源码版本0.6.0）。安装、修复、升级与卸载说明见[Windows文件关联方案](docs/windows-file-association.md)。

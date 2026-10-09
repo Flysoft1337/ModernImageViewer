@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Reflection;
 using System.Runtime.InteropServices;
@@ -302,6 +303,7 @@ public sealed class WindowsFileAssociationService : IFileAssociationService
         && !path.Contains('\r', StringComparison.Ordinal)
         && !path.Contains('\n', StringComparison.Ordinal);
 
+    [UnconditionalSuppressMessage("SingleFile", "IL3000", Justification = "An empty entry assembly location identifies the embedded runtime configuration of a single-file publish.")]
     private static bool IsPublishedExecutable()
     {
         string? processPath = Environment.ProcessPath;

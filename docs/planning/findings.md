@@ -1,5 +1,12 @@
 # 发现记录
 
+## 2026-10-09：安装体积与目录
+
+- 默认安装实测239,721,641字节、476文件，根目录289文件，与用户反馈吻合。PDB只存在构建输出，安装器/ZIP已排除。
+- Microsoft.Windows.SDK.NET.dll约24.9MB，代码只有WPF/Win32；Skia WPF带入OpenTK，但不能直接删掉其声明依赖。其它语言卫星资源约8.8MB，实际UI只有中英文。
+- 试包使用.NET受支持的托管单文件压缩，native外置，禁止native/content自解压及WPF trimming；最终体积/启动影响以完成包及Windows CI为准。
+- PR #39两轮完整CI已成功，合并为1e64972；本轮使用fix/compact-packaging。
+
 ## 2026-10-09：大PNG重复细化根因
 
 - 只读PNG头确认反馈样本4944×6456、16位RGB、非交错；压缩文件约80MiB不代表显示内存，BGRA需127,673,856字节，约121.8MiB。

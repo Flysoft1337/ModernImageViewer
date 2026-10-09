@@ -4,7 +4,7 @@ param(
     [string]$BaselineInstallerPath,
     [string]$FixtureDirectory,
     [string]$LogDirectory = (Join-Path $PSScriptRoot "../artifacts/installer-smoke"),
-    [ValidateSet('0.4.0', '0.5.0')][string]$BaselineVersion = '0.5.0'
+    [ValidateSet('0.4.0', '0.5.0', '0.6.0')][string]$BaselineVersion = '0.5.0'
 )
 
 $ErrorActionPreference = "Stop"
@@ -185,10 +185,12 @@ function Read-UninstallIdentity {
 }
 
 function Read-InstalledVersion([string]$Stage) {
+    $nestedExecutable = Join-Path $directory 'app/ModernImageViewer.App.exe'
+    $script:executable = if ([IO.File]::Exists($nestedExecutable)) { $nestedExecutable } else { Join-Path $directory 'ModernImageViewer.App.exe' }
     $identity = Read-UninstallIdentity
     $displayVersion = [string](Read-RegistryValue "Software\Microsoft\Windows\CurrentVersion\Uninstall\$identity" 'DisplayVersion')
-    $assemblyPath = Join-Path $directory 'ModernImageViewer.App.dll'
-    if (-not [IO.File]::Exists($assemblyPath)) { throw 'The installed application assembly is missing.' }
+    $assemblyPath = $executable
+    if (-not [IO.File]::Exists($assemblyPath)) { throw 'The installed application executable is missing.' }
     $versionInfo = [Diagnostics.FileVersionInfo]::GetVersionInfo($assemblyPath)
     $fileVersion = [version]::new($versionInfo.FileMajorPart, $versionInfo.FileMinorPart, $versionInfo.FileBuildPart)
     $registeredVersion = [version]$displayVersion
@@ -200,6 +202,9 @@ function Read-InstalledVersion([string]$Stage) {
         DisplayVersion = $displayVersion
         AssemblySha256 = (Get-FileHash -LiteralPath $assemblyPath -Algorithm SHA256).Hash
         UninstallIdentity = $identity
+        InstalledBytes = (Get-ChildItem -LiteralPath $directory -Recurse -File | Measure-Object -Property Length -Sum).Sum
+        InstalledFiles = @(Get-ChildItem -LiteralPath $directory -Recurse -File).Count
+        RootFiles = @(Get-ChildItem -LiteralPath $directory -File).Count
     })
     return $fileVersion
 }
@@ -213,7 +218,7 @@ function Assert-InstalledPayload([version]$Version) {
             throw 'A required installed native dependency is missing or ambiguous.'
         }
     }
-    $marker = Get-Content (Join-Path $directory 'ModernImageViewer.install.json') -Raw | ConvertFrom-Json
+    $marker = Get-Content (Join-Path ([IO.Path]::GetDirectoryName($executable)) 'ModernImageViewer.install.json') -Raw | ConvertFrom-Json
     Assert-Equal $marker.distribution 'installer' 'The installed distribution marker is incorrect.'
 }
 
@@ -275,10 +280,15 @@ try {
 
     $preferences = Join-Path $directory "custom-user-preferences.json"
     [IO.File]::WriteAllText($preferences, '{"keep":"user data"}')
+    $customLibrary = Join-Path $directory 'custom-user-library.dll'
+    [IO.File]::WriteAllText($customLibrary, 'user file, not a runtime library')
+    $customSatellite = Join-Path $directory 'ru/custom-user-file.txt'
+    [IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($customSatellite)) | Out-Null
+    [IO.File]::WriteAllText($customSatellite, 'keep user content in a legacy directory')
     if ($baselineInstaller) {
         Invoke-Setup $installer ($common + @("/LOG=$(Join-Path $logs "upgrade-$BaselineVersion-to-0.6.0.log")"))
         $upgradedVersion = Read-InstalledVersion 'CrossVersionUpgrade'
-        if ($upgradedVersion -ne [version]'0.6.0' -or $upgradedVersion -le $initialVersion) {
+        if ($upgradedVersion -ne [version]'0.6.0' -or $upgradedVersion -lt $initialVersion) {
             throw "The actual cross-version upgrade must replace $BaselineVersion with 0.6.0."
         }
         Assert-InstalledPayload $upgradedVersion
@@ -287,9 +297,17 @@ try {
         if ($lifecycle[0].AssemblySha256 -eq $lifecycle[1].AssemblySha256) { throw 'Upgrade did not replace the application assembly.' }
         Assert-Equal (Read-UninstallIdentity) $uninstallIdentity 'Upgrade created a different uninstall identity.'
         Assert-Equal ([IO.File]::ReadAllText($preferences)) '{"keep":"user data"}' 'Upgrade modified a custom user file.'
+        foreach ($legacy in @('ModernImageViewer.App.exe', 'ModernImageViewer.App.dll', 'Microsoft.Windows.SDK.NET.dll', 'System.Private.CoreLib.dll', 'ModernImageViewer.install.json', 'ru/PresentationFramework.resources.dll')) {
+            if ([IO.File]::Exists((Join-Path $directory $legacy))) { throw 'Upgrade left a known flat-layout runtime file behind.' }
+        }
         & (Join-Path $PSScriptRoot 'check-file-activation.ps1') -AppPath $executable -FixtureDirectory $FixtureDirectory
     }
     else { $upgradedVersion = $initialVersion }
+    if ([IO.Path]::GetDirectoryName($executable) -cne (Join-Path $directory 'app')) { throw 'The current package must keep its runtime in app/.' }
+    if (@(Get-ChildItem -LiteralPath ([IO.Path]::GetDirectoryName($executable)) -File).Count -gt 20) { throw 'The compact app directory contains unexpected loose runtime files.' }
+    if ([IO.Directory]::Exists((Join-Path $directory 'app/licenses'))) { throw 'Notices must be kept in licenses/, outside the runtime directory.' }
+    Assert-Equal ([IO.File]::ReadAllText($customLibrary)) 'user file, not a runtime library' 'Upgrade removed a custom library.'
+    Assert-Equal ([IO.File]::ReadAllText($customSatellite)) 'keep user content in a legacy directory' 'Upgrade removed content from a legacy satellite directory.'
     # Registry migration remains a separate same-version reinstall check.
     $capabilities = $currentUser.OpenSubKey("$applicationKey\Capabilities", $true)
     try { $capabilities.SetValue("ApplicationDescription", "Browse JPEG and PNG images with Modern Image Viewer.") }
@@ -321,8 +339,10 @@ try {
     Invoke-Setup $uninstaller @("/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/LOG=$(Join-Path $logs 'uninstall.log')")
     $uninstallCompleted = $true
     if ([IO.File]::Exists($executable)) { throw "Uninstall left the application executable behind." }
-    if ([IO.File]::Exists((Join-Path $directory "ModernImageViewer.install.json"))) { throw "Uninstall left the installed distribution marker behind." }
+    if ([IO.File]::Exists((Join-Path $directory 'app/ModernImageViewer.install.json'))) { throw "Uninstall left the installed distribution marker behind." }
     Assert-Equal ([IO.File]::ReadAllText($preferences)) '{"keep":"user data"}' "Uninstall removed a custom user file."
+    Assert-Equal ([IO.File]::ReadAllText($customLibrary)) 'user file, not a runtime library' 'Uninstall removed a custom library.'
+    Assert-Equal ([IO.File]::ReadAllText($customSatellite)) 'keep user content in a legacy directory' 'Uninstall removed a custom satellite file.'
     foreach ($path in @($applicationKey, $progIdKey, "Software\Microsoft\Windows\CurrentVersion\Uninstall\$uninstallIdentity")) {
         Assert-Equal (Read-RegistrySnapshot $path) "<missing>" "Uninstall left an owned application registry key behind."
     }

@@ -20,4 +20,17 @@
     <UseWPF>true</UseWPF>
   </PropertyGroup>
 
+  <PropertyGroup Condition="'$(RuntimeIdentifier)' == 'win-x64' and '$(SelfContained)' == 'true'">
+    <PublishSingleFile>true</PublishSingleFile>
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+    <IncludeNativeLibrariesForSelfExtract>false</IncludeNativeLibrariesForSelfExtract>
+    <IncludeAllContentForSelfExtract>false</IncludeAllContentForSelfExtract>
+    <PublishTrimmed>false</PublishTrimmed>
+  </PropertyGroup>
+
+  <Target Name="KeepPublishedRuntimeConfiguration" AfterTargets="Publish" Condition="'$(PublishSingleFile)' == 'true'">
+    <!-- Keep a small sidecar for the packaging and observation tools. -->
+    <Copy SourceFiles="$(ProjectRuntimeConfigFilePath)" DestinationFolder="$(PublishDir)" />
+  </Target>
+
 </Project>

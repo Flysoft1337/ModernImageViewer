@@ -20,10 +20,15 @@ $version = [string]$properties.Project.PropertyGroup.Version
 if ($version -notmatch '^\d+\.\d+\.\d+(\.\d+)?$') { throw "Directory.Build.props must define a numeric installer Version." }
 
 if (-not $SkipPublish) {
+    if (Test-Path $PublishDirectory) {
+        if (@(Get-ChildItem -LiteralPath $PublishDirectory -Force).Count -ne 0) {
+            throw 'Choose an empty PublishDirectory to avoid carrying files from an older publish into the package.'
+        }
+    }
     & (Join-Path $PSScriptRoot "build-raw-native.ps1")
     & dotnet publish (Join-Path $repository "src/ModernImageViewer.App/ModernImageViewer.App.csproj") `
         --configuration Release --runtime win-x64 --self-contained true --output $PublishDirectory `
-        -p:PublishSingleFile=false -p:PublishTrimmed=false
+        -p:PublishTrimmed=false
     if ($LASTEXITCODE -ne 0) { throw "Windows x64 publish failed: $LASTEXITCODE" }
 }
 
@@ -31,6 +36,9 @@ $appPath = Join-Path $PublishDirectory "ModernImageViewer.App.exe"
 $runtimePath = Join-Path $PublishDirectory "ModernImageViewer.App.runtimeconfig.json"
 if (-not (Test-Path $appPath -PathType Leaf) -or -not (Test-Path $runtimePath -PathType Leaf)) {
     throw "A complete win-x64 publish is required in $PublishDirectory."
+}
+if (Test-Path (Join-Path $PublishDirectory 'ModernImageViewer.App.dll')) {
+    throw 'The package requires the compressed single-file publish; use a fresh publish directory.'
 }
 $runtime = Get-Content $runtimePath -Raw | ConvertFrom-Json
 if (-not $runtime.runtimeOptions.includedFrameworks -or $runtime.runtimeOptions.framework -or $runtime.runtimeOptions.frameworks) {
@@ -56,6 +64,24 @@ $assetsPath = Join-Path $repository "src/ModernImageViewer.App/obj/project.asset
 if (-not (Test-Path $assetsPath -PathType Leaf)) { throw "Resolved project.assets.json is required to include dependency licenses." }
 $assets = Get-Content $assetsPath -Raw | ConvertFrom-Json
 $packageRoots = @($assets.packageFolders.PSObject.Properties.Name)
+foreach ($framework in $runtime.runtimeOptions.includedFrameworks) {
+    $packId = switch ($framework.name) {
+        'Microsoft.NETCore.App' { 'microsoft.netcore.app.runtime.win-x64' }
+        'Microsoft.WindowsDesktop.App' { 'microsoft.windowsdesktop.app.runtime.win-x64' }
+        default { throw 'Unexpected bundled runtime framework.' }
+    }
+    $pack = @($packageRoots | ForEach-Object { Join-Path $_ "$packId/$($framework.version)" } |
+        Where-Object { Test-Path $_ -PathType Container }) | Select-Object -First 1
+    if (-not $pack) { throw 'The exact bundled runtime pack is required to distribute its license.' }
+    $runtimeNotices = @(Get-ChildItem -LiteralPath $pack -File | Where-Object { $_.Name -match '^(LICENSE(\.TXT)?|THIRD-PARTY-NOTICES\.TXT)$' })
+    if (-not ($runtimeNotices.Name -match '^LICENSE')) { throw 'Bundled runtime license is missing.' }
+    if ($framework.name -eq 'Microsoft.NETCore.App' -and -not ($runtimeNotices.Name -match '^THIRD-PARTY-NOTICES')) {
+        throw 'Bundled .NET runtime third-party notices are missing.'
+    }
+    $destination = Join-Path $PublishDirectory "licenses/$packId-$($framework.version)"
+    [IO.Directory]::CreateDirectory($destination) | Out-Null
+    $runtimeNotices | Copy-Item -Destination $destination -Force
+}
 if ($assets.libraries.PSObject.Properties.Name -like 'Svg.Custom/*') {
     $sourceNotices = Join-Path $repository 'third_party/licenses'
     $destinationNotices = Join-Path $PublishDirectory 'licenses/svg-source-notices'
@@ -167,7 +193,7 @@ $nativeInventory = @(Get-ChildItem -LiteralPath $PublishDirectory -Recurse -File
     $_.Name -match '^(libSkiaSharp|libHarfBuzzSharp|Magick\.Native|ModernImageViewer\.RawBridge).*\.dll$'
 } | ForEach-Object {
     [pscustomobject]@{
-        File = [IO.Path]::GetRelativePath($PublishDirectory, $_.FullName).Replace('\', '/')
+        File = 'app/' + [IO.Path]::GetRelativePath($PublishDirectory, $_.FullName).Replace('\', '/')
         Bytes = $_.Length
         Sha256 = (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash
     }
@@ -176,6 +202,7 @@ $nativeInventory = @(Get-ChildItem -LiteralPath $PublishDirectory -Recurse -File
     SchemaVersion = 1
     Scope = 'Resolved NuGet declarations, fixed native source manifests and actual published image native files; not a certification or complete OS/.NET SBOM'
     Packages = $packageInventory
+    RuntimeFrameworks = @($runtime.runtimeOptions.includedFrameworks)
     NativeFiles = $nativeInventory
     NativeSources = @($rawManifest)
 } | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $PublishDirectory 'dependencies.json') -Encoding utf8
@@ -255,6 +282,9 @@ try {
         # Match the installer: debugger symbols are unnecessary for running the portable application.
         if ([IO.Path]::GetExtension($file) -ieq ".pdb") { continue }
         $relativePath = [IO.Path]::GetRelativePath($PublishDirectory, $file).Replace('\', '/')
+        if ($relativePath -notlike 'licenses/*' -and $relativePath -notin @('LICENSE.txt', 'dependencies.json')) {
+            $relativePath = 'app/' + $relativePath
+        }
         [IO.Compression.ZipFileExtensions]::CreateEntryFromFile($archive, $file, $relativePath,
             [IO.Compression.CompressionLevel]::Optimal) | Out-Null
     }
