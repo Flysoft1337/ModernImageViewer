@@ -59,7 +59,7 @@ Name: "fileassoc"; Description: "{cm:Associations}"
 Name: "desktopicon"; Description: "{cm:DesktopShortcut}"; Flags: unchecked
 
 [Files]
-Source: "{#PublishDirectory}\*"; DestDir: "{app}\app"; Flags: ignoreversion recursesubdirs createallsubdirs; Excludes: "*.pdb,licenses\*,LICENSE.txt,dependencies.json"
+Source: "{#PublishDirectory}\*"; DestDir: "{app}\app"; Flags: ignoreversion recursesubdirs; Excludes: "*.pdb,licenses,licenses\*,LICENSE.txt,dependencies.json"
 Source: "{#PublishDirectory}\licenses\*"; DestDir: "{app}\licenses"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "{#PublishDirectory}\LICENSE.txt"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#PublishDirectory}\dependencies.json"; DestDir: "{app}"; Flags: ignoreversion

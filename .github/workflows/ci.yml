@@ -313,7 +313,6 @@ jobs:
           $directory = Join-Path $env:GITHUB_WORKSPACE 'artifacts/baseline-0.6-public'
           [IO.Directory]::CreateDirectory($directory) | Out-Null
           foreach ($asset in @(
-            @{ Name = 'ModernImageViewer-0.6.0-win-x64-Portable.zip'; Bytes = 98108294; Sha256 = '619d4d193915b57b235a3185170b6cdf7fedff413babbd822782f00f6622728e' },
             @{ Name = 'ModernImageViewer-0.6.0-win-x64-Setup.exe'; Bytes = 69969305; Sha256 = 'e5d871b50703ddebe0ea5dcb248244088ef455e1734893810703acc31582d6cf' }
           )) {
             $path = Join-Path $directory $asset.Name
@@ -325,9 +324,10 @@ jobs:
           $installers = @(Get-ChildItem .\artifacts\installer\*-Setup.exe)
           if ($installers.Count -ne 1) { throw 'Expected exactly one installer.' }
           .\scripts\check-installer.ps1 -InstallerPath $installers[0].FullName -BaselineInstallerPath (Join-Path $directory 'ModernImageViewer-0.6.0-win-x64-Setup.exe') -BaselineVersion 0.6.0 -FixtureDirectory .\artifacts\format-fixtures -LogDirectory .\artifacts\installer-smoke-0.6
-          $extracted = Join-Path $directory 'portable'
-          [IO.Compression.ZipFile]::ExtractToDirectory((Join-Path $directory 'ModernImageViewer-0.6.0-win-x64-Portable.zip'), $extracted)
-          .\scripts\measure-static-comparison.ps1 -BaselineAppPath (Join-Path $extracted 'ModernImageViewer.App.exe') -CandidateAppPath .\artifacts\publish\win-x64\ModernImageViewer.App.exe -Pairs 3 -WarmupPairs 1 -OutputDirectory .\artifacts\packaging\static-comparison
+          # Same source, runtime, language resources and native dependencies isolate bundling/compression.
+          dotnet publish .\src\ModernImageViewer.App\ModernImageViewer.App.csproj --configuration Release --runtime win-x64 --self-contained true --no-restore --output .\artifacts\packaging-flat-comparison -p:PublishSingleFile=false -p:EnableCompressionInSingleFile=false
+          if ($LASTEXITCODE -ne 0) { throw 'Flat comparison publish failed.' }
+          .\scripts\measure-static-comparison.ps1 -BaselineAppPath .\artifacts\packaging-flat-comparison\ModernImageViewer.App.exe -CandidateAppPath .\artifacts\publish\win-x64\ModernImageViewer.App.exe -Pairs 3 -WarmupPairs 1 -OutputDirectory .\artifacts\packaging\static-comparison
 
       - name: Upload compact packaging verification
         if: always()
