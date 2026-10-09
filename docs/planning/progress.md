@@ -1,5 +1,17 @@
 # 进度日志
 
+## 2026-10-09：0.6.0菜单最终修复
+
+- 最新master eba2818已fetch并快进，本轮分支codex/0.6-menu-closeout，工作区起点干净。版本0.6.0，禁止发版/建标签。
+- 根ContextMenu只设颜色、未覆盖系统模板；MenuItem模板无Icon Presenter；F6/F11标题资源和InputGestureText重复。资源复用与子菜单/DPI布局继续核对。
+- 沿用planning-with-files-zh与computer-use，计划两个不重叠代理处理本地化/升级CI，主任务负责主题模板/布局/必要回归。真实桌面与合成截图分别记录。
+- 主题根/子菜单、Icon与勾选共存、主题分隔线/禁用色、工作区DPI边界与滚动、菜单快捷键转发、标题栏焦点和空状态词换行修复；未改解码/缓存/编辑能力。新增两项本地化案例，其余真实WPF回归复用原fixture。
+- 本地最终format verify、Release0警告0错误、核心188+UI/codec413=601通过/1RAW样本跳过、在线传递依赖审计、100MP以及9项发布边界/24项观察脚本断言通过。18张本轮菜单RenderTarget截图保留为渲染证据，物理桌面捕获两次超时，完整人工鼠标/Shell/混合DPI仍待办。
+- 公开v0.4实包SHA256/大小/版本核验后接入一次性Windows CI升级，保留0.5静态对照。用户安装版正在运行，本机不执行会打到其单实例的应用观察和安装流程；最终启动/激活/浏览/动画/升级以PR完整CI为准，不触发Release。
+- 首轮CI 37883267974格式/构建通过，菜单回归在矮工作区发现首次打开实际551DIP超过540DIP限高；后续观察/安装未运行，不记通过。限高初始化移到窗口Loaded/ContextMenuOpening，覆盖直接与Shift+F10打开，修复后重跑原CI。
+- 第二轮37883823605仍同一高度失败。补绑定值断言后本机直接复现PathError与MaxHeight=Infinity，确认共享BAML style中附加属性路径解析失败；改用强类型PropertyPath及子模板TemplateBinding，并在根Border显式约束。增加绑定有效值、根/子继承和受限菜单动态主题回归，不以放宽高度断言处理。
+- 修复后最终候选提交0b4880a的 [Windows CI 37884719519](https://github.com/Flysoft1337/ModernImageViewer/actions/runs/37884719519)全绿：format/Release/601通过1跳过、审计、100MP、启动/激活/普通浏览/动画多页、0.5对照及公开0.4→0.6安装升级/重装/卸载通过；发布job按要求跳过。真实桌面视觉/鼠标、Shell双击、混合DPI仍未完成。
+
 ## 2026-10-09：0.6.0公开测试准备
 
 - 从master 5c024fb创建codex/0.6-prerelease；基线完整Windows CI为599通过/1RAW样本跳过，升级/重装/卸载成功，无既有v0.6.0标签或Release。

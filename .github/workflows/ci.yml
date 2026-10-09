@@ -192,14 +192,14 @@ jobs:
         shell: pwsh
         run: .\scripts\build-installer.ps1 -SkipPublish
 
-      - name: Check out fixed 0.5 baseline for real upgrade verification
+      - name: Check out fixed 0.5 baseline for static comparison
         uses: actions/checkout@v7
         with:
           ref: 9cdcde9cffc4be3a242f30da2828dfb8c7ab910f
           path: .baseline-0.5
           persist-credentials: false
 
-      - name: Build actual 0.5 baseline installer
+      - name: Build fixed 0.5 comparison package
         shell: pwsh
         run: |
           $repository = $env:GITHUB_WORKSPACE
@@ -208,7 +208,7 @@ jobs:
           [xml]$targetProperties = Get-Content (Join-Path $repository 'Directory.Build.props') -Raw
           if ([string]$baselineProperties.Project.PropertyGroup.Version -ne '0.5.0' -or
               [string]$targetProperties.Project.PropertyGroup.Version -ne '0.6.0') {
-            throw 'Real upgrade verification requires the unchanged 0.5.0 baseline and a 0.6.0 target.'
+            throw 'Static comparison requires the unchanged 0.5.0 baseline and a 0.6.0 target.'
           }
           # Each checkout resolves native content relative to its own artifacts directory.
           # The baseline script revalidates archive, source, compiler and bridge hashes.
@@ -240,14 +240,47 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
-      - name: Check actual 0.5 to 0.6 upgrade, reinstall and uninstall
+      - name: Download and verify public v0.4.0 upgrade baseline
+        shell: pwsh
+        run: |
+          $name = 'ModernImageViewer-0.4.0-win-x64-Setup.exe'
+          $source = 'https://github.com/Flysoft1337/ModernImageViewer/releases/download/v0.4.0'
+          $expectedSha256 = 'bc645e8cd2a4ebadeb10b4a8a3698be6045f2643f7311a9bbf673476d9ae55b6'
+          $directory = Join-Path $env:GITHUB_WORKSPACE 'artifacts/baseline-0.4'
+          [IO.Directory]::CreateDirectory($directory) | Out-Null
+          $installer = Join-Path $directory $name
+          $checksumPath = "$installer.sha256"
+          Invoke-WebRequest -Uri "$source/$name.sha256" -OutFile $checksumPath -TimeoutSec 180
+          $checksum = [regex]::Match((Get-Content -LiteralPath $checksumPath -Raw), '\A([0-9a-f]{64})  ([^\r\n]+)\r?\n?\z')
+          if (-not $checksum.Success -or $checksum.Groups[1].Value -cne $expectedSha256 -or $checksum.Groups[2].Value -cne $name) {
+            throw 'The public v0.4.0 checksum must match the pinned SHA256 and exact installer filename.'
+          }
+          Invoke-WebRequest -Uri "$source/$name" -OutFile $installer -TimeoutSec 180
+          $sha256 = (Get-FileHash -LiteralPath $installer -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ((Get-Item -LiteralPath $installer).Length -ne 56037592 -or $sha256 -cne $expectedSha256) {
+            throw 'The public v0.4.0 installer size or SHA256 does not match the pinned release asset.'
+          }
+          $versionInfo = [Diagnostics.FileVersionInfo]::GetVersionInfo($installer)
+          # Inno Setup stores AppVersion in the padded ProductVersion resource.
+          if ($versionInfo.ProductVersion.Trim() -cne '0.4.0' -or $versionInfo.ProductName.Trim() -cne 'Modern Image Viewer') {
+            throw 'The public baseline installer must identify Modern Image Viewer version 0.4.0.'
+          }
+          $logs = Join-Path $env:GITHUB_WORKSPACE 'artifacts/installer-smoke'
+          [IO.Directory]::CreateDirectory($logs) | Out-Null
+          [pscustomobject]@{
+            Source = "$source/$name"
+            ChecksumSource = "$source/$name.sha256"
+            Sha256 = $sha256
+            Bytes = (Get-Item -LiteralPath $installer).Length
+            InstallerProductVersion = $versionInfo.ProductVersion.Trim()
+          } | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $logs 'baseline-package.json') -Encoding utf8
+
+      - name: Check public 0.4 to 0.6 upgrade, reinstall and uninstall
         shell: pwsh
         run: |
           $installers = @(Get-ChildItem .\artifacts\installer\*-Setup.exe)
           if ($installers.Count -ne 1) { throw 'Expected exactly one installer.' }
-          $baselineInstallers = @(Get-ChildItem .\artifacts\baseline-0.5\installer\*-Setup.exe)
-          if ($baselineInstallers.Count -ne 1) { throw 'Expected exactly one unchanged 0.5 installer.' }
-          .\scripts\check-installer.ps1 -InstallerPath $installers[0].FullName -BaselineInstallerPath $baselineInstallers[0].FullName -FixtureDirectory .\artifacts\format-fixtures
+          .\scripts\check-installer.ps1 -InstallerPath $installers[0].FullName -BaselineInstallerPath .\artifacts\baseline-0.4\ModernImageViewer-0.4.0-win-x64-Setup.exe -BaselineVersion 0.4.0 -FixtureDirectory .\artifacts\format-fixtures
 
       - name: Upload win-x64 installer
         if: always() && steps.installer_build.outcome == 'success'

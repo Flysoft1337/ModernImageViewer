@@ -1,5 +1,7 @@
 # 0.6.0 Release 收口验收
 
+最新菜单 UI 修复与发布前验收见 [本轮记录](ui-release-acceptance-0.6.0.md)；下文保留此前性能和功能验证，不代替本轮最终提交 CI 或人工交互验收。
+
 基线为已合并 `master 1f31355`，0.5 对照固定为 `9cdcde9`。本轮仅静态性能复测、WebP ANIM 背景兼容、实际 Windows 动画/DPI/安装验收及发布资料收敛；版本保持 0.6.0，不发布 GitHub Release。历史动画验证见 [上一轮记录](animation-multipage-validation.md)。
 
 ## 同机交替静态观察

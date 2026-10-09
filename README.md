@@ -10,6 +10,8 @@
 
 ### 开发能力矩阵
 
+当前源码正进行 [0.6.0 菜单修复与发布前验收](docs/ui-release-acceptance-0.6.0.md)：统一主题根/子菜单、修复旋转图标和重复快捷键，保持版本 0.6.0。已有公开测试包不因源码修改而更新；真实桌面与 Shell 人工验收缺口仍保留。
+
 以下是当前代码能力，均受格式和预算限制；完整逐格式矩阵见[格式支持](docs/decoder-support.md#当前能力矩阵)。ICC 指嵌入 profile 的处理，不代表显示器色彩管理；EXIF 方向与摄影信息展示分开记录。
 
 | 格式/路径 | Static 静态 | Animation 动画 | Pages 多页 | Transparency 透明 | ICC | EXIF | Region 区域 | Edit 编辑 |

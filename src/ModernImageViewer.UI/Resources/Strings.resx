@@ -31,6 +31,7 @@
   <data name="Welcome_Title" xml:space="preserve"><value>Every image deserves a closer look</value></data>
   <data name="Welcome_Hint" xml:space="preserve"><value>Drop an image here, or open one to explore its folder.</value></data>
   <data name="Command_FullScreen" xml:space="preserve"><value>Full screen · F11</value></data>
+  <data name="Menu_FullScreen" xml:space="preserve"><value>Full screen</value></data>
   <data name="Command_Information" xml:space="preserve"><value>File information</value></data>
   <data name="Command_Filmstrip" xml:space="preserve"><value>Thumbnail strip</value></data>
   <data name="Command_CopyPath" xml:space="preserve"><value>Copy file path</value></data>
@@ -55,6 +56,8 @@
   <data name="Command_OpenFolder" xml:space="preserve"><value>Open folder</value></data>
   <data name="Command_Slideshow" xml:space="preserve"><value>Start slideshow · F6</value></data>
   <data name="Command_PauseSlideshow" xml:space="preserve"><value>Pause slideshow · F6</value></data>
+  <data name="Menu_Slideshow" xml:space="preserve"><value>Start slideshow</value></data>
+  <data name="Menu_PauseSlideshow" xml:space="preserve"><value>Pause slideshow</value></data>
   <data name="Slideshow_Speed" xml:space="preserve"><value>Slideshow interval</value></data>
   <data name="Slideshow_2Seconds" xml:space="preserve"><value>2 seconds</value></data>
   <data name="Slideshow_5Seconds" xml:space="preserve"><value>5 seconds</value></data>

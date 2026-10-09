@@ -44,10 +44,10 @@
           <Button Style="{StaticResource ToolbarButtonStyle}" Command="{Binding OpenCommand}" ToolTip="Ctrl+O">
             <StackPanel Orientation="Horizontal"><Path Style="{StaticResource IconStyle}" Data="{StaticResource Icon.Open}" /><TextBlock Text="{Binding OpenLabel}" Margin="8,0,0,0" VerticalAlignment="Center" /></StackPanel>
           </Button>
-          <Button x:Name="SettingsButton" Style="{StaticResource ToolbarButtonStyle}" Click="OnSettingsClick" ToolTip="{Binding SettingsLabel}" AutomationProperties.Name="{Binding SettingsLabel}">
+          <Button x:Name="SettingsButton" Style="{StaticResource ToolbarButtonStyle}" Click="OnSettingsClick" ContextMenuOpening="OnSettingsMenuOpening" ToolTip="{Binding SettingsLabel}" AutomationProperties.Name="{Binding SettingsLabel}">
             <Path Style="{StaticResource IconStyle}" Data="{StaticResource Icon.More}" />
             <Button.ContextMenu>
-              <ContextMenu DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}" Opened="OnSettingsOpened">
+              <ContextMenu DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}" Opened="OnSettingsOpened" PreviewKeyDown="OnMenuPreviewKeyDown">
                 <MenuItem Header="{Binding OpenFolderLabel}" InputGestureText="Ctrl+Shift+O" Click="OnOpenFolderClick" />
                 <MenuItem Header="{Binding PasteFilesLabel}" InputGestureText="Ctrl+V" Command="{Binding PasteFilesCommand}" />
                 <MenuItem Header="{Binding FileAssociationLabel}" Click="OnFileAssociationsClick" />
@@ -79,8 +79,8 @@
                 </MenuItem>
                 <MenuItem Header="{Binding InformationLabel}" InputGestureText="Ctrl+I" IsCheckable="True" IsChecked="{Binding ShowInformation, Mode=OneWay}" Click="OnInformationClick" />
                 <MenuItem Header="{Binding FilmstripLabel}" InputGestureText="Ctrl+T" IsCheckable="True" IsChecked="{Binding ShowFilmstrip, Mode=OneWay}" Click="OnFilmstripClick" />
-                <MenuItem Header="{Binding SlideshowLabel}" InputGestureText="F6" IsCheckable="True" IsChecked="{Binding IsSlideshowPlaying, Mode=OneWay}" IsEnabled="{Binding CanPlaySlideshow}" Click="OnSlideshowClick" />
-                <MenuItem Header="{Binding FullScreenLabel}" InputGestureText="F11" IsCheckable="True" IsChecked="{Binding IsFullScreen, Mode=OneWay}" Click="OnFullScreenClick" />
+                <MenuItem Header="{Binding SlideshowMenuLabel}" InputGestureText="F6" IsCheckable="True" IsChecked="{Binding IsSlideshowPlaying, Mode=OneWay}" IsEnabled="{Binding CanPlaySlideshow}" Click="OnSlideshowClick" />
+                <MenuItem Header="{Binding FullScreenMenuLabel}" InputGestureText="F11" IsCheckable="True" IsChecked="{Binding IsFullScreen, Mode=OneWay}" Click="OnFullScreenClick" />
                 <Separator />
                 <MenuItem Header="{Binding AppearanceLabel}">
                   <MenuItem x:Name="DarkThemeItem" Header="{Binding DarkThemeLabel}" Tag="Dark" IsCheckable="True" Click="OnThemeClick" />
@@ -106,7 +106,7 @@
           <Border Style="{StaticResource ToolDividerStyle}" />
           <Button Style="{StaticResource WindowButtonStyle}" Click="OnMinimizeClick" ToolTip="{Binding MinimizeLabel}" AutomationProperties.Name="{Binding MinimizeLabel}"><Path Width="12" Height="1" Stroke="{DynamicResource PrimaryTextBrush}" Data="M0,0 L12,0" /></Button>
           <Button Style="{StaticResource WindowButtonStyle}" Click="OnMaximizeClick" ToolTip="{Binding MaximizeLabel}" AutomationProperties.Name="{Binding MaximizeLabel}"><Path Width="11" Height="11" Stroke="{DynamicResource PrimaryTextBrush}" Data="M0,0 L10,0 10,10 0,10 Z" /></Button>
-          <Button Style="{StaticResource CloseWindowButtonStyle}" Click="OnCloseClick" ToolTip="{Binding CloseLabel}" AutomationProperties.Name="{Binding CloseLabel}"><Path Style="{StaticResource IconStyle}" Width="13" Height="13" Data="{StaticResource Icon.Close}" /></Button>
+          <Button Style="{StaticResource CloseWindowButtonStyle}" Click="OnCloseClick" ToolTip="{Binding CloseLabel}" AutomationProperties.Name="{Binding CloseLabel}"><Path Style="{StaticResource IconStyle}" Width="13" Height="13" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" Data="{StaticResource Icon.Close}" /></Button>
         </StackPanel>
       </Grid>
     </Border>
@@ -126,7 +126,7 @@
           <TextBlock Text="{Binding WelcomeHint}" Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,12,0,28" HorizontalAlignment="Center" />
           <Button Style="{StaticResource PrimaryButtonStyle}" Command="{Binding OpenCommand}" HorizontalAlignment="Center"><StackPanel Orientation="Horizontal"><Path Style="{StaticResource IconStyle}" Stroke="{DynamicResource AccentTextBrush}" Data="{StaticResource Icon.Open}" /><TextBlock Text="{Binding OpenLabel}" Margin="10,0,16,0" VerticalAlignment="Center" /><TextBlock Text="Ctrl + O" Opacity="0.7" FontSize="12" VerticalAlignment="Center" /></StackPanel></Button>
           <Button Style="{StaticResource ToolbarButtonStyle}" Click="OnOpenFolderClick" HorizontalAlignment="Center" Margin="0,12,0,0" Foreground="{DynamicResource AccentBrush}" Content="{Binding OpenFolderLabel}" ToolTip="Ctrl+Shift+O" />
-          <TextBlock Text="{Binding SupportedFormatsOverview}" TextWrapping="Wrap" TextAlignment="Center" MaxWidth="360" Foreground="{DynamicResource SecondaryTextBrush}" Opacity="0.7" Margin="0,18,0,0" FontSize="11" HorizontalAlignment="Center" />
+          <TextBlock Text="{Binding SupportedFormatsOverview}" TextWrapping="WrapWithOverflow" TextAlignment="Center" MaxWidth="360" Foreground="{DynamicResource SecondaryTextBrush}" Opacity="0.7" Margin="0,18,0,0" FontSize="11" HorizontalAlignment="Center" />
         </StackPanel>
         <Border x:Name="PreviewStatusOverlay" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="16" Padding="12,8"
                 CornerRadius="10" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}"

@@ -70,6 +70,8 @@ public sealed class LocalizationServiceTests
         Assert.Equal("zh-CN", settings.Language);
         Assert.Equal("现代图片查看器", viewModel.Title);
         Assert.Equal("打开图片", viewModel.EmptyTitle);
+        Assert.Equal("全屏浏览", viewModel.FullScreenMenuLabel);
+        Assert.Equal("开始幻灯片", viewModel.SlideshowMenuLabel);
         Assert.Contains(string.Empty, changedProperties);
     }
 
@@ -85,6 +87,45 @@ public sealed class LocalizationServiceTests
         Assert.Equal(expected, service.GetString("Language_Label"));
     }
 
+    [Theory]
+    [InlineData("en-US", "Full screen", "Start slideshow", "Pause slideshow")]
+    [InlineData("zh-CN", "全屏浏览", "开始幻灯片", "暂停幻灯片")]
+    public async Task MenuLabelsOmitShortcutsAndFollowSlideshowState(
+        string cultureName, string fullScreen, string startSlideshow, string pauseSlideshow)
+    {
+        using CultureScope scope = new("en-US");
+        LocalizationService service = new(new InMemoryUserSettings(cultureName));
+        service.Initialize();
+        using ImageOpenCoordinator coordinator = new(new NullFilePicker(), new SuccessfulImageDecoder());
+        ImageBrowseSession session = new();
+        using MainWindowViewModel viewModel = new(service, coordinator, session);
+        Assert.True(await coordinator.OpenCandidatesAsync(["first.png", "second.png"], session, selection: true,
+            cancellationToken: TestContext.Current.CancellationToken));
+        List<string?> changedProperties = [];
+        viewModel.PropertyChanged += (_, e) => changedProperties.Add(e.PropertyName);
+
+        Assert.Equal(fullScreen, viewModel.FullScreenMenuLabel);
+        Assert.Equal($"{fullScreen} · F11", viewModel.FullScreenLabel);
+        Assert.Equal(startSlideshow, viewModel.SlideshowMenuLabel);
+        Assert.Equal($"{startSlideshow} · F6", viewModel.SlideshowLabel);
+
+        viewModel.IsSlideshowPlaying = true;
+
+        Assert.True(viewModel.IsSlideshowPlaying);
+        Assert.Equal(pauseSlideshow, viewModel.SlideshowMenuLabel);
+        Assert.Equal($"{pauseSlideshow} · F6", viewModel.SlideshowLabel);
+        Assert.Contains(nameof(MainWindowViewModel.SlideshowMenuLabel), changedProperties);
+        Assert.Contains(nameof(MainWindowViewModel.SlideshowLabel), changedProperties);
+        changedProperties.Clear();
+
+        viewModel.IsSlideshowPlaying = false;
+
+        Assert.Equal(startSlideshow, viewModel.SlideshowMenuLabel);
+        Assert.Equal($"{startSlideshow} · F6", viewModel.SlideshowLabel);
+        Assert.Contains(nameof(MainWindowViewModel.SlideshowMenuLabel), changedProperties);
+        Assert.Contains(nameof(MainWindowViewModel.SlideshowLabel), changedProperties);
+    }
+
     private sealed class NullFilePicker : IImageFilePicker
     {
         public Task<string?> PickImageAsync(CancellationToken cancellationToken) => Task.FromResult<string?>(null);
@@ -94,6 +135,12 @@ public sealed class LocalizationServiceTests
     {
         public Task<PixelBuffer> DecodeAsync(string path, CancellationToken cancellationToken) =>
             Task.FromException<PixelBuffer>(new NotSupportedException());
+    }
+
+    private sealed class SuccessfulImageDecoder : IImageDecoder
+    {
+        public Task<PixelBuffer> DecodeAsync(string path, CancellationToken cancellationToken) =>
+            Task.FromResult(new PixelBuffer(new PixelSize(1, 1), 4, new byte[4]));
     }
 
     private sealed class InMemoryUserSettings(string? language = null) : IUserSettingsService

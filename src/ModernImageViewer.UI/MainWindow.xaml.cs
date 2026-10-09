@@ -49,6 +49,7 @@ public partial class MainWindow : Window
         ThumbnailDecoder = thumbnailDecoder;
         _themes.Initialize();
         InitializeComponent();
+        InitializeMenus();
         DataContext = viewModel;
         Viewport.ScaleChanged += (_, scale) => _viewModel.UpdateScale(scale);
         Viewport.DetailRequested += OnDetailRequested;
@@ -206,43 +207,6 @@ public partial class MainWindow : Window
             await _viewModel.AdvanceSlideshowAsync();
         }
         UpdateSlideshowTimer();
-    }
-
-    private void OnSettingsClick(object sender, RoutedEventArgs e)
-    {
-        if (sender is Button button && SettingsButton.ContextMenu is { } menu)
-        {
-            RevealImmersiveControls();
-            menu.PlacementTarget = button;
-            menu.Placement = ReferenceEquals(button, SettingsButton) ? PlacementMode.Bottom : PlacementMode.Top;
-            menu.IsOpen = true;
-        }
-    }
-
-    private void OnSettingsOpened(object sender, RoutedEventArgs e)
-    {
-        Slideshow2Item.IsChecked = _viewModel.SlideshowSeconds == 2;
-        Slideshow5Item.IsChecked = _viewModel.SlideshowSeconds == 5;
-        Slideshow10Item.IsChecked = _viewModel.SlideshowSeconds == 10;
-        DarkThemeItem.IsChecked = _themes.CurrentTheme == AppTheme.Dark;
-        LightThemeItem.IsChecked = _themes.CurrentTheme == AppTheme.Light;
-        SystemThemeItem.IsChecked = _themes.CurrentTheme == AppTheme.System;
-    }
-
-    private void OnThemeClick(object sender, RoutedEventArgs e)
-    {
-        if (sender is MenuItem { Tag: string name } && Enum.TryParse(name, out AppTheme theme))
-        {
-            _themes.Apply(theme);
-        }
-    }
-
-    private void OnLanguageClick(object sender, RoutedEventArgs e)
-    {
-        if (sender is MenuItem { Tag: string name })
-        {
-            _viewModel.SelectedLanguage = _viewModel.SupportedLanguages.Single(language => language.CultureName == name);
-        }
     }
 
     private async void OnThumbnailClick(object sender, RoutedEventArgs e)
