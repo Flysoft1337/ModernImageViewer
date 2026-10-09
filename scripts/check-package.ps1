@@ -28,6 +28,11 @@ try {
     $runtime = (Read-Entry 'app/ModernImageViewer.App.runtimeconfig.json' | ConvertFrom-Json).runtimeOptions
     if (-not $runtime.includedFrameworks -or $runtime.framework -or $runtime.frameworks) { throw 'Package is not self-contained.' }
     $inventory = Read-Entry 'dependencies.json' | ConvertFrom-Json
+    if ($names -contains 'app/glfw3.dll' -or
+        $names -match '^app/(OpenTK[.]|GLWpfControl[.]|Microsoft[.]Windows[.]SDK[.]NET[.])' -or
+        $inventory.Packages.Package -match '^(OpenTK([./]|$)|GLWpfControl/)') {
+        throw 'The package contains unused OpenGL or Windows SDK projection dependencies.'
+    }
     foreach ($native in $inventory.NativeFiles) {
         $entry = $archive.GetEntry($native.File)
         if ($null -eq $entry -or $entry.Length -ne $native.Bytes) { throw 'Native inventory does not match package layout.' }

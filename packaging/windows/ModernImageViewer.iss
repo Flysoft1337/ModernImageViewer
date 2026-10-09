@@ -30,7 +30,8 @@ WizardSizePercent=115
 ShowLanguageDialog=auto
 OutputDir={#InstallerOutputDirectory}
 OutputBaseFilename=ModernImageViewer-{#AppVersion}-win-x64-Setup
-Compression=lzma2
+Compression=lzma2/max
+LZMADictionarySize=32768
 SolidCompression=yes
 UninstallDisplayIcon={app}\app\ModernImageViewer.App.exe
 CloseApplications=yes
@@ -75,6 +76,9 @@ Name: "{userdesktop}\Modern Image Viewer"; Filename: "{app}\app\ModernImageViewe
 Filename: "{app}\app\ModernImageViewer.App.exe"; Description: "{cm:OpenViewer}"; Flags: nowait postinstall skipifsilent
 
 [Code]
+var
+  RemovePreviousGlfw: Boolean;
+
 const
   AppKey = 'Software\ModernImageViewer\Installed';
   CapabilitiesKey = 'Software\ModernImageViewer\Installed\Capabilities';
@@ -386,10 +390,37 @@ begin
 end;
 
 procedure CurStepChanged(CurStep: TSetupStep);
+var
+  GlfwPath, MarkerPath: String;
 begin
+  GlfwPath := ExpandConstant('{app}\app\glfw3.dll');
+  MarkerPath := ExpandConstant('{app}\app\ModernImageViewer.install.json');
+  if CurStep = ssInstall then begin
+    RemovePreviousGlfw := False;
+    { Only a previous installed app/ payload may own this now-unused native file. }
+    if FileExists(MarkerPath) and FileExists(ExecutablePath()) and FileExists(GlfwPath) then begin
+      try
+        RemovePreviousGlfw := (CompareText(GetSHA256OfFile(MarkerPath),
+          'cd106a0f6eac8020a48f3302c67d7beec60441e316cf0468503975c8906fc058') = 0)
+          and (CompareText(GetSHA256OfFile(GlfwPath),
+          '7d79e8c50ecd369cf135af2fdd08a85a799973102304c732c83668f9168fe9b8') = 0);
+      except
+        Log('Preserved an unverifiable OpenGL runtime file.');
+      end;
+    end;
+  end;
   if CurStep = ssPostInstall then begin
     if WizardIsTaskSelected('fileassoc') or LegacyAssociationsOwned() then RegisterAssociations();
     CleanLegacyPayload();
+    if RemovePreviousGlfw and FileExists(GlfwPath) then begin
+      try
+        if CompareText(GetSHA256OfFile(GlfwPath),
+          '7d79e8c50ecd369cf135af2fdd08a85a799973102304c732c83668f9168fe9b8') = 0 then
+          if not DeleteFile(GlfwPath) then Log('Could not remove the unused OpenGL runtime file.');
+      except
+        Log('Preserved an OpenGL runtime file that could not be verified.');
+      end;
+    end;
   end;
 end;
 

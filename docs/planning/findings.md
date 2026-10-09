@@ -1,5 +1,12 @@
 # 发现记录
 
+## 2026-10-09：可选OpenGL运行库
+
+- 应用仅实例化SkiaSharp.Views.WPF.SKElement；固定上游4783f514的SKElement只使用WriteableBitmap/SKSurface，OpenTK和GLWpfControl仅由未使用的SKGLElement调用。
+- 可选入口OpenTK 4.3.0/OpenTK.GLWpfControl 4.2.3引入10份托管DLL，未压缩5,060,096字节，另有225,792字节GLFW。托管已经压缩进EXE，实际安装收益必须以新包实测为准。
+- Skia、HarfBuzz、Magick、RAW桥接与许可证/源码必须保留；没有依据删除WPF/.NET框架库。版本限定的NuGet pruning先验证CPU控件实际加载，不使用WPF trimming。
+- PR #40最终CI 37930735561：604通过/1跳过；公开0.6升级后125,116,786字节54文件（含smoke保护文件），ZIP82,527,154字节。压缩性能交替观察无有效成对统计，不宣称无性能代价。
+
 ## 2026-10-09：安装体积与目录
 
 - 默认安装实测239,721,641字节、476文件，根目录289文件，与用户反馈吻合。PDB只存在构建输出，安装器/ZIP已排除。

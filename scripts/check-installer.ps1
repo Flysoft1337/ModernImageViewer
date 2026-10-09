@@ -37,6 +37,7 @@ $portableCandidateKeys = [Collections.Generic.List[string]]::new()
 $uninstallCompleted = $false
 $lifecycle = [Collections.Generic.List[object]]::new()
 $verificationSucceeded = $false
+$unusedOpenGlCleanupVerified = $false
 
 function Assert-Equal($Actual, $Expected, [string]$Message) {
     if ($Actual -cne $Expected) { throw $Message }
@@ -278,6 +279,16 @@ try {
     $initialFixtures = if ($baselineInstaller -and $BaselineVersion -eq '0.4.0') { $null } else { $FixtureDirectory }
     & (Join-Path $PSScriptRoot "check-file-activation.ps1") -AppPath $executable -FixtureDirectory $initialFixtures
 
+    $previousGlfwBytes = $null
+    if ($baselineInstaller) {
+        $previousGlfw = Join-Path ([IO.Path]::GetDirectoryName($executable)) 'glfw3.dll'
+        if (-not (Test-Path -LiteralPath $previousGlfw -PathType Leaf) -or
+            (Get-FileHash -LiteralPath $previousGlfw -Algorithm SHA256).Hash -ine '7d79e8c50ecd369cf135af2fdd08a85a799973102304c732c83668f9168fe9b8') {
+            throw 'The verified baseline must supply the fixed previous GLFW runtime for the cleanup check.'
+        }
+        $previousGlfwBytes = [IO.File]::ReadAllBytes($previousGlfw)
+    }
+
     $preferences = Join-Path $directory "custom-user-preferences.json"
     [IO.File]::WriteAllText($preferences, '{"keep":"user data"}')
     $customLibrary = Join-Path $directory 'custom-user-library.dll'
@@ -285,6 +296,9 @@ try {
     $customSatellite = Join-Path $directory 'ru/custom-user-file.txt'
     [IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($customSatellite)) | Out-Null
     [IO.File]::WriteAllText($customSatellite, 'keep user content in a legacy directory')
+    $customGlfw = Join-Path $directory 'app/glfw3.dll'
+    [IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($customGlfw)) | Out-Null
+    [IO.File]::WriteAllText($customGlfw, 'user-modified OpenGL file')
     if ($baselineInstaller) {
         Invoke-Setup $installer ($common + @("/LOG=$(Join-Path $logs "upgrade-$BaselineVersion-to-0.6.0.log")"))
         $upgradedVersion = Read-InstalledVersion 'CrossVersionUpgrade'
@@ -308,6 +322,7 @@ try {
     if ([IO.Directory]::Exists((Join-Path $directory 'app/licenses'))) { throw 'Notices must be kept in licenses/, outside the runtime directory.' }
     Assert-Equal ([IO.File]::ReadAllText($customLibrary)) 'user file, not a runtime library' 'Upgrade removed a custom library.'
     Assert-Equal ([IO.File]::ReadAllText($customSatellite)) 'keep user content in a legacy directory' 'Upgrade removed content from a legacy satellite directory.'
+    Assert-Equal ([IO.File]::ReadAllText($customGlfw)) 'user-modified OpenGL file' 'Upgrade removed a modified OpenGL file.'
     # Registry migration remains a separate same-version reinstall check.
     $capabilities = $currentUser.OpenSubKey("$applicationKey\Capabilities", $true)
     try { $capabilities.SetValue("ApplicationDescription", "Browse JPEG and PNG images with Modern Image Viewer.") }
@@ -323,7 +338,13 @@ try {
     }
     finally { $formats.Dispose() }
     $beforeReinstallHash = $lifecycle[-1].AssemblySha256
+    # Exercise app/ layout cleanup without another installer run or modifying user installations.
+    if ($null -ne $previousGlfwBytes) { [IO.File]::WriteAllBytes($customGlfw, $previousGlfwBytes) }
     Invoke-Setup $installer ($common + @("/LOG=$(Join-Path $logs 'same-version-reinstall.log')"))
+    if ($null -ne $previousGlfwBytes) {
+        if (Test-Path -LiteralPath $customGlfw) { throw 'Reinstall left the known unused GLFW runtime behind.' }
+        $unusedOpenGlCleanupVerified = $true
+    }
     Assert-InstalledPayload $upgradedVersion
     Assert-Registration
     Assert-ProtectedState
@@ -385,6 +406,7 @@ finally {
             CrossVersionUpgradeVerified = $verificationSucceeded -and [bool]$baselineInstaller
             ExpectedBaselineVersion = if ($baselineInstaller) { $BaselineVersion } else { $null }
             PortableCandidatesSeeded = $portableCandidateKeys.Count
+            UnusedOpenGlCleanupVerified = $unusedOpenGlCleanupVerified
             BaselineInstallerSha256 = if ($baselineInstaller) { (Get-FileHash -LiteralPath $baselineInstaller -Algorithm SHA256).Hash } else { $null }
             TargetInstallerSha256 = (Get-FileHash -LiteralPath $installer -Algorithm SHA256).Hash
             Lifecycle = $lifecycle

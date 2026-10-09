@@ -11,4 +11,9 @@
     <IncludeWindowsSDKRefFrameworkReferences>false</IncludeWindowsSDKRefFrameworkReferences>
     <SatelliteResourceLanguages>en;zh-CN;zh-Hans</SatelliteResourceLanguages>
   </PropertyGroup>
+  <ItemGroup>
+    <!-- SKElement uses a CPU surface; these pinned packages serve only the unused SKGLElement. -->
+    <PrunePackageReference Include="OpenTK" Version="4.3.0" />
+    <PrunePackageReference Include="OpenTK.GLWpfControl" Version="4.2.3" />
+  </ItemGroup>
 </Project>
