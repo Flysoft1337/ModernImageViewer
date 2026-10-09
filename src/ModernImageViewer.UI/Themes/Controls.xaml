@@ -43,11 +43,12 @@
     <Setter Property="BorderThickness" Value="1" />
     <Setter Property="UseLayoutRounding" Value="True" />
     <Setter Property="SnapsToDevicePixels" Value="True" />
-    <Setter Property="MaxHeight" Value="{Binding (controls:MenuPopupBounds.MaximumHeight), RelativeSource={RelativeSource Self}}" />
-    <Setter Property="MaxWidth" Value="{Binding (controls:MenuPopupBounds.MaximumWidth), RelativeSource={RelativeSource Self}}" />
+    <Setter Property="MaxHeight" Value="{Binding Path={x:Static controls:MenuPopupBounds.MaximumHeightPath}, RelativeSource={RelativeSource Self}}" />
+    <Setter Property="MaxWidth" Value="{Binding Path={x:Static controls:MenuPopupBounds.MaximumWidthPath}, RelativeSource={RelativeSource Self}}" />
     <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ContextMenu">
       <Border x:Name="MenuSurface" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
-              BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="6" Padding="{TemplateBinding Padding}">
+              BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="6" Padding="{TemplateBinding Padding}"
+              MaxHeight="{TemplateBinding MaxHeight}" MaxWidth="{TemplateBinding MaxWidth}">
         <Grid Grid.IsSharedSizeScope="True">
           <ScrollViewer Style="{StaticResource MenuScrollViewerStyle}">
             <ItemsPresenter KeyboardNavigation.DirectionalNavigation="Cycle" KeyboardNavigation.TabNavigation="Cycle" />
@@ -85,8 +86,8 @@
             </Border>
             <Popup x:Name="PART_Popup" IsOpen="{TemplateBinding IsSubmenuOpen}" Placement="Right" PlacementTarget="{Binding ElementName=MenuBorder}" HorizontalOffset="2" AllowsTransparency="True" Focusable="False" PopupAnimation="None">
               <Border x:Name="SubmenuSurface" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="6" Padding="6"
-                      MaxHeight="{Binding (controls:MenuPopupBounds.MaximumHeight), RelativeSource={RelativeSource TemplatedParent}}"
-                      MaxWidth="{Binding (controls:MenuPopupBounds.MaximumWidth), RelativeSource={RelativeSource TemplatedParent}}">
+                      MaxHeight="{TemplateBinding controls:MenuPopupBounds.MaximumHeight}"
+                      MaxWidth="{TemplateBinding controls:MenuPopupBounds.MaximumWidth}">
                 <Grid Grid.IsSharedSizeScope="True">
                   <ScrollViewer Style="{StaticResource MenuScrollViewerStyle}">
                     <ItemsPresenter KeyboardNavigation.DirectionalNavigation="Cycle" KeyboardNavigation.TabNavigation="Cycle" />

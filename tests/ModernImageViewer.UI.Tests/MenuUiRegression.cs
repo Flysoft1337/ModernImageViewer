@@ -45,7 +45,7 @@ internal static class MenuUiRegression
     public static void VerifyLoadedState(MainWindow window, ThemeService themes, LocalizationService localization)
     {
         VerifyLiveMenu(window, themes, localization, hasImage: true);
-        VerifyCombinedStatesAndScrolling(window);
+        VerifyCombinedStatesAndScrolling(window, themes);
         VerifySimulatedDpiLayouts(window);
         VerifyTitleBarFocus(window);
         VerifyKeyboardRouting(window);
@@ -75,6 +75,8 @@ internal static class MenuUiRegression
                     Assert.Equal(ResourceColor(menu, "SurfaceBrush"), BrushColor(surface.Background));
                     Assert.Equal(ResourceColor(menu, "BorderBrush"), BrushColor(surface.BorderBrush));
                     AssertSurfacePixels(menu, ResourceColor(menu, "SurfaceBrush"));
+                    Assert.Equal(MenuPopupBounds.GetMaximumHeight(menu), menu.MaxHeight);
+                    Assert.Equal(MenuPopupBounds.GetMaximumWidth(menu), menu.MaxWidth);
                     Assert.InRange(menu.ActualHeight, 1, MenuPopupBounds.GetMaximumHeight(menu) + 1);
                     Assert.InRange(menu.ActualWidth, 1, MenuPopupBounds.GetMaximumWidth(menu) + 1);
                     MenuItem orientation = Item(menu, model.ViewOrientationLabel);
@@ -113,6 +115,8 @@ internal static class MenuUiRegression
                         Popup popup = Part<Popup>(orientation, "PART_Popup");
                         Border submenu = Part<Border>(orientation, "SubmenuSurface");
                         Assert.True(popup.IsOpen);
+                        Assert.Equal(menu.MaxHeight, submenu.MaxHeight);
+                        Assert.Equal(menu.MaxWidth, submenu.MaxWidth);
                         Assert.Equal(ResourceColor(menu, "SurfaceBrush"), BrushColor(submenu.Background));
                         Assert.Equal(ResourceColor(menu, "BorderBrush"), BrushColor(submenu.BorderBrush));
                         foreach (MenuItem rotate in orientation.Items.OfType<MenuItem>().Where(item => item.Tag is "Left" or "Right"))
@@ -138,14 +142,22 @@ internal static class MenuUiRegression
         }
     }
 
-    private static void VerifyCombinedStatesAndScrolling(MainWindow window)
+    private static void VerifyCombinedStatesAndScrolling(MainWindow window, ThemeService themes)
     {
         ContextMenu menu = CreateStateMenu(window);
         menu.PlacementTarget = (Button)window.FindName("SettingsButton");
         MenuPopupBounds.SetMaximumHeight(menu, 210);
         menu.IsOpen = true;
+        AppTheme savedTheme = themes.CurrentTheme;
         try
         {
+            foreach (AppTheme theme in new[] { AppTheme.Light, AppTheme.Dark })
+            {
+                themes.Apply(theme);
+                Drain(menu);
+                Assert.Equal(210, menu.MaxHeight);
+                Assert.InRange(menu.ActualHeight, 1, 211);
+            }
             Drain(menu);
             VerifyLeadingLayout(menu);
             MenuItem disabled = (MenuItem)menu.Items[4];
@@ -171,7 +183,7 @@ internal static class MenuUiRegression
             Assert.Equal(1, invocations);
             Assert.False(menu.IsOpen);
         }
-        finally { menu.IsOpen = false; }
+        finally { menu.IsOpen = false; themes.Apply(savedTheme); }
     }
 
     private static void VerifySimulatedDpiLayouts(MainWindow window)

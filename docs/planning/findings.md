@@ -6,6 +6,7 @@
 - Command_FullScreen与幻灯片资源含快捷键，MenuItem又使用InputGestureText；需要菜单专用操作名，保留其它提示的快捷键信息。
 - 现有v0.6.0 Pre-release已经公开，本轮只修源码/验证，不覆盖资产或提升版本号；新的二进制不能通过既有不可覆盖发布规则替换同标签资产。
 - WPF Popup自带屏幕75%高度限制；仅加ScrollViewer而不提前限制其测量高度仍可能裁切。目标显示器工作区物理像素按DPI转DIP用于根和子菜单滚动，不自行重写屏幕边缘定位。
+- 两轮CI的矮工作区断言暴露共享BAML style中附加属性Binding.Path报PathError；Root MaxHeight实际上Infinity。高屏幕的单纯高度检查未发现它；使用依赖属性构造PropertyPath并验证有效值，子菜单用强类型TemplateBinding，才可证明限高生效。
 - 本轮真实截图在重新选择窗口后仍FrameArrived/window capture超时；当前安装版进程是用户窗口，不向其发送观察请求，不在真实profile安装。RenderTarget不能替代桌面人工验收。
 
 ## 2026-10-09：0.6.0公开测试发布边界
