@@ -25,4 +25,7 @@ public readonly record struct PixelRect
     public int Right => checked(X + Width);
     public int Bottom => checked(Y + Height);
     public PixelSize Size => new(Width, Height);
+
+    public bool Contains(PixelRect other) => other.X >= X && other.Y >= Y
+        && other.Right <= Right && other.Bottom <= Bottom;
 }

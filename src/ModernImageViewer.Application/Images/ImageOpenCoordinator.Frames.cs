@@ -89,6 +89,7 @@ public sealed partial class ImageOpenCoordinator
                 Region = null,
                 IsRefining = false,
                 IsRegionLoading = false,
+                PendingRegionBounds = null,
                 RefinementError = ImageOpenError.None
             };
             pixels = null;
@@ -154,8 +155,13 @@ public sealed partial class ImageOpenCoordinator
         {
             return false;
         }
+        if (current.Region?.Bounds.Contains(bounds) != true && _frameCancellation is { IsCancellationRequested: false }
+            && current.PendingRegionBounds is { } pending && pending.Contains(bounds))
+        {
+            return false;
+        }
         CancelPendingRegion();
-        if (current.Region?.Bounds == bounds) { return true; }
+        if (current.Region is { } retained && retained.Bounds.Contains(bounds)) { return true; }
         CancelPendingPreviewUpgrade();
         long generation = _frameVersion;
         long openVersion = RequestVersion;
@@ -165,7 +171,7 @@ public sealed partial class ImageOpenCoordinator
         bool IsCurrent() => !_disposed && generation == _frameVersion && openVersion == RequestVersion
             && ReferenceEquals(session, _frameSession) && State.FrameIndex == current.FrameIndex
             && ReferenceEquals(State.Image, preview) && !token.IsCancellationRequested;
-        State = current with { IsRegionLoading = true, RefinementError = ImageOpenError.None };
+        State = current with { IsRegionLoading = true, PendingRegionBounds = bounds, RefinementError = ImageOpenError.None };
         DecodedImageRegion? decoded = null;
         try
         {
@@ -177,7 +183,7 @@ public sealed partial class ImageOpenCoordinator
                 throw new ImageDecodeException(ImageOpenError.CorruptFile);
             }
             DecodedImageRegion? previous = State.Region;
-            State = State with { Region = decoded, IsRegionLoading = false };
+            State = State with { Region = decoded, IsRegionLoading = false, PendingRegionBounds = null };
             decoded = null;
             previous?.Dispose();
             return true;
@@ -185,13 +191,13 @@ public sealed partial class ImageOpenCoordinator
         catch (OperationCanceledException) when (token.IsCancellationRequested) { return false; }
         catch (Exception exception)
         {
-            if (IsCurrent()) { State = State with { IsRegionLoading = false, RefinementError = MapError(exception) }; }
+            if (IsCurrent()) { State = State with { IsRegionLoading = false, PendingRegionBounds = null, RefinementError = MapError(exception) }; }
             return false;
         }
         finally
         {
             decoded?.Dispose();
-            if (IsCurrent() && State.IsRegionLoading) { State = State with { IsRegionLoading = false }; }
+            if (IsCurrent() && State.IsRegionLoading) { State = State with { IsRegionLoading = false, PendingRegionBounds = null }; }
             if (ReferenceEquals(_frameCancellation, cancellation)) { _frameCancellation = null; }
         }
     }

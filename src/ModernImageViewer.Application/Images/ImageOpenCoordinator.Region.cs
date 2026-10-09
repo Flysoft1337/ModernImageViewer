@@ -26,12 +26,20 @@ public sealed partial class ImageOpenCoordinator
         {
             return false;
         }
-        CancelPendingRegion();
-        CancelPendingPreviewUpgrade();
-        if (current.Region is { } existing && existing.Bounds == bounds)
+        if (current.Region is { } existing && existing.Bounds.Contains(bounds))
         {
+            CancelPendingRegion();
+            CancelPendingPreviewUpgrade();
             return true;
         }
+        // A zoom into an in-flight region still needs the same pixels; do not restart its native decode.
+        if (_regionCancellation is { IsCancellationRequested: false }
+            && current.PendingRegionBounds is { } pending && pending.Contains(bounds))
+        {
+            return false;
+        }
+        CancelPendingRegion();
+        CancelPendingPreviewUpgrade();
         _neighborCache?.CancelPending();
         PixelBuffer preview = current.Image;
         long openVersion = Volatile.Read(ref _requestVersion);
@@ -39,7 +47,7 @@ public sealed partial class ImageOpenCoordinator
         using CancellationTokenSource cancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         _regionCancellation = cancellation;
         CancellationToken token = cancellation.Token;
-        State = State with { IsRegionLoading = true, RefinementError = ImageOpenError.None };
+        State = State with { IsRegionLoading = true, PendingRegionBounds = bounds, RefinementError = ImageOpenError.None };
         DecodedImageRegion? region = null;
         try
         {
@@ -59,7 +67,7 @@ public sealed partial class ImageOpenCoordinator
                 throw new IOException("The source changed during browsing.");
             }
             DecodedImageRegion? previous = State.Region;
-            State = State with { Region = region, IsRegionLoading = false, RefinementError = ImageOpenError.None };
+            State = State with { Region = region, IsRegionLoading = false, PendingRegionBounds = null, RefinementError = ImageOpenError.None };
             region = null;
             previous?.Dispose();
             return true;
@@ -69,7 +77,7 @@ public sealed partial class ImageOpenCoordinator
         {
             if (IsCurrentRegion(openVersion, regionVersion, preview) && !token.IsCancellationRequested)
             {
-                State = State with { IsRegionLoading = false, RefinementError = MapError(exception) };
+                State = State with { IsRegionLoading = false, PendingRegionBounds = null, RefinementError = MapError(exception) };
             }
             return false;
         }
@@ -78,7 +86,7 @@ public sealed partial class ImageOpenCoordinator
             region?.Dispose();
             if (IsCurrentRegion(openVersion, regionVersion, preview) && State.IsRegionLoading)
             {
-                State = State with { IsRegionLoading = false };
+                State = State with { IsRegionLoading = false, PendingRegionBounds = null };
             }
             if (ReferenceEquals(_regionCancellation, cancellation))
             {
@@ -99,7 +107,7 @@ public sealed partial class ImageOpenCoordinator
         _regionCancellation = null;
         if (!_disposed && State.IsRegionLoading)
         {
-            State = State with { IsRegionLoading = false };
+            State = State with { IsRegionLoading = false, PendingRegionBounds = null };
         }
     }
 

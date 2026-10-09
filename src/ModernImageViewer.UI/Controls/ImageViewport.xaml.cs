@@ -32,7 +32,6 @@ public partial class ImageViewport : UserControl, IDisposable
         PixelSize? previousSize = EditRecipe?.OutputSize;
         if (EditRecipe != recipe) { ClearEditorPreview(); }
         EditRecipe = recipe;
-        _lastRequestedRegion = null;
         if (fit || previousSize != recipe?.OutputSize) { Fit(); }
         else { _surface?.InvalidateVisual(); }
     }
@@ -92,7 +91,6 @@ public partial class ImageViewport : UserControl, IDisposable
     private readonly DispatcherTimer _regionTimer = new() { Interval = TimeSpan.FromMilliseconds(160) };
     private SKBitmap? _regionBitmap;
     private DecodedImageRegion? _displayedRegion;
-    private PixelRect? _lastRequestedRegion;
 
     public ImageViewport()
     {
@@ -146,7 +144,6 @@ public partial class ImageViewport : UserControl, IDisposable
         _transform.Reorient(image.SourceSize, Orientation, orientation, Canvas.ActualWidth, Canvas.ActualHeight,
             1 / VisualTreeHelper.GetDpi(Canvas).DpiScaleX);
         Orientation = orientation;
-        _lastRequestedRegion = null;
         OrientationChanged?.Invoke(this, EventArgs.Empty);
         NotifyTransformChanged();
     }
@@ -175,7 +172,6 @@ public partial class ImageViewport : UserControl, IDisposable
         if (samePixels && !viewport._preserveTransform)
         {
             viewport._detailRequested = false;
-            viewport._lastRequestedRegion = null;
             viewport.Fit();
         }
         viewport._preserveTransform = false;
@@ -217,7 +213,6 @@ public partial class ImageViewport : UserControl, IDisposable
         }
         else { _bitmap = SharedPixelBitmap.Create(image); }
         _detailRequested = false;
-        _lastRequestedRegion = null;
         if (_preserveTransform)
         {
             if (_updatingAnimationFrame) { _surface.InvalidateVisual(); }
@@ -440,7 +435,6 @@ public partial class ImageViewport : UserControl, IDisposable
             return;
         }
         Orientation = default;
-        _lastRequestedRegion = null;
         OrientationChanged?.Invoke(this, EventArgs.Empty);
     }
 
@@ -448,12 +442,12 @@ public partial class ImageViewport : UserControl, IDisposable
     {
         _regionTimer.Stop();
         double scale = _transform.Scale * VisualTreeHelper.GetDpi(Canvas).DpiScaleX;
-        if (!NeedsRegionDetail(scale) || VisibleDetailRegion is not { } bounds || _lastRequestedRegion == bounds
-            || (Presentation?.Region?.Bounds == bounds && !Presentation.IsRegionLoading))
+        if (!NeedsRegionDetail(scale) || VisibleDetailRegion is not { } bounds
+            || (Presentation?.Region is { } retained && retained.Bounds.Contains(bounds) && !Presentation.IsRegionLoading)
+            || (Presentation?.IsRegionLoading == true && Presentation.PendingRegionBounds is { } pending && pending.Contains(bounds)))
         {
             return;
         }
-        _lastRequestedRegion = bounds;
         RegionDetailRequested?.Invoke(this, bounds);
     }
 

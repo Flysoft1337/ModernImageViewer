@@ -37,7 +37,8 @@ public sealed record ImageOpenState(
     long RequestId = 0,
     ImageSequenceInfo? Sequence = null,
     int FrameIndex = 0,
-    bool IsSequenceUnavailable = false)
+    bool IsSequenceUnavailable = false,
+    PixelRect? PendingRegionBounds = null)
 {
     public bool IsMemorySource => Source?.Kind == ImageSourceKind.Memory;
 }
