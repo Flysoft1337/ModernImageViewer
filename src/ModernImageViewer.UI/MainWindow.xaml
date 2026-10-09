@@ -44,7 +44,7 @@
           <Button Style="{StaticResource ToolbarButtonStyle}" Command="{Binding OpenCommand}" ToolTip="Ctrl+O">
             <StackPanel Orientation="Horizontal"><Path Style="{StaticResource IconStyle}" Data="{StaticResource Icon.Open}" /><TextBlock Text="{Binding OpenLabel}" Margin="8,0,0,0" VerticalAlignment="Center" /></StackPanel>
           </Button>
-          <Button x:Name="SettingsButton" Style="{StaticResource ToolbarButtonStyle}" Click="OnSettingsClick" ToolTip="{Binding SettingsLabel}" AutomationProperties.Name="{Binding SettingsLabel}">
+          <Button x:Name="SettingsButton" Style="{StaticResource ToolbarButtonStyle}" Click="OnSettingsClick" ContextMenuOpening="OnSettingsMenuOpening" ToolTip="{Binding SettingsLabel}" AutomationProperties.Name="{Binding SettingsLabel}">
             <Path Style="{StaticResource IconStyle}" Data="{StaticResource Icon.More}" />
             <Button.ContextMenu>
               <ContextMenu DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}" Opened="OnSettingsOpened" PreviewKeyDown="OnMenuPreviewKeyDown">

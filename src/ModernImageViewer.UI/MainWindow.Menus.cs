@@ -13,6 +13,25 @@ namespace ModernImageViewer.UI;
 
 public partial class MainWindow
 {
+    private void InitializeMenus()
+    {
+        // ContextMenu can also be opened directly or by Shift+F10. Give its first
+        // Popup measurement the bounds; Opened is too late on short work areas.
+        Loaded += (_, _) =>
+        {
+            if (SettingsButton.ContextMenu is { } menu)
+            {
+                menu.PlacementTarget = SettingsButton;
+                UpdateMenuBounds(menu);
+            }
+        };
+    }
+
+    private void OnSettingsMenuOpening(object sender, ContextMenuEventArgs e)
+    {
+        if (SettingsButton.ContextMenu is { } menu) { UpdateMenuBounds(menu); }
+    }
+
     private void OnSettingsClick(object sender, RoutedEventArgs e)
     {
         if (sender is Button button && SettingsButton.ContextMenu is { } menu)

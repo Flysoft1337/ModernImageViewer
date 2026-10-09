@@ -49,6 +49,7 @@ public partial class MainWindow : Window
         ThumbnailDecoder = thumbnailDecoder;
         _themes.Initialize();
         InitializeComponent();
+        InitializeMenus();
         DataContext = viewModel;
         Viewport.ScaleChanged += (_, scale) => _viewModel.UpdateScale(scale);
         Viewport.DetailRequested += OnDetailRequested;
