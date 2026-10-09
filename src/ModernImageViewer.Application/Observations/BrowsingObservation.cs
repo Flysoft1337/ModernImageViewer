@@ -6,6 +6,8 @@ public enum BrowsingPhase
 {
     WindowVisible,
     OpenRequested,
+    LoadingPublished,
+    PreviewPublished,
     FirstRecognizablePainted,
     NavigationAvailable,
     RequiredDetailRequested,
@@ -20,7 +22,7 @@ public sealed record BrowsingPhaseSample(long RequestId, BrowsingPhase Phase, do
 public sealed class BrowsingObservation
 {
     public const int MaximumRequests = 1024;
-    public const int MaximumSamples = (MaximumRequests * 8) + 1;
+    public const int MaximumSamples = (MaximumRequests * 10) + 1;
     private readonly Func<double> _elapsedMilliseconds;
     private readonly List<BrowsingPhaseSample> _samples = [];
     private readonly HashSet<BrowsingPhase> _currentPhases = [];
@@ -65,7 +67,10 @@ public sealed class BrowsingObservation
         {
             _samples.Add(new(requestId, BrowsingPhase.OpenRequested, _requestedAt, 0));
         }
+        Record(requestId, BrowsingPhase.LoadingPublished);
     }
+
+    public void PreviewPublished(long requestId) => Record(requestId, BrowsingPhase.PreviewPublished);
 
     public void NavigationAvailable(long requestId) => Record(requestId, BrowsingPhase.NavigationAvailable);
 

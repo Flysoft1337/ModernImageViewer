@@ -1,5 +1,11 @@
 # 发现记录
 
+## 2026-10-09：发布前补验定位
+
+- 原修复候选八组有效首图配对差值为+2.25、+30.03、+21.29、+23.13、-29.81、+3.71、-30.73、+36.84ms；median差22.2ms不是每组固定开销，仍不能据此排除稳定回归。
+- 本轮Computer Use真实候选窗口截图再次FrameArrived超时；系统Explorer恢复后截图也window capture超时。Ctrl+O能打开真实文件对话框，但set_value报不可设置、click报坐标几何不可用，Alt+N未改变焦点；不冒充鼠标/视觉验收。
+- 开发阶段观察追加LoadingPublished和PreviewPublished，以同一单调时钟区分输入受理、Loaded通知和实际paint；两版测量采用同一补丁，native纯解码耗时仍不由这些UI时点单独证明。
+
 ## 2026-10-09：0.6.0 Release 收口
 
 - 固定 0.5 `9cdcde9` 与已合并 0.6 `1f31355` 使用同机 SDK 10.0.303、相同 self-contained win-x64 .NET 10.0.11，程序集版本和哈希分别保存；不是跨机器 CI 时间对比。

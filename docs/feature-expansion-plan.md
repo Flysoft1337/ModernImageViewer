@@ -2,7 +2,7 @@
 
 ## 2026-10-09：0.6.0 Release 收口范围
 
-GIF/WebP/TIFF统一帧能力已交付，本轮只复测静态性能、修复WebP ANIM背景兼容、实际Windows动画/DPI/安装升级和发布资料；不增加编辑、标注、滤镜、批处理或大型功能。WebP新增29项固定像素回归，本地完整598通过/1跳过；最终候选与CI证据见[收口验收](release-closeout-0.6.0.md)，能力与未完成项以[支持矩阵](decoder-support.md)和[已知限制](known-limitations.md)为准。
+GIF/WebP/TIFF统一帧能力已交付，本轮只复测静态性能、修复WebP ANIM背景兼容、实际Windows动画/DPI/安装升级和发布资料；不增加编辑、标注、滤镜、批处理或大型功能。WebP新增29项固定像素回归，追加阶段诊断后本地完整599通过/1跳过；最终候选与CI证据见[收口验收](release-closeout-0.6.0.md)，能力与未完成项以[支持矩阵](decoder-support.md)和[已知限制](known-limitations.md)为准。
 
 ## 2026-10-06：0.6 实现与历史验收
 
@@ -12,7 +12,7 @@ GIF/WebP/TIFF统一帧能力已交付，本轮只复测静态性能、修复WebP
 
 动画按目标解码、单输出最多8MiB，应用掌控帧/参考/交接按32MiB处理并纳入已有主图边界；source的 `宽×高×4` 最多92MiB才准入，这是native工作区的源尺寸规则，非进程cap。TIFF页用静态32MiB预览/92MiB完整细节和2048×2048/16MiB区域预算，完整页无4096强限。native真实返回后才完成取消和释放晚结果，Dispose不阻UI，ReleaseCompletion用于真实释放观测。输入256MiB、帧/页10,000、元信息2MiB及源32768单边/100MP限制继续适用。
 
-固定样本/生命周期、双语主题UI/F6、混合压力、Windows CI与真实升级安装验收已记录；固定机八组交替复测及实际150%DPI动画验收本轮完成，真实窗口视觉/鼠标拖拽、混合DPI/跨设备长测仍未完成。修复后候选首图比同批0.5偏慢约22.2ms，不写成性能无退化。实际数据见[收口验收](release-closeout-0.6.0.md)；已有[浏览收口](browsing-core-closeout.md)和[格式编辑记录](raw-modern-editing.md)保留各自历史范围。
+固定样本/生命周期、双语主题UI/F6、混合压力、Windows CI与真实升级安装验收已记录；固定机交替复测及实际150%DPI动画检查本轮完成，真实窗口视觉/鼠标拖拽、混合DPI/跨设备长测仍未完成。原包追加八组仅首图差1.41ms，未复现前批22.2ms，不能承诺所有场景无退化；实际数据见[收口验收](release-closeout-0.6.0.md)。已有[浏览收口](browsing-core-closeout.md)和[格式编辑记录](raw-modern-editing.md)保留各自历史范围。
 
 ## 0.5历史优先级：浏览核心收口
 

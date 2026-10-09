@@ -1,5 +1,14 @@
 # 进度日志
 
+## 2026-10-09：正式0.6.0发布前补验
+
+- 从干净master afbea62建立codex/0.6-final-acceptance。用户要求三项补验：真实桌面交互、22.2ms首图差异定位及公开v0.4→v0.6完整发布说明；延续不发布、不扩功能边界。
+- 复用planning-with-files-zh与computer-use；发布说明交给单文件代理，主任务负责性能和真实窗口。性能规则原文要求固定机确认超过10%的回归必须记录原因与批准，用户本轮尚未批准具体例外。
+- 桌面截图与鼠标再次失败，系统Explorer也capture超时；Ctrl+O能打开对话框、真实GIF可读取100帧和变化帧号、Alt+F4关闭成功，暂停/全屏未取得可核实结果。不标完整人工验收完成，已写7项实际操作者清单。
+- 新增显式LoadingPublished/PreviewPublished，schema2，两版同样补丁重建。首次命令强设RuntimeFrameworkVersion引起Windows SDK引用错误/重复下载项，去掉全局override后普通restore/publish成功；实际均SDK10.0.303/.NET10.0.11。原未修改包保留且hash未变。
+- 诊断八组首图109.47/109.21ms，Loading→预览40.20/40.96ms、预览→首绘58.95/58.19ms；原包复测八组106.71/108.11ms、配对delta中位数0.22ms，未复现稳定22.2ms。两批全部通过无排除/补测，完整原报告保留；无强制GC，不冒充P95或已修复固定回归。
+- Release Notes累计公开v0.4→v0.6内容已补；本地完整核心188+UI411=599通过/1RAW样本skip，9项观察回归通过、全solution格式/diff通过。仅加开发诊断不改普通静态浏览，目录导航时点和真实人工验收继续保留，准备末次PR/完整CI，不发布。
+
 ## 2026-10-09：0.6.0 Release 收口
 
 - master 1f31355已核对，工作区原本干净；创建codex/0.6-release-closeout。读取约定、支持/验收/规划及codec、观察与安装脚本；0.6.0版本保持，不扩功能、不发布。

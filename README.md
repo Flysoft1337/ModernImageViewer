@@ -6,7 +6,7 @@
 
 **当前开发格式：12 类、25 个扩展名。** 常见静态格式、JPEG XR、受限 SVG、AVIF、HEIF，以及 RAW 内嵌预览（DNG/CR2/CR3/NEF/ARW/RAF/RW2/ORF/PEF）。AVIF/HEIF 使用随包 Magick.NET，静态首图、最大32MP/128MiB输入；RAW使用固定LibRaw0.22.2桥接，最大256MiB输入/32MiB预览，尺寸代表内嵌预览，不是传感器；没有可读预览时反馈，不进行完整显影。GIF/WebP 动画与 TIFF 分页已实现；ICO仍仅首个图标，受限SVG不支持文字、外部资源、复杂合成和动画。缩略图与邻图缓存继续只保存代表帧/首页，不持有播放会话。详细边界见[格式支持](docs/decoder-support.md)；[格式与编辑记录](docs/raw-modern-editing.md)是此前批次的验收记录。公开v0.4.0仍只有原9扩展名。
 
-**0.6.0 尚未发布**，当前为 Release 收口候选。WebP ANIM 背景兼容已补齐固定像素回归，本地完整测试598通过/1本机RAW样本跳过；同机交替静态复测、实际Windows动画/DPI/安装及最终候选CI以[收口验收](docs/release-closeout-0.6.0.md)为准。最新公开下载仍为[v0.4.0](https://github.com/Flysoft1337/ModernImageViewer/releases/tag/v0.4.0)，本轮不创建新Release。[0.6.0 Release Notes](docs/release-notes/0.6.0.md)与[已知限制](docs/known-limitations.md)统一说明候选能力；真实混合DPI与跨设备低内存长测尚未完成，不宣称所有格式零退化或P95。
+**0.6.0 尚未发布**，当前为 Release 收口候选。WebP ANIM 背景兼容已补齐固定像素回归，追加阶段诊断后本地完整测试599通过/1本机RAW样本跳过；同机交替静态复测、实际Windows动画/DPI/安装及最终候选CI以[收口验收](docs/release-closeout-0.6.0.md)为准。最新公开下载仍为[v0.4.0](https://github.com/Flysoft1337/ModernImageViewer/releases/tag/v0.4.0)，本轮不创建新Release。[0.6.0 Release Notes](docs/release-notes/0.6.0.md)包含公开v0.4以来的编辑调整/标注、格式与浏览累计更新；真实人工交互、混合DPI与跨设备低内存长测尚未完成，不宣称所有格式零退化或P95。
 
 ### 开发能力矩阵
 
@@ -99,7 +99,7 @@ pwsh .\scripts\measure-startup.ps1 -AppPath .\artifacts\publish\win-x64\ModernIm
 
 脚本默认记录 3 次可见窗口/输入空闲耗时及观察后的工作集、峰值工作集，不记录图片路径。它用于快速比较，不替代项目计划的冷启动、首帧或 P95 验收；大图在观察结束时可能仍在解码。Windows CI 会对发布包执行一次真实启动检查并上传 `startup-observation`；该单样本反映 CI 机器状态，不代表冷启动或性能提升比例。Linux 云端不报告 Windows 启动速度或实际工作集的百分比提升。
 
-开发验证另提供阶段与连续浏览观察，记录窗口可见、打开受理、实际绘制首图、目录导航、所需细节和相邻切换；普通运行不启用、不写性能日志，报告不含文件路径/名称。使用同一Windows环境、包配置和固定样本比较，单次结果不称P95：
+开发验证另提供阶段与连续浏览观察，记录窗口可见、打开受理、Loading通知、预览提交、实际绘制首图、目录导航、所需细节和相邻切换；普通运行不启用、不写性能日志，报告不含文件路径/名称。使用同一Windows环境、包配置和固定样本比较，单次结果不称P95：
 
 ```powershell
 pwsh .\scripts\measure-browsing.ps1 -AppPath .\artifacts\publish\win-x64\ModernImageViewer.App.exe
@@ -146,7 +146,7 @@ dotnet run --project .\benchmarks\ModernImageViewer.Benchmarks\ModernImageViewer
 应用端外部打开、窗口复用和便携关联已实现，新增当前用户 EXE 安装路径；可信签名、MSIX 和 Windows Shell 人工验收继续推进。0.3.0 增加静态格式与缩略图字节缓存、单图先显示后索引；0.4.0 增加主图预览、按需细化和手动 Release 发布流程。PR #21 已合并区域细节、邻图预取与紧凑/全屏交互。N1 排序、文件定位和快捷键帮助已合并；开发代码已接入 N2 会话方向与偏好、N3 剪贴板及 N4 GIF/WebP 动画与 TIFF 分页，N4 本批自动化验收已通过；ICO 多尺寸仍待实现。详细完成条件见 [下一批功能实施方案](docs/feature-expansion-plan.md)。仍需补齐以下能力：
 
 - **近期 P1：** 固定机器长期/多格式浏览与混合DPI多屏验收；完整分块缓存、WebP区域与native/surface全管线预算；剪贴板外部应用互通实机验收。自适应预览、优先级和阶段观察已接入本轮开发代码。
-- **发布收口：** WebP ANIM 背景修复、固定机八组有效交替复测及真实 Windows 150% DPI 动画/升级验收已完成；切图中位数接近，首图比同批0.5偏慢约22.2ms。真实窗口视觉/鼠标拖拽、混合DPI多屏与跨设备低内存长测仍未完成，详见[收口验收](docs/release-closeout-0.6.0.md)。
+- **发布收口：** WebP ANIM 背景修复、同机交替复测及真实 Windows 150% DPI 动画/升级检查已完成。前批首图慢22.2ms，随后相同二进制八组复测仅差1.41ms，未确认稳定固定开销；具体波动原因和目录导航时点仍需关注。真实窗口视觉/鼠标拖拽、Shell关联、混合DPI多屏与跨设备低内存长测仍未完成，详见[收口验收](docs/release-closeout-0.6.0.md)。
 - **随后 P2：** ICO 多尺寸、完整SVG、专业RAW；显示器ICC、原profile保留、高位深与签名发布。开发能力不代表公开v0.4.0已包含；本批不扩大编辑范围。
 
 性能目标仍需固定 Windows 机器实测，当前不承诺整进程内存上限或速度提升百分比。

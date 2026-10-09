@@ -21,10 +21,10 @@ public sealed class BrowsingObservationTests
         observation.NavigationAvailable(1);
         time = 55;
         observation.FramePainted(1, true);
-        Assert.Equal(5, observation.Samples.Count);
+        Assert.Equal(6, observation.Samples.Count);
         Assert.Null(observation.Samples[0].SinceRequestMs);
-        Assert.Equal(10, observation.Samples[2].SinceRequestMs);
-        Assert.Equal(30, observation.Samples[4].SinceRequestMs);
+        Assert.Equal(10, observation.Samples[3].SinceRequestMs);
+        Assert.Equal(30, observation.Samples[5].SinceRequestMs);
     }
 
     [Fact]
@@ -53,7 +53,7 @@ public sealed class BrowsingObservationTests
         time = 30;
         observation.FramePainted(10000, true);
         Assert.Equal(10, observation.Samples[0].SinceStartMs);
-        Assert.Equal(20, observation.Samples[1].SinceRequestMs);
+        Assert.Equal(20, observation.Samples[2].SinceRequestMs);
         Assert.Equal(0, observation.DroppedRequests);
     }
 
@@ -91,7 +91,7 @@ public sealed class BrowsingObservationTests
             observation.NavigationAvailable(1);
             observation.FramePainted(1, true);
         }
-        Assert.Equal(6, observation.Samples.Count);
+        Assert.Equal(7, observation.Samples.Count);
     }
 
     [Fact]
@@ -119,7 +119,7 @@ public sealed class BrowsingObservationTests
             observation.NavigationAvailable(request);
             observation.FramePainted(request, true);
         }
-        Assert.Equal(BrowsingObservation.MaximumRequests * 5, observation.Samples.Count);
+        Assert.Equal(BrowsingObservation.MaximumRequests * 6, observation.Samples.Count);
         Assert.Equal(5, observation.DroppedRequests);
         Assert.True(observation.HasPhase(BrowsingPhase.RequiredDetailPainted));
     }
@@ -132,5 +132,26 @@ public sealed class BrowsingObservationTests
         using JsonDocument json = JsonDocument.Parse(JsonSerializer.Serialize(observation.Samples));
         Assert.Equal(ExportProperties,
             json.RootElement[0].EnumerateObject().Select(property => property.Name));
+    }
+
+    [Fact]
+    public void LoadingAndPreviewSeparateInputDecodeAndPaintWithoutAcceptingOldPixels()
+    {
+        double time = 10;
+        BrowsingObservation observation = new(() => time);
+        observation.RequestReceived();
+        time = 30;
+        observation.OpenRequested(2, false);
+        time = 50;
+        observation.PreviewPublished(1);
+        Assert.False(observation.HasPhase(BrowsingPhase.PreviewPublished));
+        time = 70;
+        observation.PreviewPublished(2);
+        observation.PreviewPublished(2);
+        time = 90;
+        observation.FramePainted(2, false);
+        Assert.Equal(20, observation.Samples.Single(s => s.Phase == BrowsingPhase.LoadingPublished).SinceRequestMs);
+        Assert.Equal(60, observation.Samples.Single(s => s.Phase == BrowsingPhase.PreviewPublished).SinceRequestMs);
+        Assert.Equal(80, observation.Samples.Single(s => s.Phase == BrowsingPhase.FirstRecognizablePainted).SinceRequestMs);
     }
 }
