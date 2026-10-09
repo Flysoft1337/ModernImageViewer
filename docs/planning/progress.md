@@ -1,5 +1,12 @@
 # 进度日志
 
+## 2026-10-09：0.6.0公开测试准备
+
+- 从master 5c024fb创建codex/0.6-prerelease；基线完整Windows CI为599通过/1RAW样本跳过，升级/重装/卸载成功，无既有v0.6.0标签或Release。
+- 本轮仅资料更新，使用已有publish_release/prerelease参数，不新增测试或功能；沿用planning-with-files-zh。人工清单/性能疑点继续保留。
+- README、累计说明、限制和当前状态已统一；12份Markdown本地链接/版本/diff检查通过，没有产品或测试变更，不重复本地完整构建。
+- 准备提交/合并后取消重复文档PR/push CI，保留一轮完整发布CI。实际结果记录于准备PR/Release，不提前标成功。
+
 ## 2026-10-09：正式0.6.0发布前补验
 
 - 从干净master afbea62建立codex/0.6-final-acceptance。用户要求三项补验：真实桌面交互、22.2ms首图差异定位及公开v0.4→v0.6完整发布说明；延续不发布、不扩功能边界。

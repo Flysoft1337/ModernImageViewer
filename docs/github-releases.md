@@ -18,6 +18,14 @@
 gh workflow run ci.yml --ref master -f publish_release=true -f prerelease=false
 ```
 
+0.6.0公开测试使用同一工作流，将`prerelease`设为`true`：
+
+```bash
+gh workflow run ci.yml --ref master -f publish_release=true -f prerelease=true
+```
+
+GitHub标记为Pre-release，保持稳定版Latest为v0.4.0。包内版本和标签仍为0.6.0/v0.6.0；公开资产不会覆盖，后续修改安装包必须提升版本号，例如0.6.1。人工验收缺口见[已知限制](known-limitations.md)。
+
 ## 下载文件
 
 每个 Release 上传四个文件，名称与包内版本一致：
