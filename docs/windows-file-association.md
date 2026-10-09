@@ -14,7 +14,7 @@
 
 ### 便携版使用方法
 
-1. 将 self-contained win-x64 发布包解压到准备长期保留的位置，运行 `ModernImageViewer.App.exe`。
+1. 将 self-contained win-x64 便携 ZIP 解压到准备长期保留的位置，运行 `app\ModernImageViewer.App.exe`。安装器与候选便携包使用相同的 `app/` 运行目录布局。
 2. 打开右上角“设置 → 用此应用打开图片”，点击“注册打开方式”。界面显示注册状态与注册 EXE 路径；缺失的注册项可重新注册修复，也可取消。
 3. 点击“选择默认应用”，在 Windows 默认应用设置或图片“打开方式”中选择 `Modern Image Viewer (Portable)`；按需要设置 `.jpg`、`.jpeg`、`.png`、`.bmp`、`.gif`、`.tif`、`.tiff`、`.ico`、`.webp`。
 4. 在资源管理器双击图片；再次打开另一张会复用同用户同会话的窗口。窗口最小化时恢复；Windows 拒绝前台激活时闪烁任务栏。
