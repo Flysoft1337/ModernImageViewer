@@ -131,3 +131,11 @@ Skia原WebP动画路径将ANIM背景按透明处理。新实现读取有界RIFF/
 Release Notes改为公开v0.4→v0.6累计更新，包含日常编辑八项调整/七种标注/预设/安全PNG JPEG WebP新文件导出、静态AVIF/HEIF与九种RAW内嵌预览、受限SVG/JPEG XR、排序/方向/剪贴板/偏好及自适应浏览，保留动画/分页和实际限制。本轮不增加上述功能。
 
 本地Release发布两版成功；完整测试核心188+UI/codec411=599通过/1真实RAW样本跳过，增加一项时点/过期像素回归并调整既有样本数量断言。完整format verify与diff检查通过。本轮末次提交完整CI结果以补验PR中对应提交记录为准，不以起点绿色CI代替。
+
+## 0.6.0公开测试准备（2026-10-09）
+
+[PR #35](https://github.com/Flysoft1337/ModernImageViewer/pull/35)已合并为master 5c024fb，其[完整Windows CI 37876822463](https://github.com/Flysoft1337/ModernImageViewer/actions/runs/37876822463)成功：599通过/1真实RAW样本跳过，格式、Release构建、审计、100MP、启动、文件激活、浏览、动画及实际0.5→0.6升级/重装/卸载通过。动画无强制终止/丢失采样，关闭后项目计数全部0；升级hash改变、重装不变，卸载/清理成功，Release job skipped。
+
+用户随后要求准备0.6 Pre-release。本轮仅调整资料，版本保持0.6.0，不修改产品、测试或CI矩阵。既有手动工作流publish_release=true/prerelease=true执行一轮最终发布检查后，才创建v0.6.0预发布及四个校验资产；实际发布提交与结果由Release提交标记/Actions记录，Latest保持v0.4.0。重复文档PR/push CI可以取消，最终发布运行保留全部必要检查。
+
+公开测试不关闭七项人工清单，不登记性能豁免。真实视觉/鼠标、Shell双击、公开0.4直升、混合DPI与跨设备低内存验收仍有缺口，首图波动原因/导航时点疑点继续关注。公开资产不可覆盖，后续包修改使用新版本号。
