@@ -173,6 +173,52 @@ public sealed class ViewportBrowsingTests
     });
 
     [Fact]
+    public Task ZoomIntoPendingAndRetainedRegionDoesNotRaiseRepeatedRequests() => RunSta(() =>
+    {
+        using PixelBuffer preview = CreatePixels(new(20, 10), new(10000, 10000));
+        using ImageViewport viewport = CreateViewport();
+        int requests = 0;
+        viewport.RegionDetailRequested += (_, _) => requests++;
+        viewport.Presentation = State(preview);
+        Layout(viewport, 400, 300);
+        viewport.ActualSize();
+        Invoke(viewport, "OnRegionTimer", null, EventArgs.Empty);
+        Assert.Equal(1, requests);
+        PixelRect first = viewport.VisibleDetailRegion!.Value;
+        viewport.Presentation = viewport.Presentation with { IsRegionLoading = true, PendingRegionBounds = first };
+        viewport.ZoomIn();
+        Invoke(viewport, "OnRegionTimer", null, EventArgs.Empty);
+        Assert.Equal(1, requests);
+        viewport.Presentation = viewport.Presentation with { IsRegionLoading = false, PendingRegionBounds = null };
+        viewport.ActualSize();
+        Invoke(viewport, "OnRegionTimer", null, EventArgs.Empty);
+        Assert.Equal(2, requests);
+        viewport.Presentation = viewport.Presentation with
+        {
+            IsRegionLoading = true,
+            PendingRegionBounds = new(0, 0, 20, 20)
+        };
+        viewport.ZoomIn();
+        Invoke(viewport, "OnRegionTimer", null, EventArgs.Empty);
+        Assert.Equal(3, requests);
+        PixelRect padded = new(first.X - 16, first.Y - 16, first.Width + 32, first.Height + 32);
+        using PixelBuffer region = CreatePixels(padded.Size, preview.SourceSize);
+        viewport.Presentation = viewport.Presentation with { Region = new(region, padded), IsRegionLoading = false, PendingRegionBounds = null };
+        for (int i = 0; i < 20; i++)
+        {
+            viewport.ZoomOut();
+            Invoke(viewport, "OnRegionTimer", null, EventArgs.Empty);
+            viewport.ZoomIn();
+            Invoke(viewport, "OnRegionTimer", null, EventArgs.Empty);
+        }
+        Assert.Equal(3, requests);
+        Field<ViewportTransform>(viewport, "_transform")!.Pan(1000, 0);
+        viewport.ZoomIn();
+        Invoke(viewport, "OnRegionTimer", null, EventArgs.Empty);
+        Assert.Equal(4, requests);
+    });
+
+    [Fact]
     public Task FramePresentedOnlyFollowsPaintAndMatchesPixelsAndRegion() => RunSta(() =>
     {
         using PixelBuffer preview = CreatePixels(new(20, 10), new(800, 400));
@@ -445,6 +491,17 @@ public sealed class ViewportBrowsingTests
         DrainAutomaticDetailQueue(viewport);
         Assert.Equal(1, decoder.DetailCalls);
         Assert.False(model.Presentation.IsPreview);
+        for (int i = 0; i < 20; i++)
+        {
+            viewport.Fit();
+            viewport.ZoomIn();
+            viewport.ActualSize();
+            viewport.ZoomIn();
+            viewport.ZoomOut();
+        }
+        DrainAutomaticDetailQueue(viewport);
+        Assert.Equal(1, decoder.DetailCalls);
+        Assert.Equal(2, requests);
     });
 
     [Fact]

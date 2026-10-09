@@ -6,6 +6,33 @@ namespace ModernImageViewer.Tests;
 public sealed class AdaptiveImageTests
 {
     [Fact]
+    public async Task ThirtyTwoMegapixelDetailLoadsOnceAndRemainsUntilImageIsClosed()
+    {
+        PixelSize source = new(4944, 6456);
+        PreviewDecoder decoder = new() { SourceSize = source };
+        using ImageOpenCoordinator coordinator = new(new NullPicker(), decoder);
+        Assert.True(await coordinator.OpenAsync("large.png", TestContext.Current.CancellationToken));
+        Assert.True(coordinator.CanRefineWholeImage);
+        PixelBuffer preview = coordinator.State.Image!;
+        Task<bool> refining = coordinator.RefineAsync(TestContext.Current.CancellationToken);
+        Assert.InRange(source.PixelCount * 4, 1, decoder.DetailBudget);
+        Assert.False(await coordinator.RefineAsync(TestContext.Current.CancellationToken));
+        PixelBuffer full = Image(source);
+        decoder.Details[0].SetResult(full);
+        Assert.True(await refining);
+        Assert.False(coordinator.State.IsPreview);
+        Assert.Throws<ObjectDisposedException>(() => preview.Pixels);
+        for (int i = 0; i < 20; i++)
+        {
+            Assert.False(await coordinator.RefineAsync(TestContext.Current.CancellationToken));
+            Assert.Same(full, coordinator.State.Image);
+        }
+        Assert.Single(decoder.Details);
+        await coordinator.CloseImageAsync();
+        Assert.Throws<ObjectDisposedException>(() => full.Pixels);
+    }
+
+    [Fact]
     public async Task PreviewIsCommittedImmediatelyAndDetailIsDecodedOnlyOnRequest()
     {
         PreviewDecoder decoder = new();

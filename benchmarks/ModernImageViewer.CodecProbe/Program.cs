@@ -5,6 +5,7 @@ using System.IO.Compression;
 using System.Runtime.InteropServices;
 using System.Text.Json;
 
+using ModernImageViewer.Application.Images;
 using ModernImageViewer.Codecs;
 using ModernImageViewer.Imaging;
 
@@ -20,9 +21,13 @@ internal static class Program
             Console.WriteLine("Generated streaming 10000 x 10000 RGB PNG.");
             return 0;
         }
+        if (args.Length == 2 && args[0] == "browse-detail")
+        {
+            return await ObserveDetailBrowsingAsync(args[1]);
+        }
         if (args.Length != 3 || args[0] != "decode" || args[2] is not ("preview" or "thumbnail"))
         {
-            Console.Error.WriteLine("Usage: generate-png <new-path> | decode <path> <preview|thumbnail>");
+            Console.Error.WriteLine("Usage: generate-png <new-path> | decode <path> <preview|thumbnail> | browse-detail <path>");
             return 2;
         }
         ImageDecoder decoder = new();
@@ -62,6 +67,94 @@ internal static class Program
                 + "No WPF canvas/surface/cache. Process counters are not native-only allocations or a whole-pipeline cap; not P95.",
         }));
         return 0;
+    }
+
+    private static async Task<int> ObserveDetailBrowsingAsync(string path)
+    {
+        PixelBuffer.ObserveLifetime = true;
+        CountingDecoder decoder = new();
+        using ImageOpenCoordinator coordinator = new(new NoPicker(), decoder);
+        Stopwatch watch = Stopwatch.StartNew();
+        if (!await coordinator.OpenAsync(path)) { throw new InvalidOperationException("Preview failed."); }
+        double previewMs = watch.Elapsed.TotalMilliseconds;
+        PixelBuffer preview = coordinator.State.Image!;
+        PixelSize source = preview.SourceSize;
+        long previewBytes = preview.Pixels.Length;
+        watch.Restart();
+        bool refined = await coordinator.RefineAsync();
+        double detailMs = watch.Elapsed.TotalMilliseconds;
+        PixelBuffer displayed = coordinator.State.Image!;
+        for (int i = 0; i < 20; i++)
+        {
+            await coordinator.RefineAsync();
+            if (!ReferenceEquals(displayed, coordinator.State.Image))
+            {
+                throw new InvalidOperationException("Repeated detail replaced retained pixels.");
+            }
+        }
+        long retainedBytes = PixelBuffer.ObservedActiveBytes;
+        using Process process = Process.GetCurrentProcess();
+        process.Refresh();
+        long workingSet = process.WorkingSet64;
+        long privateBytes = process.PrivateMemorySize64;
+        long peakWorkingSet = process.PeakWorkingSet64;
+        await coordinator.CloseImageAsync();
+        Console.WriteLine(JsonSerializer.Serialize(new
+        {
+            Mode = "browse-detail",
+            SourceWidth = source.Width,
+            SourceHeight = source.Height,
+            PreviewBytes = previewBytes,
+            FullDetailReady = refined && displayed.Size == source,
+            DetailBudgetBytes = decoder.DetailBudget,
+            decoder.PreviewCalls,
+            decoder.DetailCalls,
+            decoder.RegionCalls,
+            RepeatedRequests = 20,
+            PreviewMs = Math.Round(previewMs, 2),
+            DetailMs = Math.Round(detailMs, 2),
+            RetainedPixelBytes = retainedBytes,
+            AfterClosePixelBytes = PixelBuffer.ObservedActiveBytes,
+            AfterClosePixelCount = PixelBuffer.ObservedActiveCount,
+            WorkingSetBytes = workingSet,
+            PrivateBytes = privateBytes,
+            PeakWorkingSetBytes = peakWorkingSet,
+            Note = "Read-only static coordinator/codec observation, no WPF canvas or mouse interaction; "
+                + "no forced GC, no path in report, not a whole-process memory cap or P95.",
+        }));
+        return refined && decoder.DetailCalls == 1 && PixelBuffer.ObservedActiveCount == 0 ? 0 : 1;
+    }
+
+    private sealed class NoPicker : IImageFilePicker
+    {
+        public Task<string?> PickImageAsync(CancellationToken cancellationToken) => Task.FromResult<string?>(null);
+    }
+
+    private sealed class CountingDecoder : IPreviewImageDecoder, IRegionImageDecoder
+    {
+        private readonly ImageDecoder _inner = new();
+        public int PreviewCalls { get; private set; }
+        public int DetailCalls { get; private set; }
+        public int RegionCalls { get; private set; }
+        public long DetailBudget { get; private set; }
+        public Task<PixelBuffer> DecodeAsync(string path, CancellationToken cancellationToken) => _inner.DecodeAsync(path, cancellationToken);
+        public Task<PixelBuffer> DecodePreviewAsync(string path, PixelSize maximumSize, CancellationToken cancellationToken)
+        {
+            PreviewCalls++;
+            return _inner.DecodePreviewAsync(path, maximumSize, cancellationToken);
+        }
+        public Task<PixelBuffer> DecodeDetailAsync(string path, long maximumDecodedBytes, CancellationToken cancellationToken)
+        {
+            DetailCalls++;
+            DetailBudget = maximumDecodedBytes;
+            return _inner.DecodeDetailAsync(path, maximumDecodedBytes, cancellationToken);
+        }
+        public Task<DecodedImageRegion> DecodeRegionAsync(string path, PixelRect region, PixelSize expectedSourceSize,
+            long maximumDecodedBytes, CancellationToken cancellationToken)
+        {
+            RegionCalls++;
+            return _inner.DecodeRegionAsync(path, region, expectedSourceSize, maximumDecodedBytes, cancellationToken);
+        }
     }
 
     private static void GeneratePng(string path)

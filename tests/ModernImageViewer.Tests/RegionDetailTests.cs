@@ -6,6 +6,32 @@ namespace ModernImageViewer.Tests;
 public sealed class RegionDetailTests
 {
     [Fact]
+    public async Task ZoomIntoPendingOrRetainedRegionDoesNotRestartDecode()
+    {
+        RegionDecoder decoder = new();
+        using ImageOpenCoordinator coordinator = new(new NullPicker(), decoder);
+        Assert.True(await coordinator.OpenAsync("large.png", TestContext.Current.CancellationToken));
+        PixelRect outer = new(100, 200, 8, 6);
+        PixelRect inner = new(102, 201, 3, 4);
+        Task<bool> pending = coordinator.RequestRegionAsync(outer, TestContext.Current.CancellationToken);
+        Assert.False(await coordinator.RequestRegionAsync(inner, TestContext.Current.CancellationToken));
+        Assert.False(await coordinator.RequestRegionAsync(outer, TestContext.Current.CancellationToken));
+        Assert.Single(decoder.Pending);
+        Assert.False(decoder.Cancellations[0].IsCancellationRequested);
+        Assert.True(coordinator.State.IsRegionLoading);
+        Assert.Equal(outer, coordinator.State.PendingRegionBounds);
+        DecodedImageRegion retained = decoder.Complete(0, outer);
+        Assert.True(await pending);
+        Assert.True(await coordinator.RequestRegionAsync(inner, TestContext.Current.CancellationToken));
+        Assert.Single(decoder.Pending);
+        Assert.Same(retained, coordinator.State.Region);
+        Assert.False(coordinator.State.IsRegionLoading);
+        Assert.Null(coordinator.State.PendingRegionBounds);
+        coordinator.ClearPreviewCache();
+        Assert.Throws<ObjectDisposedException>(() => retained.Image.Pixels);
+    }
+
+    [Fact]
     public async Task RejectedWholeRefinementDoesNotRestoreCancelledRegionLoading()
     {
         RegionDecoder decoder = new();
@@ -39,7 +65,7 @@ public sealed class RegionDetailTests
         PixelRect next = new(200, 300, 3, 4);
         Task<bool> pending = coordinator.RequestRegionAsync(next, TestContext.Current.CancellationToken);
         Assert.True(coordinator.State.IsRegionLoading);
-        Assert.True(await coordinator.RequestRegionAsync(first, TestContext.Current.CancellationToken));
+        Assert.True(await coordinator.RequestRegionAsync(new(101, 201, 2, 1), TestContext.Current.CancellationToken));
         Assert.True(decoder.Cancellations[1].IsCancellationRequested);
         DecodedImageRegion stale = decoder.Complete(1, next);
         Assert.False(await pending);

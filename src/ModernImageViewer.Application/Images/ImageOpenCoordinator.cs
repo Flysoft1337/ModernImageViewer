@@ -9,7 +9,7 @@ public sealed partial class ImageOpenCoordinator(IImageFilePicker filePicker, II
     : INotifyPropertyChanged, IDisposable
 {
     public static PixelSize PreviewMaximumSize => PreviewDecodePolicy.FallbackTarget;
-    public const long MainPixelBudgetBytes = 160L * 1024 * 1024;
+    public const long MainPixelBudgetBytes = 192L * 1024 * 1024;
     private const long PreviewReservedBytes = PreviewDecodePolicy.MaximumBytes;
     private readonly NeighborPreviewCache? _neighborCache = decoder is IPrefetchImageDecoder prefetchDecoder
         ? new NeighborPreviewCache(prefetchDecoder) : null;

@@ -1,5 +1,14 @@
 # 进度日志
 
+## 2026-10-09：大PNG缩放反馈
+
+- 在干净master 2978bc6建立codex/large-image-refinement，保持0.6.0、不发版；复用planning-with-files-zh及现有规划文件。
+- 用户样本头4944×6456/16位RGB，显示121.8MiB，旧完整上限92MiB导致区域重复读取。完整输出政策提高至124MiB，保留两份32MiB预览和4MiB邻图，总192MiB；区域包含复用及在途子集去重已接入并验证。
+- 本地Release0警告0错误、190核心+414UI/codec=604通过1RAW样本跳过；新增3项回归，原四档DPI增加完整细节后20轮缩放不重读。首次format verify仅报补丁行尾不符合CRLF，已使用限定9个C#文件的whitespace formatter修正，最终verify待执行。
+- 只读真实反馈PNG的独立coordinator/codec probe：预览1/完整1/区域0，20次重复请求复用，受控像素127,673,856字节，清图0字节/0项；原文件SHA-256前后一致。报告无路径，不碰用户现有窗口/安装状态；并发单次时延不作性能对比，真实鼠标仍待用户复测。
+- 只读代理复查发现UI的上次请求可能与手动细化的真正任务不同；改为ImageOpenState.PendingRegionBounds统一发布当前区域，移除陈旧_lastRequestedRegion。补取消后同区域重试、手动不同区域不漏请求及TIFF在途子集去重；源动画准入仍92MiB，原代次/晚结果释放保留。
+- 最终代码format verify、diff check、Release0警告0错误、190核心+414UI/codec=604通过1RAW跳过再次通过；真实样本最终probe仍预览1/完整1/区域0/20次复用/清图0项0字节。原报告保留，并发单次时延不作为CPU/内存改善百分比。
+
 ## 2026-10-09：0.6.0菜单最终修复
 
 - 最新master eba2818已fetch并快进，本轮分支codex/0.6-menu-closeout，工作区起点干净。版本0.6.0，禁止发版/建标签。
