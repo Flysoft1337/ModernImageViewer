@@ -9,7 +9,8 @@
 - 已保留区域覆盖新请求时直接复用；在途区域覆盖新请求时保持原解码。请求超出区域仍会重新读取，继续只有一块2048×2048/16MiB区域，未实现完整分块或全图无界缓存。
 - 本地Release构建0警告0错误；核心190+UI/codec414=604通过，1真实RAW样本跳过。新增3项有意义回归：约32MP完整细节只读一次并关闭释放、在途/保留子区域去重、真实WPF缩放区域请求次数；原四档DPI的自动细化测试增加20轮缩放/Fit/Actual后不重复解码断言，既有过期/取消/缓存/动画/多页回归保持通过。
 - 显式开发probe命令：`dotnet run --project benchmarks/ModernImageViewer.CodecProbe -c Release -- browse-detail <受控静态样本>`。报告不含路径，不启动应用、不碰用户现有窗口或关联、不强制GC。只读真实反馈PNG：预览1次、完整1次、区域0次，后续20次细节请求使用同一份像素；保留127,673,856字节，清图后受控像素0字节/0项，原文件SHA-256前后一致。
-- 单次framework-dependent观察预览1554.08ms、完整1751.24ms，工作集约166.77MiB/private143.21MiB。与本轮测试及格式检查并发，不作为前后性能对比、CPU降低百分比或P95；没有真实桌面鼠标验收、GPU/surface或整进程泄漏证明。原始报告在`artifacts/large-image-refinement/sample-detail.json`。Windows CI与最终本地打包结果随后按实际补录。
+- 单次framework-dependent观察预览1554.08ms、完整1751.24ms，工作集约166.77MiB/private143.21MiB。与本轮测试及格式检查并发，不作为前后性能对比、CPU降低百分比或P95；没有真实桌面鼠标验收、GPU/surface或整进程泄漏证明。原始报告在`artifacts/large-image-refinement/sample-detail.json`，最终代码复测报告为`sample-detail-final.json`，解码次数与释放结果一致。
+- 功能提交`f36a436`已重新生成0.6.0 self-contained安装版/便携版，输出`artifacts/installer/0.6.0-f36a436`；8个程序集源码提交、全部472个ZIP文件与publish逐一哈希、两份SHA-256核验通过。Windows CI沿用现有流程，最终运行结果由交付PR检查记录；公开包、Tag、Release及真实桌面人工验收不因本轮本地打包而更新。
 
 ## 0.5历史验收
 
