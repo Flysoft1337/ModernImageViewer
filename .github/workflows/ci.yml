@@ -289,7 +289,7 @@ jobs:
         run: |
           $installers = @(Get-ChildItem .\artifacts\installer\*-Setup.exe)
           if ($installers.Count -ne 1) { throw 'Expected exactly one installer.' }
-          .\scripts\check-installer.ps1 -InstallerPath $installers[0].FullName -BaselineInstallerPath .\artifacts\baseline-0.4\ModernImageViewer-0.4.0-win-x64-Setup.exe -BaselineVersion 0.4.0 -FixtureDirectory .\artifacts\format-fixtures
+          .\scripts\invoke-installer-check.ps1 -InstallerPath $installers[0].FullName -BaselineInstallerPath .\artifacts\baseline-0.4\ModernImageViewer-0.4.0-win-x64-Setup.exe -BaselineVersion 0.4.0 -FixtureDirectory .\artifacts\format-fixtures
 
       - name: Check clean install, same-version reinstall and uninstall
         timeout-minutes: 5
@@ -297,7 +297,7 @@ jobs:
         run: |
           $installers = @(Get-ChildItem .\artifacts\installer\*-Setup.exe)
           if ($installers.Count -ne 1) { throw 'Expected exactly one installer.' }
-          .\scripts\check-installer.ps1 -InstallerPath $installers[0].FullName -FixtureDirectory .\artifacts\format-fixtures -LogDirectory .\artifacts\installer-smoke-clean
+          .\scripts\invoke-installer-check.ps1 -InstallerPath $installers[0].FullName -FixtureDirectory .\artifacts\format-fixtures -LogDirectory .\artifacts\installer-smoke-clean
 
       - name: Upload win-x64 installer
         if: always() && steps.installer_build.outcome == 'success'
@@ -343,7 +343,7 @@ jobs:
           $installers = @(Get-ChildItem .\artifacts\installer\*-Setup.exe)
           if ($installers.Count -ne 1) { throw 'Expected exactly one installer.' }
           $directory = Join-Path $env:GITHUB_WORKSPACE 'artifacts/baseline-0.6-public'
-          .\scripts\check-installer.ps1 -InstallerPath $installers[0].FullName -BaselineInstallerPath (Join-Path $directory 'ModernImageViewer-0.6.0-win-x64-Setup.exe') -BaselineVersion 0.6.0 -FixtureDirectory .\artifacts\format-fixtures -LogDirectory .\artifacts\installer-smoke-0.6
+          .\scripts\invoke-installer-check.ps1 -InstallerPath $installers[0].FullName -BaselineInstallerPath (Join-Path $directory 'ModernImageViewer-0.6.0-win-x64-Setup.exe') -BaselineVersion 0.6.0 -FixtureDirectory .\artifacts\format-fixtures -LogDirectory .\artifacts\installer-smoke-0.6
 
       - name: Publish same-source flat comparison package
         timeout-minutes: 5
