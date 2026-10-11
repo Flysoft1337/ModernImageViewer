@@ -80,10 +80,26 @@ function Assert-Shortcuts([string]$Stage) {
     try {
         foreach ($name in $shortcuts.Keys) {
             $path = $shortcuts[$name]
+            $expected = if ($name -eq 'Uninstall') { $uninstaller } else { $executable }
+            if (-not [IO.File]::Exists($path)) {
+                # Public installers may have used their own default Start Menu
+                # group. Verify ownership by target and remember the actual path.
+                $candidates = @(Get-ChildItem -LiteralPath ([Environment]::GetFolderPath('Programs')) -Filter '*.lnk' -File -Recurse -ErrorAction SilentlyContinue)
+                foreach ($candidate in $candidates) {
+                    $probe = $shell.CreateShortcut($candidate.FullName)
+                    try {
+                        if ($probe.Arguments -eq '' -and [string]::Equals($probe.TargetPath, $expected, [StringComparison]::OrdinalIgnoreCase)) {
+                            $path = $candidate.FullName
+                            $shortcuts[$name] = $path
+                            break
+                        }
+                    }
+                    finally { [Runtime.InteropServices.Marshal]::FinalReleaseComObject($probe) | Out-Null }
+                }
+            }
             if (-not [IO.File]::Exists($path)) { throw "The $name shortcut is missing: $path" }
             $shortcut = $shell.CreateShortcut($path)
             try {
-                $expected = if ($name -eq 'Uninstall') { $uninstaller } else { $executable }
                 if (-not [string]::Equals($shortcut.TargetPath, $expected, [StringComparison]::OrdinalIgnoreCase)) {
                     throw "The $name shortcut targets '$($shortcut.TargetPath)' instead of '$expected'."
                 }
