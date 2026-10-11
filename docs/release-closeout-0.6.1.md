@@ -16,6 +16,8 @@
 
 同一新提交`5243ba7`的[手动CI 38155611954](https://github.com/Flysoft1337/ModernImageViewer/actions/runs/38155611954)重复排队已取消后独立启动：核心验证及公开0.4升级通过，历史性能失焦/1对完整；全新安装开始约20秒后步骤状态自行变为Cancelled，后续包括always上传步骤全部Skipped，job仍显示In progress，未取得正常失败报告。在该状态出现前主任务没有取消这次手动运行。随后取消残留运行，将唯一Windows job固定为`windows-2022`作环境隔离复测；不是新增测试矩阵，不以环境变化宣称已定位根因。比较双方仍在同一job、同SDK/runtime构建，门槛与样本不变。
 
+[Windows 2022 CI 38156757576](https://github.com/Flysoft1337/ModernImageViewer/actions/runs/38156757576)历史对照6对Valid、门槛通过，核心检查及公开0.4升级通过；随后clean安装仍超过独立240秒与步骤5分钟时限，未正常完成，取消。固定runner未解决该现象，不再把它视为已证明的特定Windows镜像问题。将既有clean/公开0.6两个smoke迁至各自独立VM，复用主job的同一四文件安装artifact及固定格式样本，不新增验证内容；主job保留公开0.4升级，publisher等待三个job全部成功。提前上传安装包以保存故障时的可审查资产，三路日志独立上传。
+
 日期：2026-10-11。固定基线`320886eff025e2f6e87d75966c89600ec5b17ab1`，开发分支`release/0.6.1`。只收口既有能力，不新增格式或编辑功能，不创建Tag/Release，不修改操作者真实安装、关联、配置和图片。
 
 ## 起点与决定
