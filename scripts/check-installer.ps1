@@ -25,6 +25,7 @@ if ($baselineInstaller -and (Get-FileHash -LiteralPath $baselineInstaller).Hash 
     throw 'Baseline and target installers must be different packages.'
 }
 $logs = [IO.Path]::GetFullPath($LogDirectory)
+Write-Host "Installer smoke: target $targetVersionText; baseline requested: $([bool]$baselineInstaller)."
 $smokeId = [Guid]::NewGuid().ToString("N")
 # Public 0.4 shortcuts expose lossy ANSI target paths for non-ASCII install
 # directories on the hosted account. Keep migration isolated from that legacy
@@ -62,6 +63,7 @@ $legacyFilesToRemove = [Collections.Generic.List[string]]::new()
 $legacyPayloadProtectionVerified = $false
 $associationMigrationVerified = $false
 $verificationSucceeded = $false
+$unusedOpenGlCleanupVerified = $false
 
 function Assert-Equal($Actual, $Expected, [string]$Message) {
     if ($Actual -cne $Expected) { throw $Message }
@@ -79,6 +81,7 @@ function Read-InstallerVersion([string]$Path, [version]$ExpectedVersion) {
 }
 
 function Assert-Shortcuts([string]$Stage) {
+    Write-Host "Checking $Stage shortcut targets."
     $shell = New-Object -ComObject WScript.Shell
     try {
         foreach ($name in $shortcuts.Keys) {
@@ -210,6 +213,7 @@ function Read-RegistrySnapshot([string]$Path) {
 }
 
 function Invoke-Setup([string]$Path, [string[]]$SetupArguments) {
+    Write-Host "Starting setup process: $([IO.Path]::GetFileName($Path))."
     $info = [Diagnostics.ProcessStartInfo]::new($Path)
     $info.UseShellExecute = $false
     foreach ($argument in $SetupArguments) { $info.ArgumentList.Add($argument) }
@@ -217,12 +221,14 @@ function Invoke-Setup([string]$Path, [string[]]$SetupArguments) {
     $process.StartInfo = $info
     try {
         if (-not $process.Start()) { throw "Installer process did not start." }
+        Write-Host "Waiting for setup PID $($process.Id); limit 120 seconds."
         if (-not $process.WaitForExit(120000)) {
             $process.Kill($true)
             $process.WaitForExit(5000) | Out-Null
             throw "Installer process exceeded the 120-second limit."
         }
         if ($process.ExitCode -ne 0) { throw "Installer process failed with exit code $($process.ExitCode)." }
+        Write-Host "Setup PID $($process.Id) exited successfully."
     }
     finally { $process.Dispose() }
 }
@@ -298,6 +304,7 @@ function Read-UninstallIdentity {
 }
 
 function Read-InstalledVersion([string]$Stage, [version]$ExpectedVersion = $targetVersion) {
+    Write-Host "Checking $Stage payload version and inventory."
     $nestedExecutable = Join-Path $directory 'app/ModernImageViewer.App.exe'
     $script:executable = if ([IO.File]::Exists($nestedExecutable)) { $nestedExecutable } else { Join-Path $directory 'ModernImageViewer.App.exe' }
     $identity = Read-UninstallIdentity
@@ -411,7 +418,19 @@ try {
     Assert-ProtectedState
     # 0.4 can open the generated PNG/WebP, but not the newer codec fixture groups.
     $initialFixtures = if ($baselineInstaller -and $BaselineVersion -eq '0.4.0') { $null } else { $FixtureDirectory }
+    Write-Host "Checking $initialStage file activation."
     & (Join-Path $PSScriptRoot "check-file-activation.ps1") -AppPath $executable -FixtureDirectory $initialFixtures
+    Write-Host "$initialStage file activation completed."
+
+    $previousGlfwBytes = $null
+    if ($baselineInstaller) {
+        $previousGlfw = Join-Path ([IO.Path]::GetDirectoryName($executable)) 'glfw3.dll'
+        if (-not (Test-Path -LiteralPath $previousGlfw -PathType Leaf) -or
+            (Get-FileHash -LiteralPath $previousGlfw -Algorithm SHA256).Hash -ine '7d79e8c50ecd369cf135af2fdd08a85a799973102304c732c83668f9168fe9b8') {
+            throw 'The verified baseline must supply the fixed previous GLFW runtime for the cleanup check.'
+        }
+        $previousGlfwBytes = [IO.File]::ReadAllBytes($previousGlfw)
+    }
 
     $preferences = Join-Path $directory "custom-user-preferences.json"
     [IO.File]::WriteAllText($preferences, '{"keep":"user data"}')
@@ -420,7 +439,10 @@ try {
     $customSatellite = Join-Path $directory 'ru/custom-user-file.txt'
     [IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($customSatellite)) | Out-Null
     [IO.File]::WriteAllText($customSatellite, 'keep user content in a legacy directory')
-    foreach ($path in @($preferences, $customLibrary, $customSatellite)) {
+    $customGlfw = Join-Path $directory 'app/glfw3.dll'
+    [IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($customGlfw)) | Out-Null
+    [IO.File]::WriteAllText($customGlfw, 'user-modified OpenGL file')
+    foreach ($path in @($preferences, $customLibrary, $customSatellite, $customGlfw)) {
         $protectedFiles[$path] = (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash
     }
     if ($baselineInstaller) {
@@ -441,7 +463,9 @@ try {
             if ([IO.File]::Exists((Join-Path $directory $legacy))) { throw "Upgrade left a known flat-layout runtime file behind: $legacy" }
         }
         $legacyPayloadProtectionVerified = $true
+        Write-Host 'Checking upgraded file activation.'
         & (Join-Path $PSScriptRoot 'check-file-activation.ps1') -AppPath $executable -FixtureDirectory $FixtureDirectory
+        Write-Host 'Upgraded file activation completed.'
     }
     else { $upgradedVersion = $initialVersion }
     if ([IO.Path]::GetDirectoryName($executable) -cne (Join-Path $directory 'app')) { throw 'The current package must keep its runtime in app/.' }
@@ -463,9 +487,21 @@ try {
     }
     finally { $formats.Dispose() }
     $beforeReinstallHash = $lifecycle[-1].AssemblySha256
+    # Replace only our fixture to exercise known app/ GLFW cleanup in the existing run.
+    if ($null -ne $previousGlfwBytes) {
+        [IO.File]::WriteAllBytes($customGlfw, $previousGlfwBytes)
+        $protectedFiles.Remove($customGlfw)
+    }
     # Existing owned desktop links must enter the replacement uninstall log
     # even when reinstall explicitly leaves desktopicon unselected.
     Invoke-Setup $installer ($common + @('/TASKS=fileassoc', "/LOG=$(Join-Path $logs 'same-version-reinstall.log')"))
+    if ($null -ne $previousGlfwBytes) {
+        if (Test-Path -LiteralPath $customGlfw) { throw 'Reinstall left the known unused GLFW runtime behind.' }
+        $unusedOpenGlCleanupVerified = $true
+        # Unknown/modified runtime files must survive uninstall as well as upgrade.
+        [IO.File]::WriteAllText($customGlfw, 'user-modified OpenGL file')
+        $protectedFiles[$customGlfw] = (Get-FileHash -LiteralPath $customGlfw -Algorithm SHA256).Hash
+    }
     Assert-InstalledPayload $upgradedVersion
     Assert-Registration
     Assert-ProtectedState
@@ -474,7 +510,9 @@ try {
     Assert-Equal $lifecycle[-1].AssemblySha256 $beforeReinstallHash 'Same-version reinstall changed the application assembly.'
     Assert-Equal (Read-UninstallIdentity) $uninstallIdentity "Reinstall created a different uninstall identity."
     Assert-ProtectedFiles -IncludeModifiedLegacy
+    Write-Host 'Checking reinstalled file activation.'
     & (Join-Path $PSScriptRoot 'check-file-activation.ps1') -AppPath $executable -FixtureDirectory $FixtureDirectory
+    Write-Host 'Reinstalled file activation completed.'
 
     # An older description must also be removed; unrelated custom values remain protected.
     $capabilities = $currentUser.OpenSubKey("$applicationKey\Capabilities", $true)
@@ -542,6 +580,7 @@ finally {
             RemovedLegacyFiles = $legacyFilesToRemove
             UserFilesPreserved = $verificationSucceeded
             PortableCandidatesSeeded = $portableCandidateKeys.Count
+            UnusedOpenGlCleanupVerified = $unusedOpenGlCleanupVerified
             BaselineInstallerSha256 = if ($baselineInstaller) { (Get-FileHash -LiteralPath $baselineInstaller -Algorithm SHA256).Hash } else { $null }
             TargetInstallerSha256 = (Get-FileHash -LiteralPath $installer -Algorithm SHA256).Hash
             Lifecycle = $lifecycle

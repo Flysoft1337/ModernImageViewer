@@ -6,11 +6,13 @@
 
 重新查询GitHub确认PR #39/#40已合并，公开v0.6.0为Pre-release，最新稳定版仍为v0.4.0。master [CI #113](https://github.com/Flysoft1337/ModernImageViewer/actions/runs/37932248817)的604通过/1 RAW跳过不能代替完整CI，其最后性能观察失焦失败。PR #41最终[CI #115](https://github.com/Flysoft1337/ModernImageViewer/actions/runs/37940365262)被取消；Dependabot的绿色检查不是产品CI。
 
-[PR #41](https://github.com/Flysoft1337/ModernImageViewer/pull/41)不纳入本补丁：额外减少约1–2MiB，缺少最终完整CI，收益不足以扩大本补丁风险。保持OpenTK/GLFW依赖声明及随包资源；不声称移除方案已验收。
+[PR #41](https://github.com/Flysoft1337/ModernImageViewer/pull/41)原先因旧候选缺少完整CI而暂缓。用户追加“能合并就合并”后，基于已合并#42的master `59c1ff7`更新该PR：保留严格性能分类、关闭内部压缩、0.6.1版本和卸载保护，只接入已核验版本的可选OpenGL依赖排除、外层压缩与旧GLFW按哈希回收。合并仍以更新后的完整CI为前提；旧0.6.0内部压缩试包的收益不能当作当前0.6.1收益，最新包与最终master证据在PR交付记录核对。
 
 ## CI修复
 
 原调用方try/catch不能捕获子脚本`exit 1`。新入口以隐藏pwsh子进程捕获退出码、并发排空输出，执行上限600秒，输出排空上限5秒。#115停滞原因没有完整日志证明，不把执行上限描述为已定位其根因。
+
+#41更新CI38147319900在公开0.4安装步骤再次长时间无输出后取消；为原有安装流程补阶段日志及CI步骤上限，独立安装5分钟、含公开0.6下载与性能对照的组合步骤18分钟。超时仍为失败；没有证据把无输出归因于runner或产品，也不记为完整通过。
 
 先验证completion marker及实际浏览报告，再分类失焦，避免用失焦掩盖细节未完成/坏报告。仅`ForegroundWindowLost`/`ForegroundNotObserved`、退出1且所有已执行driver原始报告完整时输出Inconclusive；不计有效性能，不写成验收通过。缺报告、超时、结构错误、产品异常和有效配对中位数超过现有10%规则仍失败，不自动批准性能豁免。
 
@@ -74,4 +76,4 @@
 
 PR #42 首轮CI的有效同机对照因候选第3对单个细化请求199.022ms而触发既有10%规则，不能记为通过；候选与基线产品源码相同，其余样本未呈现同类幅度，后续6对交替复测已执行，失焦结果仍为Inconclusive。公开0.4基线日志确认其菜单组固定为`Modern Image Viewer`、忽略`/GROUP`，COM读出的中文临时目标被转换为`????`。迁移改用含空格ASCII隔离目录及实际默认菜单组，恢复全阶段严格检查；不扫描/修改外来快捷方式，中文图片激活继续由已有smoke覆盖。升级显式选择desktopicon但不选fileassoc验证已有关联迁移，重装显式不选desktopicon以验证已有入口进入替换卸载日志。中文安装路径及旧自定义菜单组迁移仍未验收。
 
-自动化未发现新的P0；本轮已修复安装卸载保护和内部压缩启动回退。真实视觉/鼠标/Shell及无内部压缩最终有效性能仍缺证据，不能宣称P1风险全部排除。最终同一master完整CI未通过时必须NOT READY FOR RELEASE；通过后也最多READY FOR PRE-RELEASE ONLY。最终master SHA、该提交CI和包体/哈希以[PR #42](https://github.com/Flysoft1337/ModernImageViewer/pull/42)交付记录为准；本文件保留上述候选证据，不把候选包冒充最终master包，不创建Tag/Release。
+自动化未发现新的P0；本轮已修复安装卸载保护和内部压缩启动回退。真实视觉/鼠标/Shell及无内部压缩最终有效性能仍缺证据，不能宣称P1风险全部排除。最终同一master完整CI未通过时必须NOT READY FOR RELEASE；通过后也最多READY FOR PRE-RELEASE ONLY。#42交付记录保留该阶段候选证据；追加#41合并后，最终master SHA、该提交CI和包体/哈希以[PR #41](https://github.com/Flysoft1337/ModernImageViewer/pull/41)交付记录为准，不把候选包冒充最终master包，不创建Tag/Release。

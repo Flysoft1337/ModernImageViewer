@@ -63,6 +63,12 @@ Copy-Item $repositoryLicense $publishedLicense -Force
 $assetsPath = Join-Path $repository "src/ModernImageViewer.App/obj/project.assets.json"
 if (-not (Test-Path $assetsPath -PathType Leaf)) { throw "Resolved project.assets.json is required to include dependency licenses." }
 $assets = Get-Content $assetsPath -Raw | ConvertFrom-Json
+if ($assets.libraries.PSObject.Properties.Name -match '^(OpenTK([./]|$)|GLWpfControl/)') {
+    throw 'The CPU-only viewer must not resolve the optional OpenGL control dependencies.'
+}
+if (Test-Path (Join-Path $PublishDirectory 'glfw3.dll')) {
+    throw 'The publish directory contains an unused OpenGL runtime; publish into a fresh directory.'
+}
 $packageRoots = @($assets.packageFolders.PSObject.Properties.Name)
 foreach ($framework in $runtime.runtimeOptions.includedFrameworks) {
     $packId = switch ($framework.name) {
@@ -286,7 +292,7 @@ try {
             $relativePath = 'app/' + $relativePath
         }
         [IO.Compression.ZipFileExtensions]::CreateEntryFromFile($archive, $file, $relativePath,
-            [IO.Compression.CompressionLevel]::Optimal) | Out-Null
+            [IO.Compression.CompressionLevel]::SmallestSize) | Out-Null
     }
 }
 finally { $archive.Dispose() }
