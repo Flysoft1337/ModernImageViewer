@@ -1,5 +1,7 @@
 # 解码器与图片格式支持
 
+> 0.6.1补丁候选（2026-10-11）：未增加格式或解码路径，菜单/大PNG/布局收口见[验收记录](release-closeout-0.6.1.md)。公开v0.6.0资产不变；下文0.6.0记录保留历史验证边界。
+
 > 最新状态（2026-10-09）：0.6.0按公开测试版（Pre-release）分发，发布状态见[v0.6.0](https://github.com/Flysoft1337/ModernImageViewer/releases/tag/v0.6.0)，最新稳定版仍v0.4.0。WebP ANIM背景、透明Source/Over及矩形disposal已有固定像素回归；准备基线master 5c024fb完整Windows CI为599通过/1真实RAW样本跳过，最终发布提交须再次通过同一条CI。实际证据见[收口验收](release-closeout-0.6.0.md)。真实人工交互、混合DPI/跨设备低内存长测未完成，不承诺所有变体或零性能退化。
 
 ## 实际解码与绘制路径

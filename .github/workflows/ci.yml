@@ -199,23 +199,23 @@ jobs:
           if ($archives.Count -ne 1) { throw 'Expected exactly one portable package.' }
           .\scripts\check-package.ps1 -PortableArchive $archives[0].FullName
 
-      - name: Check out fixed 0.5 baseline for static comparison
+      - name: Check out fixed pre-patch master for static comparison
         uses: actions/checkout@v7
         with:
-          ref: 9cdcde9cffc4be3a242f30da2828dfb8c7ab910f
-          path: .baseline-0.5
+          ref: 320886eff025e2f6e87d75966c89600ec5b17ab1
+          path: .baseline-0.6.0
           persist-credentials: false
 
-      - name: Build fixed 0.5 comparison package
+      - name: Build fixed pre-patch comparison package with the same SDK
         shell: pwsh
         run: |
           $repository = $env:GITHUB_WORKSPACE
-          $baseline = Join-Path $repository '.baseline-0.5'
+          $baseline = Join-Path $repository '.baseline-0.6.0'
           [xml]$baselineProperties = Get-Content (Join-Path $baseline 'Directory.Build.props') -Raw
           [xml]$targetProperties = Get-Content (Join-Path $repository 'Directory.Build.props') -Raw
-          if ([string]$baselineProperties.Project.PropertyGroup.Version -ne '0.5.0' -or
-              [string]$targetProperties.Project.PropertyGroup.Version -ne '0.6.0') {
-            throw 'Static comparison requires the unchanged 0.5.0 baseline and a 0.6.0 target.'
+          if ([string]$baselineProperties.Project.PropertyGroup.Version -ne '0.6.0' -or
+              [string]$targetProperties.Project.PropertyGroup.Version -ne '0.6.1') {
+            throw 'Static comparison requires the fixed pre-patch 0.6.0 baseline and a 0.6.1 target.'
           }
           # Each checkout resolves native content relative to its own artifacts directory.
           # The baseline script revalidates archive, source, compiler and bridge hashes.
@@ -226,25 +226,24 @@ jobs:
           }
           Push-Location $baseline
           try {
-            & .\scripts\build-installer.ps1 -PublishDirectory (Join-Path $repository 'artifacts/baseline-0.5/publish') -OutputDirectory (Join-Path $repository 'artifacts/baseline-0.5/installer')
+            & .\scripts\build-installer.ps1 -PublishDirectory (Join-Path $repository 'artifacts/baseline-0.6.0/publish') -OutputDirectory (Join-Path $repository 'artifacts/baseline-0.6.0/installer')
           }
           finally { Pop-Location }
 
-      - name: Observe fixed 0.5 baseline in the same Windows job
+      - name: Compare fixed pre-patch and candidate alternately in the same Windows job
         shell: pwsh
         run: |
-          $baselineApp = Join-Path $env:GITHUB_WORKSPACE 'artifacts/baseline-0.5/publish/ModernImageViewer.App.exe'
-          .\scripts\measure-startup.ps1 -AppPath $baselineApp -Iterations 1 -ObservationSeconds 1 -OutputPath .\artifacts\startup-baseline-0.5.json
-          .\scripts\measure-browsing.ps1 -AppPath $baselineApp -GeneratedImageCount 8 -NeighborSwitches 8 -RapidBurst 4 -RefreshEvery 4 -DetailEvery 4 -IdleSeconds 2 -OutputPath .\artifacts\browsing-observation\baseline-0.5.json
+          $baselineApp = Join-Path $env:GITHUB_WORKSPACE 'artifacts/baseline-0.6.0/publish/ModernImageViewer.App.exe'
+          .\scripts\invoke-static-comparison.ps1 -BaselineAppPath $baselineApp -CandidateAppPath .\artifacts\publish\win-x64\ModernImageViewer.App.exe -Pairs 3 -WarmupPairs 1 -OutputDirectory .\artifacts\static-history-comparison
 
       - name: Upload baseline static observations
+        if: always()
         uses: actions/upload-artifact@v7
         with:
           name: baseline-static-observation
           path: |
-            artifacts/startup-baseline-0.5.json
-            artifacts/browsing-observation/baseline-0.5.json
-          if-no-files-found: error
+            artifacts/static-history-comparison/**
+          if-no-files-found: warn
           retention-days: 14
 
       - name: Download and verify public v0.4.0 upgrade baseline
@@ -282,12 +281,19 @@ jobs:
             InstallerProductVersion = $versionInfo.ProductVersion.Trim()
           } | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $logs 'baseline-package.json') -Encoding utf8
 
-      - name: Check public 0.4 to 0.6 upgrade, reinstall and uninstall
+      - name: Check public 0.4 to 0.6.1 upgrade, reinstall and uninstall
         shell: pwsh
         run: |
           $installers = @(Get-ChildItem .\artifacts\installer\*-Setup.exe)
           if ($installers.Count -ne 1) { throw 'Expected exactly one installer.' }
           .\scripts\check-installer.ps1 -InstallerPath $installers[0].FullName -BaselineInstallerPath .\artifacts\baseline-0.4\ModernImageViewer-0.4.0-win-x64-Setup.exe -BaselineVersion 0.4.0 -FixtureDirectory .\artifacts\format-fixtures
+
+      - name: Check clean install, same-version reinstall and uninstall
+        shell: pwsh
+        run: |
+          $installers = @(Get-ChildItem .\artifacts\installer\*-Setup.exe)
+          if ($installers.Count -ne 1) { throw 'Expected exactly one installer.' }
+          .\scripts\check-installer.ps1 -InstallerPath $installers[0].FullName -FixtureDirectory .\artifacts\format-fixtures -LogDirectory .\artifacts\installer-smoke-clean
 
       - name: Upload win-x64 installer
         if: always() && steps.installer_build.outcome == 'success'
@@ -327,14 +333,7 @@ jobs:
           # Same source, runtime, language resources and native dependencies isolate bundling/compression.
           dotnet publish .\src\ModernImageViewer.App\ModernImageViewer.App.csproj --configuration Release --runtime win-x64 --self-contained true --no-restore --output .\artifacts\packaging-flat-comparison -p:PublishSingleFile=false -p:EnableCompressionInSingleFile=false
           if ($LASTEXITCODE -ne 0) { throw 'Flat comparison publish failed.' }
-          try {
-            .\scripts\measure-static-comparison.ps1 -BaselineAppPath .\artifacts\packaging-flat-comparison\ModernImageViewer.App.exe -CandidateAppPath .\artifacts\publish\win-x64\ModernImageViewer.App.exe -Pairs 3 -WarmupPairs 1 -OutputDirectory .\artifacts\packaging\static-comparison
-          }
-          catch {
-            # A transient desktop focus loss invalidates the comparison, but must not hide the
-            # already completed package/installation evidence. The failed report is uploaded.
-            Write-Warning "Static packaging comparison was inconclusive: $($_.Exception.Message)"
-          }
+          .\scripts\invoke-static-comparison.ps1 -BaselineAppPath .\artifacts\packaging-flat-comparison\ModernImageViewer.App.exe -CandidateAppPath .\artifacts\publish\win-x64\ModernImageViewer.App.exe -Pairs 3 -WarmupPairs 1 -OutputDirectory .\artifacts\packaging\static-comparison
 
       - name: Upload compact packaging verification
         if: always()
@@ -344,6 +343,7 @@ jobs:
           path: |
             artifacts/packaging/**
             artifacts/installer-smoke-0.6/**
+            artifacts/installer-smoke-clean/**
           if-no-files-found: warn
           retention-days: 14
 

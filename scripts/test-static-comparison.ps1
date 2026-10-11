@@ -137,3 +137,77 @@ $protectedJson = ConvertTo-Json -InputObject $protected -Depth 8
 Assert-Condition ($protectedJson -notmatch 'private|server|Open failed' -and $protected.InputCount -eq 8 -and $protected.PhaseObservation.Failure -eq 'RedactedFailure') 'InheritedReportPrivacy'
 
 Write-Output "Comparison regressions passed: $assertions assertions; no viewer or performance run."
+
+. (Join-Path $PSScriptRoot 'static-comparison-policy.ps1')
+$focusReport = @{
+    SchemaVersion = 1; Success = $false; Failure = 'ForegroundWindowLost'; RequestedPairs = 3
+    Statistics = @{ CompletePairs = 0 }; Runs = @(@{
+        Success = $false; Failure = 'ForegroundWindowLost'; DriverStatus = @{
+            startup = @{ Success = $false; Failure = 'ForegroundWindowLost'; RawReportAvailable = $true }
+        }
+    })
+}
+Assert-Condition ((Get-StaticComparisonDisposition $focusReport 1) -eq 'Inconclusive') 'OnlyCompleteFocusEvidenceIsInconclusive'
+foreach ($failure in @('ChildScriptFailed', 'ChildScriptTimeout', 'MissingReport', 'InvalidReport',
+    'IncompleteDetails', 'IncompleteSwitches', 'MissingCompletionSignal', 'MultipleViewers', 'BinaryChanged')) {
+    $invalid = $focusReport | ConvertTo-Json -Depth 8 | ConvertFrom-Json -AsHashtable
+    $invalid.Failure = $failure
+    $rejected = $false
+    try { $null = Get-StaticComparisonDisposition $invalid 1 } catch { $rejected = $true }
+    Assert-Condition $rejected "CriticalFailure-$failure"
+}
+$focusReport.Runs[0].DriverStatus.startup.RawReportAvailable = $false
+$rejected = $false
+try { $null = Get-StaticComparisonDisposition $focusReport 1 } catch { $rejected = $true }
+Assert-Condition $rejected 'MissingRawEvidenceCannotBeDowngraded'
+$valid = @{ SchemaVersion = 1; Success = $true; Failure = $null; RequestedPairs = 1; Runs = @(
+    foreach ($version in @('A', 'B')) {
+        @{ Pair = 1; Warmup = $false; Version = $version; Success = $true; Failure = $null; Metrics = $metrics
+            DriverStatus = @{ startup = @{Success=$true; Failure=$null; RawReportAvailable=$true}
+                browsing = @{Success=$true; Failure=$null; RawReportAvailable=$true} } }
+    })
+    Statistics = @{ CompletePairs = 1; PairRatios = @(@{CandidateOverBaseline = @{
+        StartupWindowInputIdleMs=1.0; FirstRecognizableMs=1.0; NavigationAvailableMs=1.0
+        NeighborSwitchMeanMs=1.0; FirstRequiredDetailMs=1.0; RequestedDetailMeanMs=1.0
+    }}) }
+}
+Assert-Condition ((Get-StaticComparisonDisposition $valid 0) -eq 'Valid') 'ValidatedPairsWithinThreshold'
+$valid.Statistics.PairRatios[0].CandidateOverBaseline.FirstRecognizableMs = 1.11
+$rejected = $false
+try { $null = Get-StaticComparisonDisposition $valid 0 } catch { $rejected = $_.Exception.Message -eq 'PerformanceReviewRequired:FirstRecognizableMs' }
+Assert-Condition $rejected 'ExistingTenPercentRuleCannotBeIgnored'
+Write-Output 'Observation disposition boundary cases passed.'
+
+# Exercise actual child `exit 1`, rather than assuming a caller try/catch sees it.
+$temporary = Join-Path ([IO.Path]::GetTempPath()) ('Miv-exit-unit-' + [Guid]::NewGuid().ToString('N'))
+[void][IO.Directory]::CreateDirectory($temporary)
+try {
+    foreach ($script in @('invoke-static-comparison.ps1', 'static-comparison-policy.ps1')) {
+        Copy-Item -LiteralPath (Join-Path $PSScriptRoot $script) -Destination $temporary
+    }
+    @'
+param($BaselineAppPath, $CandidateAppPath, $OutputDirectory, $Pairs, $WarmupPairs)
+[void][IO.Directory]::CreateDirectory($OutputDirectory)
+@{SchemaVersion=1;Success=$false;Failure=$env:MIV_EXIT_TEST_FAILURE;RequestedPairs=3
+  Statistics=@{CompletePairs=0};Runs=@(@{Success=$false;Failure=$env:MIV_EXIT_TEST_FAILURE
+    DriverStatus=@{startup=@{Success=$false;Failure=$env:MIV_EXIT_TEST_FAILURE;RawReportAvailable=$true}}})} |
+  ConvertTo-Json -Depth 8 | Set-Content (Join-Path $OutputDirectory 'index.json')
+exit 1
+'@ | Set-Content -LiteralPath (Join-Path $temporary 'measure-static-comparison.ps1') -Encoding utf8
+    $priorFailure = $env:MIV_EXIT_TEST_FAILURE
+    $env:MIV_EXIT_TEST_FAILURE = 'ForegroundWindowLost'
+    & (Join-Path $temporary 'invoke-static-comparison.ps1') -BaselineAppPath unused -CandidateAppPath unused -OutputDirectory $temporary
+    $disposition = Get-Content (Join-Path $temporary 'disposition.json') -Raw | ConvertFrom-Json
+    Assert-Condition ($disposition.ChildExitCode -eq 1 -and $disposition.Disposition -eq 'Inconclusive' -and
+        -not $disposition.PerformanceAccepted) 'RealChildExitOneCaptured'
+    $env:MIV_EXIT_TEST_FAILURE = 'ChildScriptFailed'
+    $rejected = $false
+    try { & (Join-Path $temporary 'invoke-static-comparison.ps1') -BaselineAppPath unused -CandidateAppPath unused -OutputDirectory $temporary }
+    catch { $rejected = $true }
+    Assert-Condition $rejected 'RealChildCriticalExitCannotBeSwallowed'
+}
+finally {
+    $env:MIV_EXIT_TEST_FAILURE = $priorFailure
+    [IO.Directory]::Delete($temporary, $true)
+}
+Write-Output "Comparison boundary checks passed: $assertions assertions; no viewer launched."
