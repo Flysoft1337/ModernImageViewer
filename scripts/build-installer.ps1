@@ -38,7 +38,7 @@ if (-not (Test-Path $appPath -PathType Leaf) -or -not (Test-Path $runtimePath -P
     throw "A complete win-x64 publish is required in $PublishDirectory."
 }
 if (Test-Path (Join-Path $PublishDirectory 'ModernImageViewer.App.dll')) {
-    throw 'The package requires the compressed single-file publish; use a fresh publish directory.'
+    throw 'The package requires the single-file publish; use a fresh publish directory.'
 }
 $runtime = Get-Content $runtimePath -Raw | ConvertFrom-Json
 if (-not $runtime.runtimeOptions.includedFrameworks -or $runtime.runtimeOptions.framework -or $runtime.runtimeOptions.frameworks) {

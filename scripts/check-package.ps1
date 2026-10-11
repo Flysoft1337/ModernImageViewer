@@ -64,7 +64,7 @@ try {
         PayloadBytes = ($files | Measure-Object -Property Length -Sum).Sum
         PortableBytes = (Get-Item -LiteralPath $PortableArchive).Length
         NativeFilesVerified = @($inventory.NativeFiles).Count
-        Layout = 'app/ contains the compressed managed bundle and external native runtime; licenses/ contains notices and required sources.'
+        Layout = 'app/ contains the uncompressed managed bundle and external native runtime; licenses/ contains notices and required sources.'
         RuntimeExtraction = $false
         Limitations = 'Payload excludes the installer marker and Inno uninstaller; installed bytes are measured separately by the installer smoke.'
     } | ConvertTo-Json | Set-Content -LiteralPath $destination -Encoding utf8

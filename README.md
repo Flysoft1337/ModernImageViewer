@@ -32,7 +32,7 @@
 - 公开 v0.6.0 便携 ZIP 解压后运行根目录的 `ModernImageViewer.App.exe`；0.6.1 候选入口为 `app\ModernImageViewer.App.exe`。需要时在应用设置里注册 `Modern Image Viewer (Portable)`。安装版与便携版使用独立关联身份，可共存；卸载安装版不撤销便携版候选。
 - 当前 EXE **未签名**；可信签名发布与 MSIX 继续规划。构建产物和校验清单由 Windows CI 上传，实际安装/卸载验证结果以对应运行记录为准；系统默认选择和 Shell 双击仍需人工验收。
 
-当前源码候选采用压缩托管程序集、外置 native 的自带运行时包，运行文件集中在 `app/`，许可证及必须附带的源码集中在 `licenses/`；候选便携包入口为 `app/ModernImageViewer.App.exe`。公开 v0.6.0 资产仍使用原布局，不会被覆盖。体积与迁移验证见[打包记录](docs/compact-packaging.md)。
+当前源码候选采用托管单文件、外置 native 的自带运行时包，运行文件集中在 `app/`，许可证及必须附带的源码集中在 `licenses/`；候选便携包入口为 `app/ModernImageViewer.App.exe`。0.6.1因同机观察确认启动退化，关闭程序集内部压缩，下载仍由ZIP/安装器压缩。公开 v0.6.0 资产仍使用原布局，不会被覆盖。体积与迁移验证见[补丁验收](docs/release-closeout-0.6.1.md)。
 
 从 Windows 开发环境打包（PowerShell 7）：
 
