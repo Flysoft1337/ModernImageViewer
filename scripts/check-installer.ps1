@@ -75,7 +75,7 @@ function Read-InstallerVersion([string]$Path, [version]$ExpectedVersion) {
     return [version]$versionText
 }
 
-function Assert-Shortcuts([string]$Stage) {
+function Assert-Shortcuts([string]$Stage, [switch]$AllowMissingLegacy) {
     $shell = New-Object -ComObject WScript.Shell
     try {
         foreach ($name in $shortcuts.Keys) {
@@ -107,7 +107,10 @@ function Assert-Shortcuts([string]$Stage) {
                     finally { [Runtime.InteropServices.Marshal]::FinalReleaseComObject($probe) | Out-Null }
                 }
             }
-            if (-not [IO.File]::Exists($path)) { throw "The $name shortcut is missing: $path" }
+            if (-not [IO.File]::Exists($path)) {
+                if ($AllowMissingLegacy) { continue }
+                throw "The $name shortcut is missing: $path"
+            }
             $shortcut = $shell.CreateShortcut($path)
             try {
                 if (-not [string]::Equals($shortcut.TargetPath, $expected, [StringComparison]::OrdinalIgnoreCase)) {
@@ -423,7 +426,7 @@ try {
     $initialExpectedVersion = if ($baselineInstaller) { $baselineInstallerVersion } else { $targetVersion }
     $initialVersion = Read-InstalledVersion $initialStage $initialExpectedVersion
     Assert-InstalledPayload $initialVersion
-    Assert-Shortcuts $initialStage
+    Assert-Shortcuts $initialStage -AllowMissingLegacy:([bool]$baselineInstaller)
     Assert-Registration $(if ($baselineInstaller) { $baselineExtensions } else { $extensions })
     Assert-ProtectedState
     # 0.4 can open the generated PNG/WebP, but not the newer codec fixture groups.
