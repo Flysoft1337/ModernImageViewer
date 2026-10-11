@@ -25,10 +25,11 @@ if ($baselineInstaller -and (Get-FileHash -LiteralPath $baselineInstaller).Hash 
     throw 'Baseline and target installers must be different packages.'
 }
 $logs = [IO.Path]::GetFullPath($LogDirectory)
-$directory = Join-Path ([IO.Path]::GetTempPath()) ("ModernImageViewer 安装验证 " + [Guid]::NewGuid().ToString("N"))
+$smokeId = [Guid]::NewGuid().ToString("N")
+$directory = Join-Path ([IO.Path]::GetTempPath()) ("ModernImageViewer 安装验证 " + $smokeId)
 $executable = Join-Path $directory "ModernImageViewer.App.exe"
 $uninstaller = Join-Path $directory "unins000.exe"
-$shortcutGroup = 'ModernImageViewer 安装验证 ' + [IO.Path]::GetFileName($directory)
+$shortcutGroup = 'ModernImageViewer 安装验证 ' + $smokeId
 $startMenuDirectory = Join-Path ([Environment]::GetFolderPath('Programs')) $shortcutGroup
 $desktopShortcut = Join-Path ([Environment]::GetFolderPath('DesktopDirectory')) 'Modern Image Viewer.lnk'
 $shortcuts = [ordered]@{
