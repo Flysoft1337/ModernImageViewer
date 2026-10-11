@@ -234,7 +234,7 @@ jobs:
         shell: pwsh
         run: |
           $baselineApp = Join-Path $env:GITHUB_WORKSPACE 'artifacts/baseline-0.6.0/publish/ModernImageViewer.App.exe'
-          .\scripts\invoke-static-comparison.ps1 -BaselineAppPath $baselineApp -CandidateAppPath .\artifacts\publish\win-x64\ModernImageViewer.App.exe -Pairs 3 -WarmupPairs 1 -OutputDirectory .\artifacts\static-history-comparison
+          .\scripts\invoke-static-comparison.ps1 -BaselineAppPath $baselineApp -CandidateAppPath .\artifacts\publish\win-x64\ModernImageViewer.App.exe -Pairs 6 -WarmupPairs 1 -OutputDirectory .\artifacts\static-history-comparison
 
       - name: Upload baseline static observations
         if: always()
@@ -333,7 +333,7 @@ jobs:
           # Same source, runtime, language resources and native dependencies isolate bundling/compression.
           dotnet publish .\src\ModernImageViewer.App\ModernImageViewer.App.csproj --configuration Release --runtime win-x64 --self-contained true --no-restore --output .\artifacts\packaging-flat-comparison -p:PublishSingleFile=false -p:EnableCompressionInSingleFile=false
           if ($LASTEXITCODE -ne 0) { throw 'Flat comparison publish failed.' }
-          .\scripts\invoke-static-comparison.ps1 -BaselineAppPath .\artifacts\packaging-flat-comparison\ModernImageViewer.App.exe -CandidateAppPath .\artifacts\publish\win-x64\ModernImageViewer.App.exe -Pairs 3 -WarmupPairs 1 -OutputDirectory .\artifacts\packaging\static-comparison
+          .\scripts\invoke-static-comparison.ps1 -BaselineAppPath .\artifacts\packaging-flat-comparison\ModernImageViewer.App.exe -CandidateAppPath .\artifacts\publish\win-x64\ModernImageViewer.App.exe -Pairs 6 -WarmupPairs 1 -OutputDirectory .\artifacts\packaging\static-comparison
 
       - name: Upload compact packaging verification
         if: always()

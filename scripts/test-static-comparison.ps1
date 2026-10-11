@@ -162,20 +162,26 @@ try { $null = Get-StaticComparisonDisposition $focusReport 1 } catch { $rejected
 Assert-Condition $rejected 'MissingRawEvidenceCannotBeDowngraded'
 $valid = @{ SchemaVersion = 1; Success = $true; Failure = $null; RequestedPairs = 1; Runs = @(
     foreach ($version in @('A', 'B')) {
-        @{ Pair = 1; Warmup = $false; Version = $version; Success = $true; Failure = $null; Metrics = $metrics
+        @{ Pair = 1; Warmup = $false; Version = $version; Success = $true; Failure = $null
+            Metrics = ($metrics | ConvertTo-Json | ConvertFrom-Json -AsHashtable)
             DriverStatus = @{ startup = @{Success=$true; Failure=$null; RawReportAvailable=$true}
                 browsing = @{Success=$true; Failure=$null; RawReportAvailable=$true} } }
     })
-    Statistics = @{ CompletePairs = 1; PairRatios = @(@{CandidateOverBaseline = @{
+    Statistics = @{ CompletePairs = 1; PairRatios = @(@{Pair = 1; CandidateOverBaseline = @{
         StartupWindowInputIdleMs=1.0; FirstRecognizableMs=1.0; NavigationAvailableMs=1.0
         NeighborSwitchMeanMs=1.0; FirstRequiredDetailMs=1.0; RequestedDetailMeanMs=1.0
     }}) }
 }
 Assert-Condition ((Get-StaticComparisonDisposition $valid 0) -eq 'Valid') 'ValidatedPairsWithinThreshold'
 $valid.Statistics.PairRatios[0].CandidateOverBaseline.FirstRecognizableMs = 1.11
+$valid.Runs[1].Metrics.FirstRecognizableMs = $valid.Runs[0].Metrics.FirstRecognizableMs * 1.11
 $rejected = $false
 try { $null = Get-StaticComparisonDisposition $valid 0 } catch { $rejected = $_.Exception.Message -eq 'PerformanceReviewRequired:FirstRecognizableMs' }
 Assert-Condition $rejected 'ExistingTenPercentRuleCannotBeIgnored'
+$valid.Statistics.PairRatios[0].CandidateOverBaseline.FirstRecognizableMs = 1.0
+$rejected = $false
+try { $null = Get-StaticComparisonDisposition $valid 0 } catch { $rejected = $_.Exception.Message -eq 'InvalidComparisonReport' }
+Assert-Condition $rejected 'SummaryCannotDisagreeWithMeasuredMetrics'
 Write-Output 'Observation disposition boundary cases passed.'
 
 # Exercise actual child `exit 1`, rather than assuming a caller try/catch sees it.
@@ -196,13 +202,18 @@ exit 1
 '@ | Set-Content -LiteralPath (Join-Path $temporary 'measure-static-comparison.ps1') -Encoding utf8
     $priorFailure = $env:MIV_EXIT_TEST_FAILURE
     $env:MIV_EXIT_TEST_FAILURE = 'ForegroundWindowLost'
-    & (Join-Path $temporary 'invoke-static-comparison.ps1') -BaselineAppPath unused -CandidateAppPath unused -OutputDirectory $temporary
-    $disposition = Get-Content (Join-Path $temporary 'disposition.json') -Raw | ConvertFrom-Json
+    $focusDirectory = Join-Path $temporary 'focus'
+    & (Join-Path $temporary 'invoke-static-comparison.ps1') -BaselineAppPath unused -CandidateAppPath unused -OutputDirectory $focusDirectory
+    $disposition = Get-Content (Join-Path $focusDirectory 'disposition.json') -Raw | ConvertFrom-Json
     Assert-Condition ($disposition.ChildExitCode -eq 1 -and $disposition.Disposition -eq 'Inconclusive' -and
         -not $disposition.PerformanceAccepted) 'RealChildExitOneCaptured'
+    $rejected = $false
+    try { & (Join-Path $temporary 'invoke-static-comparison.ps1') -BaselineAppPath unused -CandidateAppPath unused -OutputDirectory $focusDirectory }
+    catch { $rejected = $_.Exception.Message -eq 'OutputDirectoryNotEmpty' }
+    Assert-Condition $rejected 'PriorFocusReportCannotMaskNewExecutionFailure'
     $env:MIV_EXIT_TEST_FAILURE = 'ChildScriptFailed'
     $rejected = $false
-    try { & (Join-Path $temporary 'invoke-static-comparison.ps1') -BaselineAppPath unused -CandidateAppPath unused -OutputDirectory $temporary }
+    try { & (Join-Path $temporary 'invoke-static-comparison.ps1') -BaselineAppPath unused -CandidateAppPath unused -OutputDirectory (Join-Path $temporary 'critical') }
     catch { $rejected = $true }
     Assert-Condition $rejected 'RealChildCriticalExitCannotBeSwallowed'
 }

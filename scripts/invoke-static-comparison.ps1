@@ -10,6 +10,10 @@ param(
 )
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'static-comparison-policy.ps1')
+$OutputDirectory = [IO.Path]::GetFullPath($OutputDirectory)
+# Never read evidence from a previous invocation if the new driver rejects reuse.
+if ([IO.File]::Exists($OutputDirectory) -or ([IO.Directory]::Exists($OutputDirectory) -and
+    @(Get-ChildItem -LiteralPath $OutputDirectory -Force).Count)) { throw 'OutputDirectoryNotEmpty' }
 $info = [Diagnostics.ProcessStartInfo]::new((Join-Path $PSHOME 'pwsh.exe'))
 $info.UseShellExecute = $false
 $info.CreateNoWindow = $true

@@ -14,7 +14,7 @@
 
 先验证completion marker及实际浏览报告，再分类失焦，避免用失焦掩盖细节未完成/坏报告。仅`ForegroundWindowLost`/`ForegroundNotObserved`、退出1且所有已执行driver原始报告完整时输出Inconclusive；不计有效性能，不写成验收通过。缺报告、超时、结构错误、产品异常和有效配对中位数超过现有10%规则仍失败，不自动批准性能豁免。
 
-复用现有Windows job：固定pre-patch master与0.6.1均在同机同SDK/runtime构建，3对AB/BA加1对预热；另以同一候选源码比较散装/压缩包。严格保留前台、窗口/DPI一致和二进制身份检查。原始报告及独立disposition上传，不用小样本声称P95。
+复用现有Windows job：固定pre-patch master与0.6.1均在同机同SDK/runtime构建，6对AB/BA加1对预热；另以同一候选源码比较散装/压缩包。严格保留前台、窗口/DPI一致和二进制身份检查。原始报告及独立disposition上传，不用小样本声称P95。
 
 ## 本地证据
 
@@ -44,4 +44,4 @@
 
 ## 发布判断
 
-完整最终master CI尚待执行时为NOT READY FOR RELEASE。全部核心/打包CI通过且无P0、但真实视觉/鼠标与有效压缩性能仍缺证据时，最多READY FOR PRE-RELEASE ONLY，不能升级为稳定验收。最终提交/CI链接、产物哈希与实际三路结果在本轮交付中给出，公开资产保持不变。
+PR #42 首轮CI的有效同机对照因候选第3对单个细化请求199.022ms而触发既有10%规则，不能记为通过；候选与基线产品源码相同，其余样本未呈现同类幅度，但需用6对交替复测确认。完整最终master CI尚待执行时为NOT READY FOR RELEASE。全部核心/打包CI通过且无P0、但真实视觉/鼠标与有效压缩性能仍缺证据时，最多READY FOR PRE-RELEASE ONLY，不能升级为稳定验收。最终提交/CI链接、产物哈希与实际三路结果在本轮交付中给出，公开资产保持不变。

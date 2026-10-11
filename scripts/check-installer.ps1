@@ -387,7 +387,7 @@ try {
     $common = @("/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/SP-", "/CURRENTUSER",
         "/DIR=$directory", "/GROUP=$shortcutGroup", '/LANG=english')
     $registrationTasks = '/TASKS=fileassoc,desktopicon'
-    $migrationTasks = '/TASKS=desktopicon'
+    $migrationTasks = '/TASKS='
     $firstInstaller = if ($baselineInstaller) { $baselineInstaller } else { $installer }
     $firstLog = if ($baselineInstaller) { 'baseline-install.log' } else { 'install.log' }
     Invoke-Setup $firstInstaller ($common + @($registrationTasks, "/LOG=$(Join-Path $logs $firstLog)"))
@@ -472,7 +472,7 @@ try {
     $uninstallCompleted = $true
     if ([IO.File]::Exists($executable)) { throw "Uninstall left the application executable behind." }
     if ([IO.File]::Exists((Join-Path $directory 'app/ModernImageViewer.install.json'))) { throw "Uninstall left the installed distribution marker behind." }
-    Assert-ProtectedFiles
+    Assert-ProtectedFiles -IncludeModifiedLegacy
     foreach ($path in $shortcuts.Values) {
         if ([IO.File]::Exists($path)) { throw "Uninstall left an owned shortcut behind: $path" }
     }
@@ -520,7 +520,7 @@ finally {
             ExpectedTargetVersion = $targetVersionText
             TargetInstallerProductVersion = $installerVersion.ToString()
             BaselineInstallerProductVersion = if ($baselineInstaller) { $baselineInstallerVersion.ToString() } else { $null }
-            UpgradeTasks = if ($baselineInstaller) { 'desktopicon' } else { $null }
+            UpgradeTasks = if ($baselineInstaller) { 'none' } else { $null }
             AssociationMigrationWithoutTaskVerified = $associationMigrationVerified
             ShortcutChecks = $shortcutChecks
             ShortcutRemovalVerified = $uninstallCompleted -and $verificationSucceeded

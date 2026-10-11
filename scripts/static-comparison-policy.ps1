@@ -30,13 +30,25 @@ function Get-StaticComparisonDisposition($Report, [int]$ExitCode) {
     }
     $ratios = @($Report.Statistics.PairRatios)
     if ($ratios.Count -ne $Report.RequestedPairs) { throw 'InvalidComparisonReport' }
+    foreach ($pair in 1..$Report.RequestedPairs) {
+        if (@($ratios | Where-Object { $_.Pair -eq $pair }).Count -ne 1) { throw 'InvalidComparisonReport' }
+    }
     foreach ($metric in @('StartupWindowInputIdleMs', 'FirstRecognizableMs', 'NavigationAvailableMs',
         'NeighborSwitchMeanMs', 'FirstRequiredDetailMs', 'RequestedDetailMeanMs')) {
         $values = @(foreach ($pair in $ratios) {
             $value = $pair.CandidateOverBaseline.$metric
             if ($null -eq $value -or $value -is [string] -or $value -is [bool] -or
                 -not [double]::IsFinite([double]$value) -or $value -le 0) { throw 'InvalidComparisonReport' }
-            [double]$value
+            $a = @($measured | Where-Object { $_.Pair -eq $pair.Pair -and $_.Version -eq 'A' })[0]
+            $b = @($measured | Where-Object { $_.Pair -eq $pair.Pair -and $_.Version -eq 'B' })[0]
+            foreach ($run in @($a, $b)) {
+                $timing = $run.Metrics.$metric
+                if ($null -eq $timing -or $timing -is [string] -or $timing -is [bool] -or
+                    -not [double]::IsFinite([double]$timing) -or $timing -le 0) { throw 'InvalidComparisonReport' }
+            }
+            $calculated = [double]$b.Metrics.$metric / [double]$a.Metrics.$metric
+            if ([Math]::Abs($calculated - $value) -gt 1e-9 * [Math]::Max(1.0, $calculated)) { throw 'InvalidComparisonReport' }
+            $calculated
         })
         $values = @($values | Sort-Object)
         $middle = [int][Math]::Floor($values.Count / 2)
