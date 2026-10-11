@@ -84,7 +84,17 @@ function Assert-Shortcuts([string]$Stage) {
             if (-not [IO.File]::Exists($path)) {
                 # Public installers may have used their own default Start Menu
                 # group. Verify ownership by target and remember the actual path.
-                $candidates = @(Get-ChildItem -LiteralPath ([Environment]::GetFolderPath('Programs')) -Filter '*.lnk' -File -Recurse -ErrorAction SilentlyContinue)
+                $roots = if ($name -eq 'StartMenu' -or $name -eq 'Uninstall') {
+                    @([Environment]::GetFolderPath('Programs'), [Environment]::GetFolderPath('CommonPrograms'))
+                }
+                else {
+                    @([Environment]::GetFolderPath('DesktopDirectory'), [Environment]::GetFolderPath('CommonDesktopDirectory'))
+                }
+                $candidates = @(foreach ($root in ($roots | Select-Object -Unique)) {
+                    if ([IO.Directory]::Exists($root)) {
+                        Get-ChildItem -LiteralPath $root -Filter '*.lnk' -File -Recurse -ErrorAction SilentlyContinue
+                    }
+                })
                 foreach ($candidate in $candidates) {
                     $probe = $shell.CreateShortcut($candidate.FullName)
                     try {
