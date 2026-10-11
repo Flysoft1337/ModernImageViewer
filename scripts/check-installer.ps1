@@ -417,7 +417,9 @@ try {
     $common = @("/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/SP-", "/CURRENTUSER",
         "/DIR=$directory", "/GROUP=$shortcutGroup", '/LANG=english')
     $registrationTasks = '/TASKS=fileassoc,desktopicon'
-    $migrationTasks = '/TASKS='
+    # Recreate the owned desktop entry during migration so a legacy flat-layout
+    # shortcut cannot keep pointing at the removed root executable.
+    $migrationTasks = '/TASKS=desktopicon'
     $firstInstaller = if ($baselineInstaller) { $baselineInstaller } else { $installer }
     $firstLog = if ($baselineInstaller) { 'baseline-install.log' } else { 'install.log' }
     Invoke-Setup $firstInstaller ($common + @($registrationTasks, "/LOG=$(Join-Path $logs $firstLog)"))
@@ -550,7 +552,7 @@ finally {
             ExpectedTargetVersion = $targetVersionText
             TargetInstallerProductVersion = $installerVersion.ToString()
             BaselineInstallerProductVersion = if ($baselineInstaller) { $baselineInstallerVersion.ToString() } else { $null }
-            UpgradeTasks = if ($baselineInstaller) { 'none' } else { $null }
+            UpgradeTasks = if ($baselineInstaller) { 'desktopicon' } else { $null }
             AssociationMigrationWithoutTaskVerified = $associationMigrationVerified
             ShortcutChecks = $shortcutChecks
             ShortcutRemovalVerified = $uninstallCompleted -and $verificationSucceeded
