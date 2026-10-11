@@ -10,7 +10,7 @@
 
 ### 开发能力矩阵
 
-当前源码正进行 [0.6.0 菜单修复与发布前验收](docs/ui-release-acceptance-0.6.0.md)：统一主题根/子菜单、修复旋转图标和重复快捷键，保持版本 0.6.0。已有公开测试包不因源码修改而更新；真实桌面与 Shell 人工验收缺口仍保留。
+当前源码为 **0.6.1 补丁候选**，收口菜单、大 PNG 细节缓存、集中运行布局与升级验证；见[补丁说明](docs/release-notes/0.6.1.md)和[验收记录](docs/release-closeout-0.6.1.md)。尚未发布，现有公开 v0.6.0 资产保持不变；真实桌面与 Shell 人工验收缺口仍保留。
 
 以下是当前代码能力，均受格式和预算限制；完整逐格式矩阵见[格式支持](docs/decoder-support.md#当前能力矩阵)。ICC 指嵌入 profile 的处理，不代表显示器色彩管理；EXIF 方向与摄影信息展示分开记录。
 
@@ -29,10 +29,10 @@
 
 - 安装器：`ModernImageViewer-0.6.0-win-x64-Setup.exe`。默认安装到当前用户的 `%LOCALAPPDATA%\Programs\ModernImageViewer`，无需管理员权限；提供开始菜单入口、可选桌面快捷方式、升级和卸载。
 - 安装时可选注册当前25个扩展名的打开方式；安装后在Windows默认应用中选择`Modern Image Viewer`，按需要选择扩展名。安装器不会自动修改默认应用。
-- 便携 ZIP 解压后运行 `app\ModernImageViewer.App.exe`，需要时在应用设置里注册 `Modern Image Viewer (Portable)`。安装版与便携版使用独立关联身份，可共存；卸载安装版不撤销便携版候选。
+- 公开 v0.6.0 便携 ZIP 解压后运行根目录的 `ModernImageViewer.App.exe`；0.6.1 候选入口为 `app\ModernImageViewer.App.exe`。需要时在应用设置里注册 `Modern Image Viewer (Portable)`。安装版与便携版使用独立关联身份，可共存；卸载安装版不撤销便携版候选。
 - 当前 EXE **未签名**；可信签名发布与 MSIX 继续规划。构建产物和校验清单由 Windows CI 上传，实际安装/卸载验证结果以对应运行记录为准；系统默认选择和 Shell 双击仍需人工验收。
 
-当前源码候选采用压缩托管程序集、外置 native 的自带运行时包，运行文件集中在 `app/`，许可证及必须附带的源码集中在 `licenses/`；候选便携包入口为 `app/ModernImageViewer.App.exe`。公开 v0.6.0 资产仍使用原布局，不会被覆盖。体积与迁移验证见[打包记录](docs/compact-packaging.md)。
+当前源码候选采用托管单文件、外置 native 的自带运行时包，运行文件集中在 `app/`，许可证及必须附带的源码集中在 `licenses/`；候选便携包入口为 `app/ModernImageViewer.App.exe`。0.6.1 因同机观察确认启动退化，关闭程序集内部压缩，下载仍由 ZIP/安装器压缩。公开 v0.6.0 资产仍使用原布局，不会被覆盖。体积与迁移验证见[补丁验收](docs/release-closeout-0.6.1.md)。
 
 从 Windows 开发环境打包（PowerShell 7）：
 
@@ -44,7 +44,7 @@ pwsh .\scripts\build-installer.ps1 -PublishDirectory .\artifacts\publish\compact
 pwsh .\scripts\build-installer.ps1 -SkipPublish -PublishDirectory .\artifacts\publish\compact-win-x64
 ```
 
-脚本使用固定版本、校验SHA-256的Inno Setup编译器。发布输入位于`artifacts/publish/win-x64`，安装器输出位于`artifacts/installer/ModernImageViewer-<Version>-win-x64-Setup.exe`（当前源码版本0.6.0）。安装、修复、升级与卸载说明见[Windows文件关联方案](docs/windows-file-association.md)。
+脚本使用固定版本、校验SHA-256的Inno Setup编译器。发布输入位于`artifacts/publish/win-x64`，安装器输出位于`artifacts/installer/ModernImageViewer-<Version>-win-x64-Setup.exe`（当前源码版本0.6.1）。安装、修复、升级与卸载说明见[Windows文件关联方案](docs/windows-file-association.md)。
 
 需要安装时，从 [GitHub Releases](https://github.com/Flysoft1337/ModernImageViewer/releases) 下载对应版本的安装器或便携包。需要发布新版本时，在 **Actions → CI → Run workflow** 选择 **master**，勾选 **publish_release**；构建和安装检查通过后，自动创建 `v<Version>` Release，上传 EXE、ZIP 与两份 SHA256。版本来自 `Directory.Build.props`，已发布版本不会覆盖；普通 CI 只上传 artifacts。完整操作与失败恢复见 [GitHub 手动发版](docs/github-releases.md)。
 

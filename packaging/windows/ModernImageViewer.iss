@@ -35,6 +35,9 @@ SolidCompression=yes
 UninstallDisplayIcon={app}\app\ModernImageViewer.App.exe
 CloseApplications=yes
 RestartApplications=no
+; Rebuild ownership for the compact layout; old logs would delete preserved
+; modified flat-layout files during uninstall even though migration kept them.
+UninstallLogMode=overwrite
 ChangesAssociations=yes
 UsePreviousTasks=yes
 
@@ -69,7 +72,7 @@ Source: "legacy-layout.sha256"; Flags: dontcopy
 [Icons]
 Name: "{group}\Modern Image Viewer"; Filename: "{app}\app\ModernImageViewer.App.exe"
 Name: "{group}\{cm:UninstallViewer}"; Filename: "{uninstallexe}"
-Name: "{userdesktop}\Modern Image Viewer"; Filename: "{app}\app\ModernImageViewer.App.exe"; Tasks: desktopicon
+Name: "{userdesktop}\Modern Image Viewer"; Filename: "{app}\app\ModernImageViewer.App.exe"; Check: DesktopShortcutRequired
 
 [Run]
 Filename: "{app}\app\ModernImageViewer.App.exe"; Description: "{cm:OpenViewer}"; Flags: nowait postinstall skipifsilent
@@ -110,6 +113,26 @@ procedure NotifyAssociations(Event: Cardinal; Flags: Cardinal; Item1, Item2: Nat
 function ExecutablePath(): String;
 begin
   Result := ExpandConstant('{app}\app\ModernImageViewer.App.exe');
+end;
+
+function DesktopShortcutRequired(): Boolean;
+var
+  Shell, Shortcut: Variant;
+  Target: String;
+begin
+  Result := WizardIsTaskSelected('desktopicon');
+  if Result or not FileExists(ExpandConstant('{userdesktop}\Modern Image Viewer.lnk')) then exit;
+  try
+    { Carry an existing owned shortcut into the replacement uninstall log even
+      when the upgrade does not request a new desktop shortcut. }
+    Shell := CreateOleObject('WScript.Shell');
+    Shortcut := Shell.CreateShortcut(ExpandConstant('{userdesktop}\Modern Image Viewer.lnk'));
+    Target := Shortcut.TargetPath;
+    Result := (Shortcut.Arguments = '') and ((CompareText(Target, ExecutablePath()) = 0)
+      or (CompareText(Target, ExpandConstant('{app}\ModernImageViewer.App.exe')) = 0));
+  except
+    Log('Preserved an unreadable or unrelated desktop shortcut.');
+  end;
 end;
 
 function OpenCommand(): String;

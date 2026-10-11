@@ -38,7 +38,7 @@ if (-not (Test-Path $appPath -PathType Leaf) -or -not (Test-Path $runtimePath -P
     throw "A complete win-x64 publish is required in $PublishDirectory."
 }
 if (Test-Path (Join-Path $PublishDirectory 'ModernImageViewer.App.dll')) {
-    throw 'The package requires the compressed single-file publish; use a fresh publish directory.'
+    throw 'The package requires the single-file publish; use a fresh publish directory.'
 }
 $runtime = Get-Content $runtimePath -Raw | ConvertFrom-Json
 if (-not $runtime.runtimeOptions.includedFrameworks -or $runtime.runtimeOptions.framework -or $runtime.runtimeOptions.frameworks) {
@@ -293,7 +293,9 @@ finally { $archive.Dispose() }
 $portableHash = (Get-FileHash $portableArchive -Algorithm SHA256).Hash.ToLowerInvariant()
 [IO.File]::WriteAllText("$portableArchive.sha256", "$portableHash  $([IO.Path]::GetFileName($portableArchive))`n", [Text.UTF8Encoding]::new($false))
 Write-Output "Installer: $expectedInstaller"
+Write-Output "Installer bytes: $((Get-Item -LiteralPath $expectedInstaller).Length)"
 Write-Output "SHA256: $hash"
 Write-Output "Portable archive: $portableArchive"
+Write-Output "Portable bytes: $((Get-Item -LiteralPath $portableArchive).Length)"
 Write-Output "Portable SHA256: $portableHash"
 Write-Output "The installer is unsigned. Install only packages obtained from the project or your own build."
