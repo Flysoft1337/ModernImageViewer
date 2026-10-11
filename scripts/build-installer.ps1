@@ -293,7 +293,9 @@ finally { $archive.Dispose() }
 $portableHash = (Get-FileHash $portableArchive -Algorithm SHA256).Hash.ToLowerInvariant()
 [IO.File]::WriteAllText("$portableArchive.sha256", "$portableHash  $([IO.Path]::GetFileName($portableArchive))`n", [Text.UTF8Encoding]::new($false))
 Write-Output "Installer: $expectedInstaller"
+Write-Output "Installer bytes: $((Get-Item -LiteralPath $expectedInstaller).Length)"
 Write-Output "SHA256: $hash"
 Write-Output "Portable archive: $portableArchive"
+Write-Output "Portable bytes: $((Get-Item -LiteralPath $portableArchive).Length)"
 Write-Output "Portable SHA256: $portableHash"
 Write-Output "The installer is unsigned. Install only packages obtained from the project or your own build."
