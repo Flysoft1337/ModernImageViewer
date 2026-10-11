@@ -25,6 +25,7 @@ if ($baselineInstaller -and (Get-FileHash -LiteralPath $baselineInstaller).Hash 
     throw 'Baseline and target installers must be different packages.'
 }
 $logs = [IO.Path]::GetFullPath($LogDirectory)
+Write-Host "Installer smoke: target $targetVersionText; baseline requested: $([bool]$baselineInstaller)."
 $smokeId = [Guid]::NewGuid().ToString("N")
 # Public 0.4 shortcuts expose lossy ANSI target paths for non-ASCII install
 # directories on the hosted account. Keep migration isolated from that legacy
@@ -80,6 +81,7 @@ function Read-InstallerVersion([string]$Path, [version]$ExpectedVersion) {
 }
 
 function Assert-Shortcuts([string]$Stage) {
+    Write-Host "Checking $Stage shortcut targets."
     $shell = New-Object -ComObject WScript.Shell
     try {
         foreach ($name in $shortcuts.Keys) {
@@ -211,6 +213,7 @@ function Read-RegistrySnapshot([string]$Path) {
 }
 
 function Invoke-Setup([string]$Path, [string[]]$SetupArguments) {
+    Write-Host "Starting setup process: $([IO.Path]::GetFileName($Path))."
     $info = [Diagnostics.ProcessStartInfo]::new($Path)
     $info.UseShellExecute = $false
     foreach ($argument in $SetupArguments) { $info.ArgumentList.Add($argument) }
@@ -218,12 +221,14 @@ function Invoke-Setup([string]$Path, [string[]]$SetupArguments) {
     $process.StartInfo = $info
     try {
         if (-not $process.Start()) { throw "Installer process did not start." }
+        Write-Host "Waiting for setup PID $($process.Id); limit 120 seconds."
         if (-not $process.WaitForExit(120000)) {
             $process.Kill($true)
             $process.WaitForExit(5000) | Out-Null
             throw "Installer process exceeded the 120-second limit."
         }
         if ($process.ExitCode -ne 0) { throw "Installer process failed with exit code $($process.ExitCode)." }
+        Write-Host "Setup PID $($process.Id) exited successfully."
     }
     finally { $process.Dispose() }
 }
@@ -299,6 +304,7 @@ function Read-UninstallIdentity {
 }
 
 function Read-InstalledVersion([string]$Stage, [version]$ExpectedVersion = $targetVersion) {
+    Write-Host "Checking $Stage payload version and inventory."
     $nestedExecutable = Join-Path $directory 'app/ModernImageViewer.App.exe'
     $script:executable = if ([IO.File]::Exists($nestedExecutable)) { $nestedExecutable } else { Join-Path $directory 'ModernImageViewer.App.exe' }
     $identity = Read-UninstallIdentity
@@ -412,7 +418,9 @@ try {
     Assert-ProtectedState
     # 0.4 can open the generated PNG/WebP, but not the newer codec fixture groups.
     $initialFixtures = if ($baselineInstaller -and $BaselineVersion -eq '0.4.0') { $null } else { $FixtureDirectory }
+    Write-Host "Checking $initialStage file activation."
     & (Join-Path $PSScriptRoot "check-file-activation.ps1") -AppPath $executable -FixtureDirectory $initialFixtures
+    Write-Host "$initialStage file activation completed."
 
     $previousGlfwBytes = $null
     if ($baselineInstaller) {
@@ -455,7 +463,9 @@ try {
             if ([IO.File]::Exists((Join-Path $directory $legacy))) { throw "Upgrade left a known flat-layout runtime file behind: $legacy" }
         }
         $legacyPayloadProtectionVerified = $true
+        Write-Host 'Checking upgraded file activation.'
         & (Join-Path $PSScriptRoot 'check-file-activation.ps1') -AppPath $executable -FixtureDirectory $FixtureDirectory
+        Write-Host 'Upgraded file activation completed.'
     }
     else { $upgradedVersion = $initialVersion }
     if ([IO.Path]::GetDirectoryName($executable) -cne (Join-Path $directory 'app')) { throw 'The current package must keep its runtime in app/.' }
@@ -500,7 +510,9 @@ try {
     Assert-Equal $lifecycle[-1].AssemblySha256 $beforeReinstallHash 'Same-version reinstall changed the application assembly.'
     Assert-Equal (Read-UninstallIdentity) $uninstallIdentity "Reinstall created a different uninstall identity."
     Assert-ProtectedFiles -IncludeModifiedLegacy
+    Write-Host 'Checking reinstalled file activation.'
     & (Join-Path $PSScriptRoot 'check-file-activation.ps1') -AppPath $executable -FixtureDirectory $FixtureDirectory
+    Write-Host 'Reinstalled file activation completed.'
 
     # An older description must also be removed; unrelated custom values remain protected.
     $capabilities = $currentUser.OpenSubKey("$applicationKey\Capabilities", $true)
