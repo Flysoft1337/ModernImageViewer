@@ -26,7 +26,9 @@ concurrency:
 
 jobs:
   build-test-publish:
-    runs-on: windows-latest
+    # Pin the release validation environment; changing latest images obscures
+    # installation/desktop failures and same-machine observation provenance.
+    runs-on: windows-2022
     timeout-minutes: 45
     outputs:
       release_version: ${{ steps.release_metadata.outputs.version }}

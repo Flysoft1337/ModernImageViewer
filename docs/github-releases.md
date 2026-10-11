@@ -6,6 +6,8 @@
 
 三路安装smoke由独立隐藏pwsh子进程运行，实时转发阶段日志，240秒执行时限内未完成会终止子进程树并失败。安装脚本和调用入口均限制disposable GitHub-hosted Windows，不在用户真实安装环境重跑。
 
+Windows job固定为`windows-2022`，只运行一套既有验证。历史与包装比较双方在同一job、同SDK/runtime构建；不同runner轮次的绝对耗时不能直接比较。
+
 ## 在网页触发
 
 1. 打开仓库 **Actions → CI → Run workflow**。
