@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.ComponentModel;
 using System.Globalization;
 
@@ -60,10 +61,10 @@ public sealed class LocalizationServiceTests
         InMemoryUserSettings settings = new();
         LocalizationService service = new(settings);
         service.Initialize();
-        ImageOpenCoordinator coordinator = new(new NullFilePicker(), new FailingImageDecoder());
-        MainWindowViewModel viewModel = new(service, coordinator, new ImageBrowseSession());
-        List<string?> changedProperties = [];
-        viewModel.PropertyChanged += (_, e) => changedProperties.Add(e.PropertyName);
+        using ImageOpenCoordinator coordinator = new(new NullFilePicker(), new FailingImageDecoder());
+        using MainWindowViewModel viewModel = new(service, coordinator, new ImageBrowseSession());
+        ConcurrentQueue<string?> changedProperties = [];
+        viewModel.PropertyChanged += (_, e) => changedProperties.Enqueue(e.PropertyName);
 
         viewModel.SelectedLanguage = service.SupportedLanguages.Single(x => x.CultureName == "zh-CN");
 
@@ -101,8 +102,8 @@ public sealed class LocalizationServiceTests
         using MainWindowViewModel viewModel = new(service, coordinator, session);
         Assert.True(await coordinator.OpenCandidatesAsync(["first.png", "second.png"], session, selection: true,
             cancellationToken: TestContext.Current.CancellationToken));
-        List<string?> changedProperties = [];
-        viewModel.PropertyChanged += (_, e) => changedProperties.Add(e.PropertyName);
+        ConcurrentQueue<string?> changedProperties = [];
+        viewModel.PropertyChanged += (_, e) => changedProperties.Enqueue(e.PropertyName);
 
         Assert.Equal(fullScreen, viewModel.FullScreenMenuLabel);
         Assert.Equal($"{fullScreen} · F11", viewModel.FullScreenLabel);

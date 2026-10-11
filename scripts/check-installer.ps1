@@ -12,15 +12,34 @@ if (-not $IsWindows) { throw "Installer verification requires Windows." }
 if ($env:GITHUB_ACTIONS -ne 'true' -or $env:RUNNER_ENVIRONMENT -ne 'github-hosted') {
     throw 'Installer verification requires a disposable GitHub-hosted Windows runner.'
 }
-$installer = (Resolve-Path $InstallerPath).Path
+$repository = Split-Path $PSScriptRoot -Parent
+[xml]$properties = Get-Content -LiteralPath (Join-Path $repository 'Directory.Build.props') -Raw
+$targetVersionText = [string]$properties.Project.PropertyGroup.Version
+if ($targetVersionText -notmatch '^\d+\.\d+\.\d+(\.\d+)?$') {
+    throw 'Directory.Build.props must define a numeric installer Version.'
+}
+$targetVersion = [version]$targetVersionText
+$installer = (Resolve-Path -LiteralPath $InstallerPath).Path
 $baselineInstaller = if ($BaselineInstallerPath) { (Resolve-Path -LiteralPath $BaselineInstallerPath).Path } else { $null }
 if ($baselineInstaller -and (Get-FileHash -LiteralPath $baselineInstaller).Hash -eq (Get-FileHash -LiteralPath $installer).Hash) {
     throw 'Baseline and target installers must be different packages.'
 }
 $logs = [IO.Path]::GetFullPath($LogDirectory)
-$directory = Join-Path ([IO.Path]::GetTempPath()) ("ModernImageViewer 安装验证 " + [Guid]::NewGuid().ToString("N"))
+$smokeId = [Guid]::NewGuid().ToString("N")
+# Public 0.4 shortcuts expose lossy ANSI target paths for non-ASCII install
+# directories on the hosted account. Keep migration isolated from that legacy
+# limitation; Unicode image activation is covered by its own existing smoke.
+$directory = Join-Path ([IO.Path]::GetTempPath()) ("ModernImageViewer Install Smoke " + $smokeId)
 $executable = Join-Path $directory "ModernImageViewer.App.exe"
 $uninstaller = Join-Path $directory "unins000.exe"
+$shortcutGroup = 'Modern Image Viewer'
+$startMenuDirectory = Join-Path ([Environment]::GetFolderPath('Programs')) $shortcutGroup
+$desktopShortcut = Join-Path ([Environment]::GetFolderPath('DesktopDirectory')) 'Modern Image Viewer.lnk'
+$shortcuts = [ordered]@{
+    StartMenu = Join-Path $startMenuDirectory 'Modern Image Viewer.lnk'
+    Desktop = $desktopShortcut
+    Uninstall = Join-Path $startMenuDirectory 'Uninstall Modern Image Viewer.lnk'
+}
 $applicationKey = "Software\ModernImageViewer\Installed"
 $progId = "ModernImageViewer.Installed.Image"
 $progIdKey = "Software\Classes\$progId"
@@ -36,11 +55,105 @@ $candidateKeys = [Collections.Generic.List[string]]::new()
 $portableCandidateKeys = [Collections.Generic.List[string]]::new()
 $uninstallCompleted = $false
 $lifecycle = [Collections.Generic.List[object]]::new()
+$shortcutChecks = [Collections.Generic.List[object]]::new()
+$protectedFiles = [ordered]@{}
+$modifiedLegacyFiles = [Collections.Generic.List[object]]::new()
+$legacyFilesToRemove = [Collections.Generic.List[string]]::new()
+$legacyPayloadProtectionVerified = $false
+$associationMigrationVerified = $false
 $verificationSucceeded = $false
 $unusedOpenGlCleanupVerified = $false
 
 function Assert-Equal($Actual, $Expected, [string]$Message) {
     if ($Actual -cne $Expected) { throw $Message }
+}
+
+function Read-InstallerVersion([string]$Path, [version]$ExpectedVersion) {
+    # Inno's FileVersion identifies its engine; AppVersion is in ProductVersion.
+    $info = [Diagnostics.FileVersionInfo]::GetVersionInfo($Path)
+    $versionText = $info.ProductVersion.Trim()
+    if ($versionText -notmatch '^\d+\.\d+\.\d+(\.\d+)?$' -or [version]$versionText -ne $ExpectedVersion) {
+        throw "Installer ProductVersion '$versionText' does not match expected version $ExpectedVersion."
+    }
+    Assert-Equal $info.ProductName.Trim() 'Modern Image Viewer' 'The installer product identity is incorrect.'
+    return [version]$versionText
+}
+
+function Assert-Shortcuts([string]$Stage) {
+    $shell = New-Object -ComObject WScript.Shell
+    try {
+        foreach ($name in $shortcuts.Keys) {
+            $path = $shortcuts[$name]
+            $expected = if ($name -eq 'Uninstall') { $uninstaller } else { $executable }
+            if (-not [IO.File]::Exists($path)) {
+                throw "The $name shortcut is missing: $path"
+            }
+            $shortcut = $shell.CreateShortcut($path)
+            try {
+                if (-not [string]::Equals($shortcut.TargetPath, $expected, [StringComparison]::OrdinalIgnoreCase)) {
+                    throw "The $name shortcut targets '$($shortcut.TargetPath)' instead of '$expected'."
+                }
+                Assert-Equal $shortcut.Arguments '' "The $name shortcut contains unexpected arguments."
+                $shortcutChecks.Add([pscustomobject]@{ Stage = $Stage; Name = $name; Path = $path; Target = $shortcut.TargetPath })
+            }
+            finally { [Runtime.InteropServices.Marshal]::FinalReleaseComObject($shortcut) | Out-Null }
+        }
+    }
+    finally { [Runtime.InteropServices.Marshal]::FinalReleaseComObject($shell) | Out-Null }
+}
+
+function Assert-ProtectedFiles([switch]$IncludeModifiedLegacy) {
+    foreach ($path in $protectedFiles.Keys) {
+        if (-not [IO.File]::Exists($path)) { throw "Installation removed a custom user file: $path" }
+        Assert-Equal (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash $protectedFiles[$path] "Installation changed a custom user file: $path"
+    }
+    if ($IncludeModifiedLegacy) {
+        foreach ($file in $modifiedLegacyFiles) {
+            $path = Join-Path $directory $file.File
+            if (-not [IO.File]::Exists($path)) { throw "Migration removed a modified legacy payload file: $path" }
+            Assert-Equal (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash $file.ModifiedSha256 "Migration changed a modified legacy payload file: $path"
+        }
+    }
+}
+
+function Prepare-LegacyPayloadChecks {
+    # Verify real allowlisted baseline files before changing two non-entry-point files.
+    # Keep the executable and marker intact so the cleanup's ownership gate is exercised.
+    $knownHashes = @{}
+    foreach ($line in (Get-Content -LiteralPath (Join-Path $repository 'packaging/windows/legacy-layout.sha256'))) {
+        if ($line -notmatch '^([0-9a-fA-F]{64})  (.+)$') { throw 'The legacy payload hash inventory is malformed.' }
+        $relative = $Matches[2]
+        if (-not $knownHashes.ContainsKey($relative)) { $knownHashes[$relative] = [Collections.Generic.List[string]]::new() }
+        $knownHashes[$relative].Add($Matches[1])
+    }
+    $modifiedPaths = @('System.Runtime.dll', 'ru/WindowsBase.resources.dll')
+    $removedPaths = @('ModernImageViewer.App.exe', 'ModernImageViewer.App.dll', 'Microsoft.Windows.SDK.NET.dll',
+        'System.Private.CoreLib.dll', 'ModernImageViewer.install.json', 'ru/PresentationFramework.resources.dll')
+    foreach ($relative in ($modifiedPaths + $removedPaths)) {
+        $path = Join-Path $directory $relative
+        # Some public baselines do not contain every runtime/satellite file.
+        if (-not [IO.File]::Exists($path)) { continue }
+        $hash = (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash
+        if (-not $knownHashes.ContainsKey($relative) -or $hash -notin $knownHashes[$relative]) {
+            throw "The baseline payload is not recognized by the migration inventory: $relative"
+        }
+        if ($relative -in $modifiedPaths) {
+            $stream = [IO.File]::Open($path, [IO.FileMode]::Append, [IO.FileAccess]::Write)
+            try {
+                $bytes = [Text.Encoding]::UTF8.GetBytes('installer smoke: preserve modified legacy payload')
+                $stream.Write($bytes, 0, $bytes.Length)
+            }
+            finally { $stream.Dispose() }
+            $modifiedHash = (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash
+            if ($modifiedHash -in $knownHashes[$relative]) { throw 'The modified payload fixture must not match a known hash.' }
+            $modifiedLegacyFiles.Add([pscustomobject]@{ File = $relative; OriginalSha256 = $hash; ModifiedSha256 = $modifiedHash })
+        }
+        else { $legacyFilesToRemove.Add($relative) }
+    }
+    foreach ($required in @('ModernImageViewer.App.exe', 'ModernImageViewer.install.json')) {
+        if (-not $legacyFilesToRemove.Contains($required)) { throw 'The public baseline must use a recognized flat installed layout.' }
+    }
+    if ($modifiedLegacyFiles.Count -ne $modifiedPaths.Count) { throw 'The baseline is missing a required modified payload fixture.' }
 }
 
 function Read-RegistryValue([string]$Path, [string]$Name) {
@@ -185,7 +298,7 @@ function Read-UninstallIdentity {
     finally { $parent.Dispose() }
 }
 
-function Read-InstalledVersion([string]$Stage) {
+function Read-InstalledVersion([string]$Stage, [version]$ExpectedVersion = $targetVersion) {
     $nestedExecutable = Join-Path $directory 'app/ModernImageViewer.App.exe'
     $script:executable = if ([IO.File]::Exists($nestedExecutable)) { $nestedExecutable } else { Join-Path $directory 'ModernImageViewer.App.exe' }
     $identity = Read-UninstallIdentity
@@ -195,8 +308,10 @@ function Read-InstalledVersion([string]$Stage) {
     $versionInfo = [Diagnostics.FileVersionInfo]::GetVersionInfo($assemblyPath)
     $fileVersion = [version]::new($versionInfo.FileMajorPart, $versionInfo.FileMinorPart, $versionInfo.FileBuildPart)
     $registeredVersion = [version]$displayVersion
+    Assert-Equal $registeredVersion $ExpectedVersion "The $Stage DisplayVersion does not match expected version $ExpectedVersion."
     if ($registeredVersion.Major -ne $fileVersion.Major -or $registeredVersion.Minor -ne $fileVersion.Minor -or
-        $registeredVersion.Build -ne $fileVersion.Build) { throw 'Installed assembly and uninstall DisplayVersion disagree.' }
+        $registeredVersion.Build -ne $fileVersion.Build -or
+        [Math]::Max(0, $registeredVersion.Revision) -ne $versionInfo.FilePrivatePart) { throw 'Installed assembly and uninstall DisplayVersion disagree.' }
     $lifecycle.Add([pscustomobject]@{
         Stage = $Stage
         FileVersion = $fileVersion.ToString()
@@ -207,7 +322,7 @@ function Read-InstalledVersion([string]$Stage) {
         InstalledFiles = @(Get-ChildItem -LiteralPath $directory -Recurse -File).Count
         RootFiles = @(Get-ChildItem -LiteralPath $directory -File).Count
     })
-    return $fileVersion
+    return $registeredVersion
 }
 
 function Assert-InstalledPayload([version]$Version) {
@@ -223,6 +338,16 @@ function Assert-InstalledPayload([version]$Version) {
     Assert-Equal $marker.distribution 'installer' 'The installed distribution marker is incorrect.'
 }
 
+$installerVersion = Read-InstallerVersion $installer $targetVersion
+$baselineInstallerVersion = if ($baselineInstaller) { Read-InstallerVersion $baselineInstaller ([version]$BaselineVersion) } else { $null }
+if ($baselineInstaller -and $targetVersion -le $baselineInstallerVersion) {
+    throw "Cross-version verification requires target $targetVersion to be newer than baseline $baselineInstallerVersion."
+}
+
+# The desktop filename is fixed by the installer; only use it on a clean hosted account.
+if ([IO.File]::Exists($desktopShortcut) -or [IO.Directory]::Exists($startMenuDirectory)) {
+    throw 'An installer shortcut already exists; use a disposable Windows account.'
+}
 # The disposable runner must also start without an installed identity.
 foreach ($path in @($applicationKey, $progIdKey, 'Software\Microsoft\Windows\CurrentVersion\Uninstall\{A2E8F5A0-6526-4C87-ADE1-04DE4A7F41C0}_is1')) {
     $key = $currentUser.OpenSubKey($path)
@@ -265,14 +390,24 @@ try {
         finally { $key.Dispose() }
         $otherCandidates[$extension] = Read-OtherCandidates $path
     }
-    $common = @("/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/SP-", "/DIR=$directory", "/TASKS=fileassoc")
+    # Both public installers use their fixed default group when its page is
+    # disabled. The hosted account was checked to have no existing shortcut.
+    # Force language/tasks; never reuse a previous task selection.
+    $common = @("/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/SP-", "/CURRENTUSER",
+        "/DIR=$directory", "/GROUP=$shortcutGroup", '/LANG=english')
+    $registrationTasks = '/TASKS=fileassoc,desktopicon'
+    # Recreate the owned desktop entry during migration so a legacy flat-layout
+    # shortcut cannot keep pointing at the removed root executable.
+    $migrationTasks = '/TASKS=desktopicon'
     $firstInstaller = if ($baselineInstaller) { $baselineInstaller } else { $installer }
     $firstLog = if ($baselineInstaller) { 'baseline-install.log' } else { 'install.log' }
-    Invoke-Setup $firstInstaller ($common + @("/LOG=$(Join-Path $logs $firstLog)"))
+    Invoke-Setup $firstInstaller ($common + @($registrationTasks, "/LOG=$(Join-Path $logs $firstLog)"))
     $uninstallIdentity = Read-UninstallIdentity
-    $initialVersion = Read-InstalledVersion $(if ($baselineInstaller) { 'BaselineInstall' } else { 'Install' })
-    if ($baselineInstaller -and $initialVersion -ne [version]$BaselineVersion) { throw "The actual installed baseline must be version $BaselineVersion." }
+    $initialStage = if ($baselineInstaller) { 'BaselineInstall' } else { 'Install' }
+    $initialExpectedVersion = if ($baselineInstaller) { $baselineInstallerVersion } else { $targetVersion }
+    $initialVersion = Read-InstalledVersion $initialStage $initialExpectedVersion
     Assert-InstalledPayload $initialVersion
+    Assert-Shortcuts $initialStage
     Assert-Registration $(if ($baselineInstaller) { $baselineExtensions } else { $extensions })
     Assert-ProtectedState
     # 0.4 can open the generated PNG/WebP, but not the newer codec fixture groups.
@@ -299,30 +434,34 @@ try {
     $customGlfw = Join-Path $directory 'app/glfw3.dll'
     [IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($customGlfw)) | Out-Null
     [IO.File]::WriteAllText($customGlfw, 'user-modified OpenGL file')
+    foreach ($path in @($preferences, $customLibrary, $customSatellite, $customGlfw)) {
+        $protectedFiles[$path] = (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash
+    }
     if ($baselineInstaller) {
-        Invoke-Setup $installer ($common + @("/LOG=$(Join-Path $logs "upgrade-$BaselineVersion-to-0.6.0.log")"))
+        Prepare-LegacyPayloadChecks
+        # The baseline registered file associations. Upgrade must migrate that identity
+        # even though the target explicitly leaves fileassoc unselected.
+        Invoke-Setup $installer ($common + @($migrationTasks, "/LOG=$(Join-Path $logs "upgrade-$BaselineVersion-to-$targetVersionText.log")"))
         $upgradedVersion = Read-InstalledVersion 'CrossVersionUpgrade'
-        if ($upgradedVersion -ne [version]'0.6.0' -or $upgradedVersion -lt $initialVersion) {
-            throw "The actual cross-version upgrade must replace $BaselineVersion with 0.6.0."
-        }
         Assert-InstalledPayload $upgradedVersion
+        Assert-Shortcuts 'CrossVersionUpgrade'
         Assert-Registration
         Assert-ProtectedState
+        $associationMigrationVerified = $true
         if ($lifecycle[0].AssemblySha256 -eq $lifecycle[1].AssemblySha256) { throw 'Upgrade did not replace the application assembly.' }
         Assert-Equal (Read-UninstallIdentity) $uninstallIdentity 'Upgrade created a different uninstall identity.'
-        Assert-Equal ([IO.File]::ReadAllText($preferences)) '{"keep":"user data"}' 'Upgrade modified a custom user file.'
-        foreach ($legacy in @('ModernImageViewer.App.exe', 'ModernImageViewer.App.dll', 'Microsoft.Windows.SDK.NET.dll', 'System.Private.CoreLib.dll', 'ModernImageViewer.install.json', 'ru/PresentationFramework.resources.dll')) {
-            if ([IO.File]::Exists((Join-Path $directory $legacy))) { throw 'Upgrade left a known flat-layout runtime file behind.' }
+        Assert-ProtectedFiles -IncludeModifiedLegacy
+        foreach ($legacy in $legacyFilesToRemove) {
+            if ([IO.File]::Exists((Join-Path $directory $legacy))) { throw "Upgrade left a known flat-layout runtime file behind: $legacy" }
         }
+        $legacyPayloadProtectionVerified = $true
         & (Join-Path $PSScriptRoot 'check-file-activation.ps1') -AppPath $executable -FixtureDirectory $FixtureDirectory
     }
     else { $upgradedVersion = $initialVersion }
     if ([IO.Path]::GetDirectoryName($executable) -cne (Join-Path $directory 'app')) { throw 'The current package must keep its runtime in app/.' }
     if (@(Get-ChildItem -LiteralPath ([IO.Path]::GetDirectoryName($executable)) -File).Count -gt 20) { throw 'The compact app directory contains unexpected loose runtime files.' }
     if ([IO.Directory]::Exists((Join-Path $directory 'app/licenses'))) { throw 'Notices must be kept in licenses/, outside the runtime directory.' }
-    Assert-Equal ([IO.File]::ReadAllText($customLibrary)) 'user file, not a runtime library' 'Upgrade removed a custom library.'
-    Assert-Equal ([IO.File]::ReadAllText($customSatellite)) 'keep user content in a legacy directory' 'Upgrade removed content from a legacy satellite directory.'
-    Assert-Equal ([IO.File]::ReadAllText($customGlfw)) 'user-modified OpenGL file' 'Upgrade removed a modified OpenGL file.'
+    Assert-ProtectedFiles -IncludeModifiedLegacy
     # Registry migration remains a separate same-version reinstall check.
     $capabilities = $currentUser.OpenSubKey("$applicationKey\Capabilities", $true)
     try { $capabilities.SetValue("ApplicationDescription", "Browse JPEG and PNG images with Modern Image Viewer.") }
@@ -338,20 +477,30 @@ try {
     }
     finally { $formats.Dispose() }
     $beforeReinstallHash = $lifecycle[-1].AssemblySha256
-    # Exercise app/ layout cleanup without another installer run or modifying user installations.
-    if ($null -ne $previousGlfwBytes) { [IO.File]::WriteAllBytes($customGlfw, $previousGlfwBytes) }
-    Invoke-Setup $installer ($common + @("/LOG=$(Join-Path $logs 'same-version-reinstall.log')"))
+    # Replace only our fixture to exercise known app/ GLFW cleanup in the existing run.
+    if ($null -ne $previousGlfwBytes) {
+        [IO.File]::WriteAllBytes($customGlfw, $previousGlfwBytes)
+        $protectedFiles.Remove($customGlfw)
+    }
+    # Existing owned desktop links must enter the replacement uninstall log
+    # even when reinstall explicitly leaves desktopicon unselected.
+    Invoke-Setup $installer ($common + @('/TASKS=fileassoc', "/LOG=$(Join-Path $logs 'same-version-reinstall.log')"))
     if ($null -ne $previousGlfwBytes) {
         if (Test-Path -LiteralPath $customGlfw) { throw 'Reinstall left the known unused GLFW runtime behind.' }
         $unusedOpenGlCleanupVerified = $true
+        # Unknown/modified runtime files must survive uninstall as well as upgrade.
+        [IO.File]::WriteAllText($customGlfw, 'user-modified OpenGL file')
+        $protectedFiles[$customGlfw] = (Get-FileHash -LiteralPath $customGlfw -Algorithm SHA256).Hash
     }
     Assert-InstalledPayload $upgradedVersion
     Assert-Registration
     Assert-ProtectedState
     Assert-Equal (Read-InstalledVersion 'SameVersionReinstall') $upgradedVersion 'Same-version reinstall changed the installed version.'
+    Assert-Shortcuts 'SameVersionReinstall'
     Assert-Equal $lifecycle[-1].AssemblySha256 $beforeReinstallHash 'Same-version reinstall changed the application assembly.'
     Assert-Equal (Read-UninstallIdentity) $uninstallIdentity "Reinstall created a different uninstall identity."
-    Assert-Equal ([IO.File]::ReadAllText($preferences)) '{"keep":"user data"}' "Reinstall modified a custom user file."
+    Assert-ProtectedFiles -IncludeModifiedLegacy
+    & (Join-Path $PSScriptRoot 'check-file-activation.ps1') -AppPath $executable -FixtureDirectory $FixtureDirectory
 
     # An older description must also be removed; unrelated custom values remain protected.
     $capabilities = $currentUser.OpenSubKey("$applicationKey\Capabilities", $true)
@@ -361,9 +510,10 @@ try {
     $uninstallCompleted = $true
     if ([IO.File]::Exists($executable)) { throw "Uninstall left the application executable behind." }
     if ([IO.File]::Exists((Join-Path $directory 'app/ModernImageViewer.install.json'))) { throw "Uninstall left the installed distribution marker behind." }
-    Assert-Equal ([IO.File]::ReadAllText($preferences)) '{"keep":"user data"}' "Uninstall removed a custom user file."
-    Assert-Equal ([IO.File]::ReadAllText($customLibrary)) 'user file, not a runtime library' 'Uninstall removed a custom library.'
-    Assert-Equal ([IO.File]::ReadAllText($customSatellite)) 'keep user content in a legacy directory' 'Uninstall removed a custom satellite file.'
+    Assert-ProtectedFiles -IncludeModifiedLegacy
+    foreach ($path in $shortcuts.Values) {
+        if ([IO.File]::Exists($path)) { throw "Uninstall left an owned shortcut behind: $path" }
+    }
     foreach ($path in @($applicationKey, $progIdKey, "Software\Microsoft\Windows\CurrentVersion\Uninstall\$uninstallIdentity")) {
         Assert-Equal (Read-RegistrySnapshot $path) "<missing>" "Uninstall left an owned application registry key behind."
     }
@@ -375,7 +525,7 @@ try {
     Assert-ProtectedState
     $verificationSucceeded = $true
     $upgradeResult = if ($baselineInstaller) { "verified actual $initialVersion -> $upgradedVersion upgrade" } else { 'cross-version upgrade not requested or verified' }
-    Write-Output "Installer verification passed: current-user install, $upgradeResult, same-version reinstall, installed file activation and clean uninstall."
+    Write-Output "Installer verification passed: target $targetVersionText, current-user install, $upgradeResult, shortcut targets, payload protection, same-version reinstall, installed file activation and clean uninstall."
 }
 finally {
     # Only run the uninstaller from our exclusively owned temporary directory.
@@ -405,6 +555,18 @@ finally {
             CrossVersionUpgradeRequested = [bool]$baselineInstaller
             CrossVersionUpgradeVerified = $verificationSucceeded -and [bool]$baselineInstaller
             ExpectedBaselineVersion = if ($baselineInstaller) { $BaselineVersion } else { $null }
+            ExpectedTargetVersion = $targetVersionText
+            TargetInstallerProductVersion = $installerVersion.ToString()
+            BaselineInstallerProductVersion = if ($baselineInstaller) { $baselineInstallerVersion.ToString() } else { $null }
+            UpgradeTasks = if ($baselineInstaller) { 'desktopicon' } else { $null }
+            ReinstallTasks = 'fileassoc'
+            AssociationMigrationWithoutTaskVerified = $associationMigrationVerified
+            ShortcutChecks = $shortcutChecks
+            ShortcutRemovalVerified = $uninstallCompleted -and $verificationSucceeded
+            LegacyPayloadProtectionVerified = $legacyPayloadProtectionVerified
+            ModifiedLegacyFiles = $modifiedLegacyFiles
+            RemovedLegacyFiles = $legacyFilesToRemove
+            UserFilesPreserved = $verificationSucceeded
             PortableCandidatesSeeded = $portableCandidateKeys.Count
             UnusedOpenGlCleanupVerified = $unusedOpenGlCleanupVerified
             BaselineInstallerSha256 = if ($baselineInstaller) { (Get-FileHash -LiteralPath $baselineInstaller -Algorithm SHA256).Hash } else { $null }

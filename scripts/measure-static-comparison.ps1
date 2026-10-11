@@ -238,7 +238,7 @@ function Invoke-NormalObservation([string]$Driver, [string[]]$Arguments, [string
         if ([IO.File]::Exists($CompletionSignalPath)) {
             Update-ForegroundObservation $foregroundState $false $false $true $watch.Elapsed.TotalMilliseconds
         }
-        elseif (-not $failure) { $failure = 'MissingCompletionSignal' }
+        else { $failure = 'MissingCompletionSignal' }
         if (-not $foregroundState.Observed -and -not $failure) { $failure = 'ForegroundNotObserved' }
     }
     catch { $failure = Get-StableFailure $_ }
@@ -251,7 +251,20 @@ function Invoke-NormalObservation([string]$Driver, [string[]]$Arguments, [string
         try { $report = Get-Content -LiteralPath $ReportPath -Raw | ConvertFrom-Json -AsHashtable }
         catch { $failure = 'InvalidReport' }
     }
-    elseif (-not $failure) { $failure = 'MissingReport' }
+    else { $failure = 'MissingReport' }
+    if ($null -ne $report) {
+        try {
+            if ([IO.Path]::GetFileName($Driver) -eq 'measure-startup.ps1') {
+                if ($report.OpenedImage -ne $false -or @($report.Samples).Count -ne 1) { throw 'InvalidReport' }
+                $null = Get-Timing $report.Samples[0].WindowInputIdleMs
+            }
+            else {
+                # A focus failure cannot conceal failed or incomplete product measurements.
+                $null = Get-RunMetrics @{ OpenedImage = $false; Samples = @(@{ WindowInputIdleMs = 0 }) } $report
+            }
+        }
+        catch { $failure = Get-StableFailure $_ }
+    }
     Complete-ForegroundLoss $foregroundState $watch.Elapsed.TotalMilliseconds 'ScriptExited'
     [pscustomobject]@{
         Success = -not $failure

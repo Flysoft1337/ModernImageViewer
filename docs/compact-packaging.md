@@ -1,5 +1,7 @@
 # 0.6.0 候选打包体积与布局
 
+> 0.6.1更新：本页保留0.6.0压缩试包历史。有效同机6对AB/BA观察确认内部压缩启动20%–39%回退，0.6.1关闭`EnableCompressionInSingleFile`，保留集中布局与必需依赖；ZIP/安装器继续外层压缩。PR #41已更新至0.6.1，排除经核验的可选OpenGL路径，保留#42严格验证和卸载保护；下文旧内部压缩试包数字不适用于当前包。新体积及迁移证据以[0.6.1收口](release-closeout-0.6.1.md)和PR交付记录为准。
+
 ## 范围
 
 版本保持0.6.0，不创建Tag/Release，不覆盖现有公开资产。起点1e64972，分支fix/compact-packaging。用户反馈安装239,721,641字节、476文件、根目录289文件，已只读复核一致。PDB原本就不进入安装器和便携包。
@@ -59,4 +61,4 @@ Windows CI启动、完整观察和安装升级已通过；交替性能报告已�
 
 398f7b8的[首轮Windows CI 37937597264](https://github.com/Flysoft1337/ModernImageViewer/actions/runs/37937597264)格式/构建/604通过1跳过/审计/100MP/启动/激活/浏览/动画和两条安装升级路径都通过。CI载荷115,513,838字节、ZIP80,237,155字节、46文件/app12；与本地runtime版本不同，不混用为同机改善比例。公开v0.6升级后123,755,048字节，重装后123,797,576字节（包含smoke保护文件及保留的旧许可证）；已知GLFW回收、修改同名文件保护、关联保护和卸载通过。
 
-该轮最终状态失败：性能预热中发生ForegroundWindowLost，报告无有效配对；已有CI的try/catch无法拦截观测脚本的exit 1。改为子PowerShell执行，仅在完整失败报告明确为焦点丢失/未获取焦点时记录warning，其它失败仍阻断CI。不改变测量逻辑、不忽略性能数据；最终CI状态以[PR #41](https://github.com/Flysoft1337/ModernImageViewer/pull/41)最后提交的检查和artifact为准。压缩包与散装的性能差异仍没有有效成对结论。
+该轮最终状态失败：性能预热中发生ForegroundWindowLost，报告无有效配对；已有CI的try/catch无法拦截观测脚本的exit 1。旧分支尝试过子PowerShell分类，最终#115仍取消。0.6.1更新时完全采用#42的有界执行、原始报告校验及10%性能规则，不保留旧分支的简化分类。最新安装smoke在原三路生命周期内同时验证修改GLFW保护和已知GLFW回收，卸载后再次验证修改文件；不新增矩阵或xUnit计数。最终CI状态以[PR #41](https://github.com/Flysoft1337/ModernImageViewer/pull/41)最后提交的检查和artifact为准。
