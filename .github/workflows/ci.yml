@@ -26,7 +26,9 @@ concurrency:
 
 jobs:
   build-test-publish:
-    runs-on: windows-latest
+    # Pin the release validation environment; changing latest images obscures
+    # installation/desktop failures and same-machine observation provenance.
+    runs-on: windows-2022
     timeout-minutes: 45
     outputs:
       release_version: ${{ steps.release_metadata.outputs.version }}
@@ -101,6 +103,14 @@ jobs:
           name: ui-screenshots
           path: artifacts/ui-screenshots/**
           if-no-files-found: warn
+          retention-days: 14
+
+      - name: Upload generated format fixtures for isolated installer checks
+        uses: actions/upload-artifact@v7
+        with:
+          name: format-fixtures
+          path: artifacts/format-fixtures/**
+          if-no-files-found: error
           retention-days: 14
 
       - name: Audit dependencies
@@ -199,6 +209,15 @@ jobs:
           if ($archives.Count -ne 1) { throw 'Expected exactly one portable package.' }
           .\scripts\check-package.ps1 -PortableArchive $archives[0].FullName
 
+      - name: Upload win-x64 installer
+        if: always() && steps.installer_build.outcome == 'success'
+        uses: actions/upload-artifact@v7
+        with:
+          name: ModernImageViewer-Setup-win-x64
+          path: artifacts/installer/**
+          if-no-files-found: error
+          retention-days: 30
+
       - name: Check out fixed pre-patch master for static comparison
         uses: actions/checkout@v7
         with:
@@ -231,10 +250,12 @@ jobs:
           finally { Pop-Location }
 
       - name: Compare fixed pre-patch and candidate alternately in the same Windows job
+        timeout-minutes: 12
         shell: pwsh
         run: |
           $baselineApp = Join-Path $env:GITHUB_WORKSPACE 'artifacts/baseline-0.6.0/publish/ModernImageViewer.App.exe'
-          .\scripts\invoke-static-comparison.ps1 -BaselineAppPath $baselineApp -CandidateAppPath .\artifacts\publish\win-x64\ModernImageViewer.App.exe -Pairs 6 -WarmupPairs 1 -OutputDirectory .\artifacts\static-history-comparison
+          $release = '${{ inputs.publish_release }}' -eq 'true'
+          .\scripts\invoke-static-comparison.ps1 -BaselineAppPath $baselineApp -CandidateAppPath .\artifacts\publish\win-x64\ModernImageViewer.App.exe -Pairs 6 -WarmupPairs 1 -OutputDirectory .\artifacts\static-history-comparison -RequireValid:$release
 
       - name: Upload baseline static observations
         if: always()
@@ -287,24 +308,7 @@ jobs:
         run: |
           $installers = @(Get-ChildItem .\artifacts\installer\*-Setup.exe)
           if ($installers.Count -ne 1) { throw 'Expected exactly one installer.' }
-          .\scripts\check-installer.ps1 -InstallerPath $installers[0].FullName -BaselineInstallerPath .\artifacts\baseline-0.4\ModernImageViewer-0.4.0-win-x64-Setup.exe -BaselineVersion 0.4.0 -FixtureDirectory .\artifacts\format-fixtures
-
-      - name: Check clean install, same-version reinstall and uninstall
-        timeout-minutes: 5
-        shell: pwsh
-        run: |
-          $installers = @(Get-ChildItem .\artifacts\installer\*-Setup.exe)
-          if ($installers.Count -ne 1) { throw 'Expected exactly one installer.' }
-          .\scripts\check-installer.ps1 -InstallerPath $installers[0].FullName -FixtureDirectory .\artifacts\format-fixtures -LogDirectory .\artifacts\installer-smoke-clean
-
-      - name: Upload win-x64 installer
-        if: always() && steps.installer_build.outcome == 'success'
-        uses: actions/upload-artifact@v7
-        with:
-          name: ModernImageViewer-Setup-win-x64
-          path: artifacts/installer/**
-          if-no-files-found: error
-          retention-days: 30
+          .\scripts\invoke-installer-check.ps1 -InstallerPath $installers[0].FullName -BaselineInstallerPath .\artifacts\baseline-0.4\ModernImageViewer-0.4.0-win-x64-Setup.exe -BaselineVersion 0.4.0 -FixtureDirectory .\artifacts\format-fixtures
 
       - name: Upload installer verification logs
         if: always()
@@ -315,38 +319,27 @@ jobs:
           if-no-files-found: warn
           retention-days: 14
 
-      - name: Check public 0.6 flat-layout migration and packaging performance
-        timeout-minutes: 18
+      - name: Publish same-source flat comparison package
+        timeout-minutes: 5
         shell: pwsh
         run: |
-          $directory = Join-Path $env:GITHUB_WORKSPACE 'artifacts/baseline-0.6-public'
-          [IO.Directory]::CreateDirectory($directory) | Out-Null
-          foreach ($asset in @(
-            @{ Name = 'ModernImageViewer-0.6.0-win-x64-Setup.exe'; Bytes = 69969305; Sha256 = 'e5d871b50703ddebe0ea5dcb248244088ef455e1734893810703acc31582d6cf' }
-          )) {
-            $path = Join-Path $directory $asset.Name
-            Invoke-WebRequest -Uri ('https://github.com/Flysoft1337/ModernImageViewer/releases/download/v0.6.0/' + $asset.Name) -OutFile $path -TimeoutSec 180
-            if ((Get-Item -LiteralPath $path).Length -ne $asset.Bytes -or (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash -ine $asset.Sha256) {
-              throw 'Public 0.6 baseline asset size/checksum mismatch.'
-            }
-          }
-          $installers = @(Get-ChildItem .\artifacts\installer\*-Setup.exe)
-          if ($installers.Count -ne 1) { throw 'Expected exactly one installer.' }
-          .\scripts\check-installer.ps1 -InstallerPath $installers[0].FullName -BaselineInstallerPath (Join-Path $directory 'ModernImageViewer-0.6.0-win-x64-Setup.exe') -BaselineVersion 0.6.0 -FixtureDirectory .\artifacts\format-fixtures -LogDirectory .\artifacts\installer-smoke-0.6
           # Same source, runtime, language resources and native dependencies isolate bundling/compression.
           dotnet publish .\src\ModernImageViewer.App\ModernImageViewer.App.csproj --configuration Release --runtime win-x64 --self-contained true --no-restore --output .\artifacts\packaging-flat-comparison -p:PublishSingleFile=false -p:EnableCompressionInSingleFile=false
           if ($LASTEXITCODE -ne 0) { throw 'Flat comparison publish failed.' }
-          .\scripts\invoke-static-comparison.ps1 -BaselineAppPath .\artifacts\packaging-flat-comparison\ModernImageViewer.App.exe -CandidateAppPath .\artifacts\publish\win-x64\ModernImageViewer.App.exe -Pairs 6 -WarmupPairs 1 -OutputDirectory .\artifacts\packaging\static-comparison
+
+      - name: Compare flat and single-file packaging performance
+        timeout-minutes: 12
+        shell: pwsh
+        run: |
+          $release = '${{ inputs.publish_release }}' -eq 'true'
+          .\scripts\invoke-static-comparison.ps1 -BaselineAppPath .\artifacts\packaging-flat-comparison\ModernImageViewer.App.exe -CandidateAppPath .\artifacts\publish\win-x64\ModernImageViewer.App.exe -Pairs 6 -WarmupPairs 1 -OutputDirectory .\artifacts\packaging\static-comparison -RequireValid:$release
 
       - name: Upload compact packaging verification
         if: always()
         uses: actions/upload-artifact@v7
         with:
           name: packaging-verification
-          path: |
-            artifacts/packaging/**
-            artifacts/installer-smoke-0.6/**
-            artifacts/installer-smoke-clean/**
+          path: artifacts/packaging/**
           if-no-files-found: warn
           retention-days: 14
 
@@ -358,9 +351,87 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
+  installer-clean:
+    name: Verify clean install in an isolated Windows VM
+    needs: build-test-publish
+    runs-on: windows-2022
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
+        with:
+          name: ModernImageViewer-Setup-win-x64
+          path: artifacts/installer
+      - uses: actions/download-artifact@v8
+        with:
+          name: format-fixtures
+          path: artifacts/format-fixtures
+      - name: Check clean install, same-version reinstall and uninstall
+        timeout-minutes: 5
+        shell: pwsh
+        run: |
+          $installers = @(Get-ChildItem .\artifacts\installer\*-Setup.exe)
+          if ($installers.Count -ne 1) { throw 'Expected exactly one installer.' }
+          .\scripts\invoke-installer-check.ps1 -InstallerPath $installers[0].FullName -FixtureDirectory .\artifacts\format-fixtures -LogDirectory .\artifacts\installer-smoke-clean
+      - name: Upload clean installer verification
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: installer-verification-clean
+          path: artifacts/installer-smoke-clean/**
+          if-no-files-found: warn
+          retention-days: 14
+
+  installer-public-06:
+    name: Verify public 0.6 upgrade in an isolated Windows VM
+    needs: build-test-publish
+    runs-on: windows-2022
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
+        with:
+          name: ModernImageViewer-Setup-win-x64
+          path: artifacts/installer
+      - uses: actions/download-artifact@v8
+        with:
+          name: format-fixtures
+          path: artifacts/format-fixtures
+      - name: Download and verify public v0.6.0 upgrade baseline
+        timeout-minutes: 5
+        shell: pwsh
+        run: |
+          $directory = Join-Path $env:GITHUB_WORKSPACE 'artifacts/baseline-0.6-public'
+          [IO.Directory]::CreateDirectory($directory) | Out-Null
+          $name = 'ModernImageViewer-0.6.0-win-x64-Setup.exe'
+          $path = Join-Path $directory $name
+          Write-Host "Downloading pinned public baseline: $name."
+          curl.exe --fail --location --connect-timeout 30 --max-time 180 --output $path ('https://github.com/Flysoft1337/ModernImageViewer/releases/download/v0.6.0/' + $name)
+          if ($LASTEXITCODE -ne 0) { throw 'Public 0.6 baseline download failed.' }
+          if ((Get-Item -LiteralPath $path).Length -ne 69969305 -or
+              (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash -ine 'e5d871b50703ddebe0ea5dcb248244088ef455e1734893810703acc31582d6cf') {
+            throw 'Public 0.6 baseline asset size/checksum mismatch.'
+          }
+          Write-Host 'Public 0.6 baseline size and SHA256 verified.'
+      - name: Check public 0.6 to 0.6.1 upgrade, reinstall and uninstall
+        timeout-minutes: 5
+        shell: pwsh
+        run: |
+          $installers = @(Get-ChildItem .\artifacts\installer\*-Setup.exe)
+          if ($installers.Count -ne 1) { throw 'Expected exactly one installer.' }
+          .\scripts\invoke-installer-check.ps1 -InstallerPath $installers[0].FullName -BaselineInstallerPath .\artifacts\baseline-0.6-public\ModernImageViewer-0.6.0-win-x64-Setup.exe -BaselineVersion 0.6.0 -FixtureDirectory .\artifacts\format-fixtures -LogDirectory .\artifacts\installer-smoke-0.6
+      - name: Upload public 0.6 installer verification
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: installer-verification-0.6
+          path: artifacts/installer-smoke-0.6/**
+          if-no-files-found: warn
+          retention-days: 14
+
   publish-release:
     name: Publish verified GitHub Release
-    needs: build-test-publish
+    needs: [build-test-publish, installer-clean, installer-public-06]
     if: github.event_name == 'workflow_dispatch' && inputs.publish_release
     runs-on: ubuntu-latest
     timeout-minutes: 15

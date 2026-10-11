@@ -1,5 +1,5 @@
 #Requires -Version 7.0
-function Get-StaticComparisonDisposition($Report, [int]$ExitCode) {
+function Get-StaticComparisonDisposition($Report, [int]$ExitCode, [switch]$RequireValid) {
     if ($Report.SchemaVersion -ne 1 -or $Report.Success -isnot [bool] -or
         $Report.RequestedPairs -lt 1 -or $null -eq $Report.Runs -or $null -eq $Report.Statistics) {
         throw 'InvalidComparisonReport'
@@ -13,6 +13,7 @@ function Get-StaticComparisonDisposition($Report, [int]$ExitCode) {
             $_.RawReportAvailable -ne $true -or
             ($_.Success -ne $true -and $_.Failure -notin @('ForegroundWindowLost', 'ForegroundNotObserved'))
         }).Count) { throw 'InvalidComparisonReport' }
+        if ($RequireValid) { throw "ValidComparisonRequired:$($Report.Failure)" }
         return 'Inconclusive'
     }
     if ($ExitCode -ne 0 -or $Report.Success -ne $true -or $Report.Failure -or

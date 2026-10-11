@@ -6,11 +6,11 @@
 
 **当前开发格式：12 类、25 个扩展名。** 常见静态格式、JPEG XR、受限 SVG、AVIF、HEIF，以及 RAW 内嵌预览（DNG/CR2/CR3/NEF/ARW/RAF/RW2/ORF/PEF）。AVIF/HEIF 使用随包 Magick.NET，静态首图、最大32MP/128MiB输入；RAW使用固定LibRaw0.22.2桥接，最大256MiB输入/32MiB预览，尺寸代表内嵌预览，不是传感器；没有可读预览时反馈，不进行完整显影。GIF/WebP 动画与 TIFF 分页已实现；ICO仍仅首个图标，受限SVG不支持文字、外部资源、复杂合成和动画。缩略图与邻图缓存继续只保存代表帧/首页，不持有播放会话。详细边界见[格式支持](docs/decoder-support.md)；[格式与编辑记录](docs/raw-modern-editing.md)是此前批次的验收记录。公开v0.4.0仍只有原9扩展名。
 
-**0.6.0 公开测试版（Pre-release）**：下载与发布状态见[v0.6.0](https://github.com/Flysoft1337/ModernImageViewer/releases/tag/v0.6.0)，最新稳定版仍为[v0.4.0](https://github.com/Flysoft1337/ModernImageViewer/releases/tag/v0.4.0)。[发布说明](docs/release-notes/0.6.0.md)包含0.4以来的编辑调整/标注、格式与浏览累计更新。准备基线master 5c024fb完整Windows CI为599通过/1真实RAW样本跳过；最终发布提交通过同一条CI后才公开，实际证据见[收口验收](docs/release-closeout-0.6.0.md)。真实人工交互、混合DPI与跨设备低内存长测尚未完成，不宣称正式稳定验收、所有格式零退化或P95。
+**下载与公开状态**见[GitHub Releases](https://github.com/Flysoft1337/ModernImageViewer/releases)。此前[v0.6.0](https://github.com/Flysoft1337/ModernImageViewer/releases/tag/v0.6.0)作为公开测试版分发；其[发布说明](docs/release-notes/0.6.0.md)包含v0.4.0以来的编辑调整/标注、格式与浏览累计更新，历史验证见[收口验收](docs/release-closeout-0.6.0.md)。0.6.1发布流程见下文；真实人工交互、混合DPI与跨设备低内存长测尚未完成，不宣称完整人工验收、所有格式零退化或P95。
 
 ### 开发能力矩阵
 
-当前源码为 **0.6.1 补丁候选**，收口菜单、大 PNG 细节缓存、集中运行布局与升级验证；见[补丁说明](docs/release-notes/0.6.1.md)和[验收记录](docs/release-closeout-0.6.1.md)。尚未发布，现有公开 v0.6.0 资产保持不变；真实桌面与 Shell 人工验收缺口仍保留。
+当前源码为 **0.6.1**，收口菜单、大 PNG 细节缓存、集中运行布局与升级验证；见[补丁说明](docs/release-notes/0.6.1.md)和[验收记录](docs/release-closeout-0.6.1.md)。公开状态和下载以[GitHub Releases](https://github.com/Flysoft1337/ModernImageViewer/releases)为准，只有同一提交完整Windows CI及两组有效性能对照通过后才发布；现有 v0.6.0 资产保持不变，真实桌面与 Shell 人工验收缺口仍保留。
 
 以下是当前代码能力，均受格式和预算限制；完整逐格式矩阵见[格式支持](docs/decoder-support.md#当前能力矩阵)。ICC 指嵌入 profile 的处理，不代表显示器色彩管理；EXIF 方向与摄影信息展示分开记录。
 
@@ -25,14 +25,14 @@
 
 ## 安装与分发
 
-0.6.0公开测试版提供Windows x64 EXE安装器与便携ZIP，面向Windows 10 22H2或Windows 11，均自带.NET 10和native运行依赖。稳定版v0.4.0只有原9个扩展名，不包含0.5/0.6累计功能。
+0.6.1分发包提供Windows x64 EXE安装器与便携ZIP，面向Windows 10 22H2或Windows 11，均自带.NET 10和native运行依赖。历史v0.4.0只有原9个扩展名，不包含0.5/0.6累计功能。
 
-- 安装器：`ModernImageViewer-0.6.0-win-x64-Setup.exe`。默认安装到当前用户的 `%LOCALAPPDATA%\Programs\ModernImageViewer`，无需管理员权限；提供开始菜单入口、可选桌面快捷方式、升级和卸载。
+- 安装器：`ModernImageViewer-0.6.1-win-x64-Setup.exe`。默认安装到当前用户的 `%LOCALAPPDATA%\Programs\ModernImageViewer`，无需管理员权限；提供开始菜单入口、可选桌面快捷方式、升级和卸载。
 - 安装时可选注册当前25个扩展名的打开方式；安装后在Windows默认应用中选择`Modern Image Viewer`，按需要选择扩展名。安装器不会自动修改默认应用。
-- 公开 v0.6.0 便携 ZIP 解压后运行根目录的 `ModernImageViewer.App.exe`；0.6.1 候选入口为 `app\ModernImageViewer.App.exe`。需要时在应用设置里注册 `Modern Image Viewer (Portable)`。安装版与便携版使用独立关联身份，可共存；卸载安装版不撤销便携版候选。
+- v0.6.1便携ZIP解压后运行`app\ModernImageViewer.App.exe`；历史v0.6.0入口在根目录。需要时在应用设置里注册 `Modern Image Viewer (Portable)`。安装版与便携版使用独立关联身份，可共存；卸载安装版不撤销便携版候选。
 - 当前 EXE **未签名**；可信签名发布与 MSIX 继续规划。构建产物和校验清单由 Windows CI 上传，实际安装/卸载验证结果以对应运行记录为准；系统默认选择和 Shell 双击仍需人工验收。
 
-当前源码候选采用托管单文件、外置 native 的自带运行时包，运行文件集中在 `app/`，许可证及必须附带的源码集中在 `licenses/`；候选便携包入口为 `app/ModernImageViewer.App.exe`。0.6.1 因同机观察确认启动退化，关闭程序集内部压缩，下载仍由 ZIP/安装器压缩；CPU绘制路径按核验版本排除可选OpenGL依赖，必需的.NET/WPF及图像解码库保留。公开 v0.6.0 资产仍使用原布局，不会被覆盖。体积与迁移验证见[补丁验收](docs/release-closeout-0.6.1.md)。
+当前源码采用托管单文件、外置 native 的自带运行时包，运行文件集中在 `app/`，许可证及必须附带的源码集中在 `licenses/`。0.6.1 因同机观察确认内部压缩启动退化，关闭程序集内部压缩，下载仍由 ZIP/安装器压缩；CPU绘制路径按核验版本排除可选OpenGL依赖，必需的.NET/WPF及图像解码库保留。公开 v0.6.0 资产仍使用原布局，不会被覆盖。体积与迁移验证见[补丁验收](docs/release-closeout-0.6.1.md)。
 
 从 Windows 开发环境打包（PowerShell 7）：
 
