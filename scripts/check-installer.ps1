@@ -32,7 +32,7 @@ $smokeId = [Guid]::NewGuid().ToString("N")
 $directory = Join-Path ([IO.Path]::GetTempPath()) ("ModernImageViewer Install Smoke " + $smokeId)
 $executable = Join-Path $directory "ModernImageViewer.App.exe"
 $uninstaller = Join-Path $directory "unins000.exe"
-$shortcutGroup = 'ModernImageViewer Install Smoke ' + $smokeId
+$shortcutGroup = 'Modern Image Viewer'
 $startMenuDirectory = Join-Path ([Environment]::GetFolderPath('Programs')) $shortcutGroup
 $desktopShortcut = Join-Path ([Environment]::GetFolderPath('DesktopDirectory')) 'Modern Image Viewer.lnk'
 $shortcuts = [ordered]@{
@@ -389,7 +389,9 @@ try {
         finally { $key.Dispose() }
         $otherCandidates[$extension] = Read-OtherCandidates $path
     }
-    # Force the shortcut language/group and task list; never reuse a previous selection.
+    # Both public installers use their fixed default group when its page is
+    # disabled. The hosted account was checked to have no existing shortcut.
+    # Force language/tasks; never reuse a previous task selection.
     $common = @("/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/SP-", "/CURRENTUSER",
         "/DIR=$directory", "/GROUP=$shortcutGroup", '/LANG=english')
     $registrationTasks = '/TASKS=fileassoc,desktopicon'
