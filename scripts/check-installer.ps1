@@ -85,32 +85,6 @@ function Assert-Shortcuts([string]$Stage) {
             $path = $shortcuts[$name]
             $expected = if ($name -eq 'Uninstall') { $uninstaller } else { $executable }
             if (-not [IO.File]::Exists($path)) {
-                # Public installers may have used their own default Start Menu
-                # group. Verify ownership by target and remember the actual path.
-                $roots = if ($name -eq 'StartMenu' -or $name -eq 'Uninstall') {
-                    @([Environment]::GetFolderPath('Programs'), [Environment]::GetFolderPath('CommonPrograms'))
-                }
-                else {
-                    @([Environment]::GetFolderPath('DesktopDirectory'), [Environment]::GetFolderPath('CommonDesktopDirectory'))
-                }
-                $candidates = @(foreach ($root in ($roots | Select-Object -Unique)) {
-                    if ([IO.Directory]::Exists($root)) {
-                        Get-ChildItem -LiteralPath $root -Filter '*.lnk' -File -Recurse -ErrorAction SilentlyContinue
-                    }
-                })
-                foreach ($candidate in $candidates) {
-                    $probe = $shell.CreateShortcut($candidate.FullName)
-                    try {
-                        if ($probe.Arguments -eq '' -and [string]::Equals($probe.TargetPath, $expected, [StringComparison]::OrdinalIgnoreCase)) {
-                            $path = $candidate.FullName
-                            $shortcuts[$name] = $path
-                            break
-                        }
-                    }
-                    finally { [Runtime.InteropServices.Marshal]::FinalReleaseComObject($probe) | Out-Null }
-                }
-            }
-            if (-not [IO.File]::Exists($path)) {
                 throw "The $name shortcut is missing: $path"
             }
             $shortcut = $shell.CreateShortcut($path)
@@ -487,7 +461,9 @@ try {
     }
     finally { $formats.Dispose() }
     $beforeReinstallHash = $lifecycle[-1].AssemblySha256
-    Invoke-Setup $installer ($common + @($registrationTasks, "/LOG=$(Join-Path $logs 'same-version-reinstall.log')"))
+    # Existing owned desktop links must enter the replacement uninstall log
+    # even when reinstall explicitly leaves desktopicon unselected.
+    Invoke-Setup $installer ($common + @('/TASKS=fileassoc', "/LOG=$(Join-Path $logs 'same-version-reinstall.log')"))
     Assert-InstalledPayload $upgradedVersion
     Assert-Registration
     Assert-ProtectedState
@@ -555,6 +531,7 @@ finally {
             TargetInstallerProductVersion = $installerVersion.ToString()
             BaselineInstallerProductVersion = if ($baselineInstaller) { $baselineInstallerVersion.ToString() } else { $null }
             UpgradeTasks = if ($baselineInstaller) { 'desktopicon' } else { $null }
+            ReinstallTasks = 'fileassoc'
             AssociationMigrationWithoutTaskVerified = $associationMigrationVerified
             ShortcutChecks = $shortcutChecks
             ShortcutRemovalVerified = $uninstallCompleted -and $verificationSucceeded
