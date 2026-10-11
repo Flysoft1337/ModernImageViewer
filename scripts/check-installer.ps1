@@ -26,10 +26,13 @@ if ($baselineInstaller -and (Get-FileHash -LiteralPath $baselineInstaller).Hash 
 }
 $logs = [IO.Path]::GetFullPath($LogDirectory)
 $smokeId = [Guid]::NewGuid().ToString("N")
-$directory = Join-Path ([IO.Path]::GetTempPath()) ("ModernImageViewer 安装验证 " + $smokeId)
+# Public 0.4 shortcuts expose lossy ANSI target paths for non-ASCII install
+# directories on the hosted account. Keep migration isolated from that legacy
+# limitation; Unicode image activation is covered by its own existing smoke.
+$directory = Join-Path ([IO.Path]::GetTempPath()) ("ModernImageViewer Install Smoke " + $smokeId)
 $executable = Join-Path $directory "ModernImageViewer.App.exe"
 $uninstaller = Join-Path $directory "unins000.exe"
-$shortcutGroup = 'ModernImageViewer 安装验证 ' + $smokeId
+$shortcutGroup = 'ModernImageViewer Install Smoke ' + $smokeId
 $startMenuDirectory = Join-Path ([Environment]::GetFolderPath('Programs')) $shortcutGroup
 $desktopShortcut = Join-Path ([Environment]::GetFolderPath('DesktopDirectory')) 'Modern Image Viewer.lnk'
 $shortcuts = [ordered]@{
@@ -75,7 +78,7 @@ function Read-InstallerVersion([string]$Path, [version]$ExpectedVersion) {
     return [version]$versionText
 }
 
-function Assert-Shortcuts([string]$Stage, [switch]$AllowMissingLegacy) {
+function Assert-Shortcuts([string]$Stage) {
     $shell = New-Object -ComObject WScript.Shell
     try {
         foreach ($name in $shortcuts.Keys) {
@@ -108,7 +111,6 @@ function Assert-Shortcuts([string]$Stage, [switch]$AllowMissingLegacy) {
                 }
             }
             if (-not [IO.File]::Exists($path)) {
-                if ($AllowMissingLegacy) { continue }
                 throw "The $name shortcut is missing: $path"
             }
             $shortcut = $shell.CreateShortcut($path)
@@ -428,7 +430,7 @@ try {
     $initialExpectedVersion = if ($baselineInstaller) { $baselineInstallerVersion } else { $targetVersion }
     $initialVersion = Read-InstalledVersion $initialStage $initialExpectedVersion
     Assert-InstalledPayload $initialVersion
-    Assert-Shortcuts $initialStage -AllowMissingLegacy:([bool]$baselineInstaller)
+    Assert-Shortcuts $initialStage
     Assert-Registration $(if ($baselineInstaller) { $baselineExtensions } else { $extensions })
     Assert-ProtectedState
     # 0.4 can open the generated PNG/WebP, but not the newer codec fixture groups.
