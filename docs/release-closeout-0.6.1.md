@@ -119,3 +119,10 @@ PR #43已合并为master d3f5000。其[最终发布CI 39148296485](https://githu
 PR #42 首轮CI的有效同机对照因候选第3对单个细化请求199.022ms而触发既有10%规则，不能记为通过；候选与基线产品源码相同，其余样本未呈现同类幅度，后续6对交替复测已执行，失焦结果仍为Inconclusive。公开0.4基线日志确认其菜单组固定为`Modern Image Viewer`、忽略`/GROUP`，COM读出的中文临时目标被转换为`????`。迁移改用含空格ASCII隔离目录及实际默认菜单组，恢复全阶段严格检查；不扫描/修改外来快捷方式，中文图片激活继续由已有smoke覆盖。升级显式选择desktopicon但不选fileassoc验证已有关联迁移，重装显式不选desktopicon以验证已有入口进入替换卸载日志。中文安装路径及旧自定义菜单组迁移仍未验收。
 
 自动化未发现新的P0；本轮已修复安装卸载保护和内部压缩启动回退。真实视觉/鼠标/Shell及无内部压缩最终有效性能仍缺证据，不能宣称P1风险全部排除。最终同一master完整CI未通过时必须NOT READY FOR RELEASE；通过后也最多READY FOR PRE-RELEASE ONLY。#42交付记录保留该阶段候选证据；追加#41合并后，最终master SHA、该提交CI和包体/哈希以[PR #41](https://github.com/Flysoft1337/ModernImageViewer/pull/41)交付记录为准，不把候选包冒充最终master包，不创建Tag/Release。
+
+
+## 2026-10-19：细节修复后的发布推进
+
+用户再次明确要求发布。PR #45保留此前有效首图失败及安装停滞记录；细节修复的历史6对Valid结果已经通过六项原门槛。将已有公开0.4升级路径移至独立Windows2022 VM，主job先完成历史与包装性能比较；clean、公开0.4与公开0.6三路安装复用同一包，publisher等待四个验证job全部成功，不删检查或提高门槛。
+
+安装worker补持久stdout/stderr、15秒心跳与退出状态，输出排空期间同样检查deadline，作为故障证据，不称停滞根因已修复。本机ignored副本仅执行假worker，成功/exit17/30秒超时终止及日志落盘通过；未执行真实安装。原9项publisher测试、44项观察脚本断言、PowerShell语法和workflow依赖核对通过。最终CI与发布资产结果另记。
