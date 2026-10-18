@@ -71,3 +71,6 @@ Get-Content .\ModernImageViewer-0.4.0-win-x64-Setup.exe.sha256
 
 
 0.6.1有用户明确批准的[包装性能例外](performance/0.6.1-packaging-acceptance.json)：校验版本、已审查产品/打包输入及同源码二进制身份，只允许切图/主动细节在展示精度上界内按AcceptedRisk记录，PerformanceAccepted仍为false。历史对照与其他指标、真实错误、坏报告、超时和安装失败不适用；产品、打包或版本改变时例外失效。
+
+
+2026-10-19已通过上述流程公开[v0.6.1正式版](https://github.com/Flysoft1337/ModernImageViewer/releases/tag/v0.6.1)，Tag指向2bcf2e8，五个job全部成功。最终资产/哈希、三路安装与性能实际分类见[公开验收](release-closeout-0.6.1.md#最终公开记录2026-10-19)，不以此补填缺失人工验收。

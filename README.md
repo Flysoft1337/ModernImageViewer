@@ -8,9 +8,11 @@
 
 **下载与公开状态**见[GitHub Releases](https://github.com/Flysoft1337/ModernImageViewer/releases)。此前[v0.6.0](https://github.com/Flysoft1337/ModernImageViewer/releases/tag/v0.6.0)作为公开测试版分发；其[发布说明](docs/release-notes/0.6.0.md)包含v0.4.0以来的编辑调整/标注、格式与浏览累计更新，历史验证见[收口验收](docs/release-closeout-0.6.0.md)。0.6.1发布流程见下文；真实人工交互、混合DPI与跨设备低内存长测尚未完成，不宣称完整人工验收、所有格式零退化或P95。
 
+[v0.6.1正式版](https://github.com/Flysoft1337/ModernImageViewer/releases/tag/v0.6.1)已于2026-10-19发布为Latest。最终Windows CI为607通过/1跳过，三路隔离安装/升级/重装/卸载通过。最终包装6对有效对照在原10%门槛内，历史对照失焦无结论；此前失败与用户接受的包装风险仍保留，见[补丁验收](docs/release-closeout-0.6.1.md#最终公开记录2026-10-19)。这不替代真实桌面与长期人工验收。
+
 ### 开发能力矩阵
 
-当前源码为 **0.6.1**，收口菜单、大 PNG 细节缓存、集中运行布局与升级验证；见[补丁说明](docs/release-notes/0.6.1.md)和[验收记录](docs/release-closeout-0.6.1.md)。公开状态和下载以[GitHub Releases](https://github.com/Flysoft1337/ModernImageViewer/releases)为准，只有同一提交完整Windows CI及三路安装验证通过后才发布。完整报告证实的失焦记为诊断警告，不代表性能验收；有效性能超阈值仍阻断。现有 v0.6.0 资产保持不变，真实桌面与 Shell 人工验收缺口仍保留。
+当前源码为 **0.6.1**，收口菜单、大 PNG 细节缓存、集中运行布局与升级验证；见[补丁说明](docs/release-notes/0.6.1.md)和[验收记录](docs/release-closeout-0.6.1.md)。公开状态和下载以[GitHub Releases](https://github.com/Flysoft1337/ModernImageViewer/releases)为准，只有同一提交完整Windows CI及三路安装验证通过后才发布。完整报告证实的失焦记为诊断警告，不代表性能验收；未经明确批准的有效性能超阈值仍阻断。现有 v0.6.0 资产保持不变，真实桌面与 Shell 人工验收缺口仍保留。
 
 以下是当前代码能力，均受格式和预算限制；完整逐格式矩阵见[格式支持](docs/decoder-support.md#当前能力矩阵)。ICC 指嵌入 profile 的处理，不代表显示器色彩管理；EXIF 方向与摄影信息展示分开记录。
 

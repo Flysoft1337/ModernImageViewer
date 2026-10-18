@@ -1,5 +1,12 @@
 # 任务计划
 
+## 2026-10-19：v0.6.1正式发布
+
+- [x] PR #45/#46已合并；最终发布提交`2bcf2e82de5ad6154363c2c3362a6c8fcead4087`。
+- [x] 最终[CI39156822173](https://github.com/Flysoft1337/ModernImageViewer/actions/runs/39156822173)完整成功：607通过/1跳过，原有检查及三路隔离安装/升级/重装/卸载通过。
+- [x] [v0.6.1](https://github.com/Flysoft1337/ModernImageViewer/releases/tag/v0.6.1)已公开为正式版/Latest，Tag与提交一致，四资产及SHA256核对通过；未覆盖v0.6.0。
+- 历史性能失焦0对为Inconclusive；最终包装6对Valid且全部通过，未触发获批例外。此前失败及用户批准继续保留；真实桌面/混合DPI/长期压力人工缺口不变。
+
 ## 2026-10-19：恢复发布收口
 
 - [x] 用户明确接受CI39155310654新的包装切图/细节风险；保留原失败，限定版本/产品/两项上界，原49项脚本与9项publisher边界通过。
