@@ -1,478 +1,111 @@
-name: CI
-
+# Diagnostic branch only; do not merge this workflow into master.
+name: Neighbor switch confirmation
+run-name: Parent versus PR48 performance confirmation
 on:
-  push:
-    branches: [master]
-  pull_request:
-    branches: [master]
   workflow_dispatch:
-    inputs:
-      publish_release:
-        description: '构建验证通过后发布 GitHub Release（仅 master）'
-        type: boolean
-        default: false
-      prerelease:
-        description: '发布为预发布版本（仅 publish_release=true 时生效）'
-        type: boolean
-        default: false
-
 permissions:
   contents: read
-
 concurrency:
-  # Release builds must not cancel each other before their version-scoped publish lock.
-  group: ${{ github.workflow }}-${{ inputs.publish_release && github.run_id || github.event.pull_request.number || github.ref }}
-  cancel-in-progress: ${{ !inputs.publish_release }}
-
+  group: neighbor-confirmation-${{ github.ref }}
+  cancel-in-progress: false
 jobs:
-  build-test-publish:
-    # Pin the release validation environment; changing latest images obscures
-    # installation/desktop failures and same-machine observation provenance.
+  observe:
     runs-on: windows-2022
-    timeout-minutes: 45
-    outputs:
-      release_version: ${{ steps.release_metadata.outputs.version }}
-      release_commit: ${{ steps.release_metadata.outputs.commit }}
-
+    timeout-minutes: 18
     steps:
       - uses: actions/checkout@v7
-
-      - name: Check release and observation boundaries (offline)
-        shell: pwsh
-        run: |
-          python scripts/test-publish-release.py
-          if ($LASTEXITCODE -ne 0) { throw 'Release publisher boundary checks failed.' }
-          .\scripts\test-static-comparison.ps1
-
-      - name: Validate release request and version
-        id: release_metadata
-        if: github.event_name == 'workflow_dispatch' && inputs.publish_release
-        shell: pwsh
-        run: python .\scripts\publish-release.py prepare
-
-      - name: Set up .NET
-        uses: actions/setup-dotnet@v6
+        with:
+          ref: 1015e0c4058377ba43bacdf2ae791708417390cd
+      - uses: actions/checkout@v7
+        with:
+          ref: b50e1ec0b1fdce42d6cc14fe632375202715bf26
+          path: .matched-parent
+          persist-credentials: false
+      - uses: actions/setup-dotnet@v6
         with:
           global-json-file: global.json
           cache: true
           cache-dependency-path: |
             Directory.Packages.props
             **/*.csproj
-
-      - name: Show .NET information
-        run: dotnet --info
-
-      - name: Restore
-        run: dotnet restore .\ModernImageViewer.slnx
-
-      - name: Build bundled RAW preview bridge
-        shell: pwsh
-        run: .\scripts\build-raw-native.ps1
-
-      - name: Verify formatting
-        run: dotnet format .\ModernImageViewer.slnx --verify-no-changes --no-restore
-
-      - name: Build
-        run: dotnet build .\ModernImageViewer.slnx --configuration Release --no-restore -p:ContinuousIntegrationBuild=true
-
-      - name: Test
-        env:
-          MIV_FORMAT_FIXTURE_DIRECTORY: ${{ github.workspace }}\artifacts\format-fixtures
-          MIV_UI_SCREENSHOT_DIRECTORY: ${{ github.workspace }}\artifacts\ui-screenshots
-        run: >-
-          dotnet test .\ModernImageViewer.slnx
-          --configuration Release
-          --no-build
-          --logger "trx;LogFilePrefix=test-results"
-          --results-directory .\artifacts\test-results
-          --collect:"XPlat Code Coverage"
-
-      - name: Upload test results
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: test-results
-          path: artifacts/test-results/**
-          if-no-files-found: warn
-          retention-days: 14
-
-      - name: Upload UI screenshots
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: ui-screenshots
-          path: artifacts/ui-screenshots/**
-          if-no-files-found: warn
-          retention-days: 14
-
-      - name: Upload generated format fixtures for isolated installer checks
-        uses: actions/upload-artifact@v7
-        with:
-          name: format-fixtures
-          path: artifacts/format-fixtures/**
-          if-no-files-found: error
-          retention-days: 14
-
-      - name: Audit dependencies
-        run: dotnet list .\ModernImageViewer.slnx package --vulnerable --include-transitive
-
-      - name: Observe bounded 100MP codec output
-        shell: pwsh
-        run: .\scripts\measure-codec.ps1 -NoBuild
-
-      - name: Upload codec observation
-        uses: actions/upload-artifact@v7
-        with:
-          name: codec-observation
-          path: artifacts/codec-observation/*.json
-          if-no-files-found: error
-          retention-days: 14
-
-      - name: Restore win-x64 runtime assets
-        run: dotnet restore .\src\ModernImageViewer.App\ModernImageViewer.App.csproj --runtime win-x64
-
-      - name: Publish win-x64
-        run: >-
-          dotnet publish .\src\ModernImageViewer.App\ModernImageViewer.App.csproj
-          --configuration Release
-          --runtime win-x64
-          --self-contained true
-          --no-restore
-          --output .\artifacts\publish\win-x64
-
-      - name: Check published application startup
-        shell: pwsh
-        run: >-
-          .\scripts\measure-startup.ps1
-          -AppPath .\artifacts\publish\win-x64\ModernImageViewer.App.exe
-          -Iterations 1
-          -ObservationSeconds 1
-          -OutputPath .\artifacts\startup-results.json
-
-      - name: Upload startup observation
-        uses: actions/upload-artifact@v7
-        with:
-          name: startup-observation
-          path: artifacts/startup-results.json
-          if-no-files-found: error
-          retention-days: 14
-
-      - name: Check published application file activation
-        shell: pwsh
-        run: >-
-          .\scripts\check-file-activation.ps1
-          -AppPath .\artifacts\publish\win-x64\ModernImageViewer.App.exe
-          -FixtureDirectory .\artifacts\format-fixtures
-
-      - name: Observe browsing phases and continuity smoke
-        shell: pwsh
-        run: >-
-          .\scripts\measure-browsing.ps1
-          -AppPath .\artifacts\publish\win-x64\ModernImageViewer.App.exe
-          -GeneratedImageCount 8 -NeighborSwitches 8 -RapidBurst 4
-          -RefreshEvery 4 -DetailEvery 4 -IdleSeconds 2
-
-      - name: Upload browsing observation
-        uses: actions/upload-artifact@v7
-        with:
-          name: browsing-observation
-          path: artifacts/browsing-observation/*.json
-          if-no-files-found: error
-          retention-days: 14
-
-      - name: Observe animation and multipage lifecycle smoke
-        shell: pwsh
-        run: >-
-          .\scripts\measure-animation.ps1
-          -AppPath .\artifacts\publish\win-x64\ModernImageViewer.App.exe
-          -FixtureDirectory .\artifacts\format-fixtures
-          -Loops 1 -LongSeconds 1 -TimeoutSeconds 240 -RequireInstrumentation
-
-      - name: Upload animation observation
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: animation-observation
-          path: artifacts/animation-observation/*.json
-          if-no-files-found: warn
-          retention-days: 14
-
-      - name: Build win-x64 installer
-        id: installer_build
-        shell: pwsh
-        run: .\scripts\build-installer.ps1 -SkipPublish
-
-      - name: Check compact portable layout and native inventory
+      - name: Check fixed revisions and matching build inputs
         shell: pwsh
         run: |
-          $archives = @(Get-ChildItem .\artifacts\installer\*-Portable.zip)
-          if ($archives.Count -ne 1) { throw 'Expected exactly one portable package.' }
-          .\scripts\check-package.ps1 -PortableArchive $archives[0].FullName
-
-      - name: Upload win-x64 installer
-        if: always() && steps.installer_build.outcome == 'success'
-        uses: actions/upload-artifact@v7
-        with:
-          name: ModernImageViewer-Setup-win-x64
-          path: artifacts/installer/**
-          if-no-files-found: error
-          retention-days: 30
-
-      - name: Check out fixed pre-patch master for static comparison
-        uses: actions/checkout@v7
-        with:
-          ref: 320886eff025e2f6e87d75966c89600ec5b17ab1
-          path: .baseline-0.6.0
-          persist-credentials: false
-
-      - name: Build fixed pre-patch comparison package with the same SDK
+          $parent = Join-Path $env:GITHUB_WORKSPACE '.matched-parent'
+          $baselineCommit = git -C $parent rev-parse HEAD
+          $candidateCommit = git rev-parse HEAD
+          if ($candidateCommit -cne '1015e0c4058377ba43bacdf2ae791708417390cd' -or $baselineCommit -cne 'b50e1ec0b1fdce42d6cc14fe632375202715bf26') { throw 'Unexpected revision.' }
+          foreach ($file in @('Directory.Build.props', 'Directory.Packages.props', 'global.json', 'src/ModernImageViewer.App/ModernImageViewer.App.csproj', 'scripts/build-raw-native.ps1')) {
+            if ((Get-FileHash $file).Hash -cne (Get-FileHash (Join-Path $parent $file)).Hash) { throw "Build input differs: $file" }
+          }
+          [IO.Directory]::CreateDirectory('artifacts/neighbor-confirmation') | Out-Null
+          @{ Scope = 'Diagnostic only; parent versus PR48; two predetermined six-pair rounds; not release CI or P95'
+             BaselineCommit = $baselineCommit; CandidateCommit = $candidateCommit; Sdk = (dotnet --version) } |
+            ConvertTo-Json | Set-Content artifacts/neighbor-confirmation/provenance.json -Encoding utf8
+      - name: Build one shared native bridge
         shell: pwsh
         run: |
-          $repository = $env:GITHUB_WORKSPACE
-          $baseline = Join-Path $repository '.baseline-0.6.0'
-          [xml]$baselineProperties = Get-Content (Join-Path $baseline 'Directory.Build.props') -Raw
-          [xml]$targetProperties = Get-Content (Join-Path $repository 'Directory.Build.props') -Raw
-          if ([string]$baselineProperties.Project.PropertyGroup.Version -ne '0.6.0' -or
-              [string]$targetProperties.Project.PropertyGroup.Version -ne '0.6.1') {
-            throw 'Static comparison requires the fixed pre-patch 0.6.0 baseline and a 0.6.1 target.'
+          .\scripts\build-raw-native.ps1
+          $destination = Join-Path $env:GITHUB_WORKSPACE '.matched-parent/artifacts/raw-native'
+          [IO.Directory]::CreateDirectory($destination) | Out-Null
+          foreach ($file in @('ModernImageViewer.RawBridge.dll', 'raw-native.json', 'licenses')) {
+            Copy-Item -LiteralPath (Join-Path $env:GITHUB_WORKSPACE "artifacts/raw-native/$file") -Destination $destination -Recurse
           }
-          # Each checkout resolves native content relative to its own artifacts directory.
-          # The baseline script revalidates archive, source, compiler and bridge hashes.
-          $baselineNative = Join-Path $baseline 'artifacts/raw-native'
-          [IO.Directory]::CreateDirectory($baselineNative) | Out-Null
-          foreach ($name in @('ModernImageViewer.RawBridge.dll', 'raw-native.json', 'LibRaw-0.22.2-Win64.zip', 'licenses')) {
-            Copy-Item -LiteralPath (Join-Path $repository "artifacts/raw-native/$name") -Destination $baselineNative -Recurse
-          }
-          Push-Location $baseline
-          try {
-            & .\scripts\build-installer.ps1 -PublishDirectory (Join-Path $repository 'artifacts/baseline-0.6.0/publish') -OutputDirectory (Join-Path $repository 'artifacts/baseline-0.6.0/installer')
-          }
-          finally { Pop-Location }
-
-      - name: Compare fixed pre-patch and candidate alternately in the same Windows job
-        timeout-minutes: 12
+      - name: Publish both fixed revisions with identical options
         shell: pwsh
         run: |
-          $baselineApp = Join-Path $env:GITHUB_WORKSPACE 'artifacts/baseline-0.6.0/publish/ModernImageViewer.App.exe'
-          .\scripts\invoke-static-comparison.ps1 -BaselineAppPath $baselineApp -CandidateAppPath .\artifacts\publish\win-x64\ModernImageViewer.App.exe -Pairs 6 -WarmupPairs 1 -OutputDirectory .\artifacts\static-history-comparison
-
-      - name: Upload baseline static observations
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: baseline-static-observation
-          path: |
-            artifacts/static-history-comparison/**
-          if-no-files-found: warn
-          retention-days: 14
-
-      - name: Publish same-source flat comparison package
+          $root = $env:GITHUB_WORKSPACE
+          foreach ($entry in @(@{Source='.matched-parent';Label='A'}, @{Source='.';Label='B'})) {
+            Push-Location (Join-Path $root $entry.Source)
+            try {
+              dotnet publish src/ModernImageViewer.App/ModernImageViewer.App.csproj --configuration Release --runtime win-x64 --self-contained true --output (Join-Path $root "artifacts/neighbor-packages/$($entry.Label)") -p:ContinuousIntegrationBuild=true
+              if ($LASTEXITCODE -ne 0) { throw 'Comparison publish failed.' }
+            }
+            finally { Pop-Location }
+          }
+          $a = Join-Path $root 'artifacts/neighbor-packages/A'
+          $b = Join-Path $root 'artifacts/neighbor-packages/B'
+          $runtimeA = (Get-Content (Join-Path $a 'ModernImageViewer.App.runtimeconfig.json') -Raw | ConvertFrom-Json).runtimeOptions | ConvertTo-Json -Depth 8 -Compress
+          $runtimeB = (Get-Content (Join-Path $b 'ModernImageViewer.App.runtimeconfig.json') -Raw | ConvertFrom-Json).runtimeOptions | ConvertTo-Json -Depth 8 -Compress
+          if ($runtimeA -cne $runtimeB) { throw 'Bundled runtime/configuration differs.' }
+          $filesA = @(Get-ChildItem -LiteralPath $a -File -Filter '*.dll')
+          $filesB = @(Get-ChildItem -LiteralPath $b -File -Filter '*.dll')
+          if ($filesA.Count -ne $filesB.Count) { throw 'Native file counts differ.' }
+          foreach ($file in $filesA) {
+            if ((Get-FileHash $file.FullName).Hash -cne (Get-FileHash (Join-Path $b $file.Name)).Hash) { throw "Native/runtime file differs: $($file.Name)" }
+          }
+      - name: Parent comparison round 1
+        id: round1
+        continue-on-error: true
         timeout-minutes: 5
         shell: pwsh
-        run: |
-          # Same source, runtime, language resources and native dependencies isolate bundling/compression.
-          dotnet publish .\src\ModernImageViewer.App\ModernImageViewer.App.csproj --configuration Release --runtime win-x64 --self-contained true --no-restore --output .\artifacts\packaging-flat-comparison -p:PublishSingleFile=false -p:EnableCompressionInSingleFile=false
-          if ($LASTEXITCODE -ne 0) { throw 'Flat comparison publish failed.' }
-
-      - name: Compare flat and single-file packaging performance
-        timeout-minutes: 12
-        shell: pwsh
-        run: |
-          .\scripts\invoke-static-comparison.ps1 -BaselineAppPath .\artifacts\packaging-flat-comparison\ModernImageViewer.App.exe -CandidateAppPath .\artifacts\publish\win-x64\ModernImageViewer.App.exe -Pairs 6 -WarmupPairs 1 -OutputDirectory .\artifacts\packaging\static-comparison
-
-      - name: Upload compact packaging verification
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: packaging-verification
-          path: artifacts/packaging/**
-          if-no-files-found: warn
-          retention-days: 14
-
-      - name: Upload win-x64 application
-        uses: actions/upload-artifact@v7
-        with:
-          name: ModernImageViewer-win-x64
-          path: artifacts/publish/win-x64/**
-          if-no-files-found: error
-          retention-days: 14
-
-  installer-public-04:
-    name: Verify public 0.4 upgrade in an isolated Windows VM
-    needs: build-test-publish
-    runs-on: windows-2025
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/download-artifact@v8
-        with:
-          name: ModernImageViewer-Setup-win-x64
-          path: artifacts/installer
-      - uses: actions/download-artifact@v8
-        with:
-          name: format-fixtures
-          path: artifacts/format-fixtures
-      - name: Download and verify public v0.4.0 upgrade baseline
-        shell: pwsh
-        run: |
-          $name = 'ModernImageViewer-0.4.0-win-x64-Setup.exe'
-          $source = 'https://github.com/Flysoft1337/ModernImageViewer/releases/download/v0.4.0'
-          $expectedSha256 = 'bc645e8cd2a4ebadeb10b4a8a3698be6045f2643f7311a9bbf673476d9ae55b6'
-          $directory = Join-Path $env:GITHUB_WORKSPACE 'artifacts/baseline-0.4'
-          [IO.Directory]::CreateDirectory($directory) | Out-Null
-          $installer = Join-Path $directory $name
-          $checksumPath = "$installer.sha256"
-          Invoke-WebRequest -Uri "$source/$name.sha256" -OutFile $checksumPath -TimeoutSec 180
-          $checksum = [regex]::Match((Get-Content -LiteralPath $checksumPath -Raw), '\A([0-9a-f]{64})  ([^\r\n]+)\r?\n?\z')
-          if (-not $checksum.Success -or $checksum.Groups[1].Value -cne $expectedSha256 -or $checksum.Groups[2].Value -cne $name) {
-            throw 'The public v0.4.0 checksum must match the pinned SHA256 and exact installer filename.'
-          }
-          Invoke-WebRequest -Uri "$source/$name" -OutFile $installer -TimeoutSec 180
-          $sha256 = (Get-FileHash -LiteralPath $installer -Algorithm SHA256).Hash.ToLowerInvariant()
-          if ((Get-Item -LiteralPath $installer).Length -ne 56037592 -or $sha256 -cne $expectedSha256) {
-            throw 'The public v0.4.0 installer size or SHA256 does not match the pinned release asset.'
-          }
-          $versionInfo = [Diagnostics.FileVersionInfo]::GetVersionInfo($installer)
-          # Inno Setup stores AppVersion in the padded ProductVersion resource.
-          if ($versionInfo.ProductVersion.Trim() -cne '0.4.0' -or $versionInfo.ProductName.Trim() -cne 'Modern Image Viewer') {
-            throw 'The public baseline installer must identify Modern Image Viewer version 0.4.0.'
-          }
-          $logs = Join-Path $env:GITHUB_WORKSPACE 'artifacts/installer-smoke'
-          [IO.Directory]::CreateDirectory($logs) | Out-Null
-          [pscustomobject]@{
-            Source = "$source/$name"
-            ChecksumSource = "$source/$name.sha256"
-            Sha256 = $sha256
-            Bytes = (Get-Item -LiteralPath $installer).Length
-            InstallerProductVersion = $versionInfo.ProductVersion.Trim()
-          } | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $logs 'baseline-package.json') -Encoding utf8
-
-      - name: Check public 0.4 to 0.6.1 upgrade, reinstall and uninstall
-        timeout-minutes: 5
-        shell: pwsh
-        run: |
-          $installers = @(Get-ChildItem .\artifacts\installer\*-Setup.exe)
-          if ($installers.Count -ne 1) { throw 'Expected exactly one installer.' }
-          .\scripts\invoke-installer-check.ps1 -InstallerPath $installers[0].FullName -BaselineInstallerPath .\artifacts\baseline-0.4\ModernImageViewer-0.4.0-win-x64-Setup.exe -BaselineVersion 0.4.0 -FixtureDirectory .\artifacts\format-fixtures
-
-      - name: Upload installer verification logs
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: installer-verification
-          path: artifacts/installer-smoke/**
-          if-no-files-found: warn
-          retention-days: 14
-
-  installer-clean:
-    name: Verify clean install in an isolated Windows VM
-    needs: build-test-publish
-    runs-on: windows-2025
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/download-artifact@v8
-        with:
-          name: ModernImageViewer-Setup-win-x64
-          path: artifacts/installer
-      - uses: actions/download-artifact@v8
-        with:
-          name: format-fixtures
-          path: artifacts/format-fixtures
-      - name: Check clean install, same-version reinstall and uninstall
-        timeout-minutes: 5
-        shell: pwsh
-        run: |
-          $installers = @(Get-ChildItem .\artifacts\installer\*-Setup.exe)
-          if ($installers.Count -ne 1) { throw 'Expected exactly one installer.' }
-          .\scripts\invoke-installer-check.ps1 -InstallerPath $installers[0].FullName -FixtureDirectory .\artifacts\format-fixtures -LogDirectory .\artifacts\installer-smoke-clean
-      - name: Upload clean installer verification
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: installer-verification-clean
-          path: artifacts/installer-smoke-clean/**
-          if-no-files-found: warn
-          retention-days: 14
-
-  installer-public-06:
-    name: Verify public 0.6 upgrade in an isolated Windows VM
-    needs: build-test-publish
-    runs-on: windows-2025
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/download-artifact@v8
-        with:
-          name: ModernImageViewer-Setup-win-x64
-          path: artifacts/installer
-      - uses: actions/download-artifact@v8
-        with:
-          name: format-fixtures
-          path: artifacts/format-fixtures
-      - name: Download and verify public v0.6.0 upgrade baseline
-        timeout-minutes: 5
-        shell: pwsh
-        run: |
-          $directory = Join-Path $env:GITHUB_WORKSPACE 'artifacts/baseline-0.6-public'
-          [IO.Directory]::CreateDirectory($directory) | Out-Null
-          $name = 'ModernImageViewer-0.6.0-win-x64-Setup.exe'
-          $path = Join-Path $directory $name
-          Write-Host "Downloading pinned public baseline: $name."
-          curl.exe --fail --location --connect-timeout 30 --max-time 180 --output $path ('https://github.com/Flysoft1337/ModernImageViewer/releases/download/v0.6.0/' + $name)
-          if ($LASTEXITCODE -ne 0) { throw 'Public 0.6 baseline download failed.' }
-          if ((Get-Item -LiteralPath $path).Length -ne 69969305 -or
-              (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash -ine 'e5d871b50703ddebe0ea5dcb248244088ef455e1734893810703acc31582d6cf') {
-            throw 'Public 0.6 baseline asset size/checksum mismatch.'
-          }
-          Write-Host 'Public 0.6 baseline size and SHA256 verified.'
-      - name: Check public 0.6 to 0.6.1 upgrade, reinstall and uninstall
-        timeout-minutes: 5
-        shell: pwsh
-        run: |
-          $installers = @(Get-ChildItem .\artifacts\installer\*-Setup.exe)
-          if ($installers.Count -ne 1) { throw 'Expected exactly one installer.' }
-          .\scripts\invoke-installer-check.ps1 -InstallerPath $installers[0].FullName -BaselineInstallerPath .\artifacts\baseline-0.6-public\ModernImageViewer-0.6.0-win-x64-Setup.exe -BaselineVersion 0.6.0 -FixtureDirectory .\artifacts\format-fixtures -LogDirectory .\artifacts\installer-smoke-0.6
-      - name: Upload public 0.6 installer verification
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: installer-verification-0.6
-          path: artifacts/installer-smoke-0.6/**
-          if-no-files-found: warn
-          retention-days: 14
-
-  publish-release:
-    name: Publish verified GitHub Release
-    needs: [build-test-publish, installer-public-04, installer-clean, installer-public-06]
-    if: github.event_name == 'workflow_dispatch' && inputs.publish_release
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    permissions:
-      contents: write
-    concurrency:
-      group: release-${{ needs.build-test-publish.outputs.release_version }}
-      cancel-in-progress: false
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          ref: ${{ needs.build-test-publish.outputs.release_commit }}
-
-      - name: Download verified installer and portable package
-        uses: actions/download-artifact@v8
-        with:
-          name: ModernImageViewer-Setup-win-x64
-          path: artifacts/installer
-
-      - name: Publish immutable version assets
-        env:
-          GH_TOKEN: ${{ github.token }}
-          RELEASE_VERSION: ${{ needs.build-test-publish.outputs.release_version }}
-          RELEASE_COMMIT: ${{ needs.build-test-publish.outputs.release_commit }}
-          RELEASE_PRERELEASE: ${{ inputs.prerelease }}
         run: >-
-          python scripts/publish-release.py publish
-          --version "$RELEASE_VERSION"
-          --commit "$RELEASE_COMMIT"
-          --prerelease "$RELEASE_PRERELEASE"
-          --assets artifacts/installer
+          .\scripts\invoke-static-comparison.ps1
+          -BaselineAppPath artifacts/neighbor-packages/A/ModernImageViewer.App.exe
+          -CandidateAppPath artifacts/neighbor-packages/B/ModernImageViewer.App.exe
+          -Pairs 6 -WarmupPairs 1 -RequireValid
+          -OutputDirectory artifacts/neighbor-confirmation/round1
+      - name: Parent comparison round 2 (planned before results)
+        id: round2
+        continue-on-error: true
+        timeout-minutes: 5
+        shell: pwsh
+        run: >-
+          .\scripts\invoke-static-comparison.ps1
+          -BaselineAppPath artifacts/neighbor-packages/A/ModernImageViewer.App.exe
+          -CandidateAppPath artifacts/neighbor-packages/B/ModernImageViewer.App.exe
+          -Pairs 6 -WarmupPairs 1 -RequireValid
+          -OutputDirectory artifacts/neighbor-confirmation/round2
+      - name: Preserve both observations
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: neighbor-parent-confirmation
+          path: artifacts/neighbor-confirmation/**
+          if-no-files-found: warn
+          retention-days: 14
+      - name: Retain strict result for both rounds
+        if: always()
+        shell: pwsh
+        run: |
+          if ('${{ steps.round1.outcome }}' -ne 'success' -or '${{ steps.round2.outcome }}' -ne 'success') { throw 'One or both diagnostic rounds failed or were inconclusive; inspect retained raw evidence.' }
