@@ -140,6 +140,13 @@ public sealed class FormatDecoderTests
         Assert.Equal(main.Size, preview.SourceSize);
         Assert.InRange(preview.Size.Width, 1, 128);
         Assert.InRange(preview.Size.Height, 1, 80);
+        foreach (PixelSize bound in new[] { main.Size, new PixelSize(512, 512) })
+        {
+            using PixelBuffer unscaled = await decoder.DecodePreviewAsync(path, bound, TestContext.Current.CancellationToken);
+            Assert.Equal(main.Size, unscaled.Size);
+            Assert.Equal(main.SourceSize, unscaled.SourceSize);
+            Assert.Equal(main.Pixels.ToArray(), unscaled.Pixels.ToArray());
+        }
         await Assert.ThrowsAsync<ImageSizeLimitExceededException>(() =>
             decoder.DecodeDetailAsync(path, 4, TestContext.Current.CancellationToken));
         using PixelBuffer thumbnail = await decoder.DecodeThumbnailAsync(path, new PixelSize(224, 140), TestContext.Current.CancellationToken);

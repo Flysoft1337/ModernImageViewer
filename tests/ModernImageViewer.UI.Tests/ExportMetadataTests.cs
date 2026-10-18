@@ -6,6 +6,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Windows;
 using System.Windows.Media;
+using System.Windows.Media.Imaging;
 
 using ImageMagick;
 
@@ -103,6 +104,34 @@ public sealed class ExportMetadataTests
         Assert.InRange(pixel.Green, (byte)185, (byte)191);
         Assert.InRange(pixel.Blue, (byte)185, (byte)191);
         Assert.Equal(ColorProfiles.SRGB.ToByteArray(), ReadProfiles(File.ReadAllBytes(destination), format).Icc);
+    }
+
+    [Fact]
+    public async Task UnscaledWicPreviewRetainsProfiledBitmapImageOutputAndOrientation()
+    {
+        using Files files = new();
+        File.WriteAllBytes(files.Source, CreateCameraJpeg(CreateLinearRgbProfile()));
+        using PixelBuffer actual = await new ImageDecoder().DecodePreviewAsync(files.Source,
+            new PixelSize(32, 32), TestContext.Current.CancellationToken);
+
+        // Compare with the pre-optimization BitmapImage path for an embedded non-sRGB profile.
+        using FileStream stream = File.OpenRead(files.Source);
+        BitmapImage reference = new();
+        reference.BeginInit();
+        reference.CacheOption = BitmapCacheOption.OnLoad;
+        reference.CreateOptions = BitmapCreateOptions.PreservePixelFormat;
+        reference.StreamSource = stream;
+        reference.DecodePixelWidth = 3;
+        reference.DecodePixelHeight = 2;
+        reference.EndInit();
+        BitmapSource oriented = new TransformedBitmap(reference, new RotateTransform(90));
+        BitmapSource converted = new FormatConvertedBitmap(oriented, PixelFormats.Pbgra32, null, 0);
+        byte[] expected = new byte[2 * 3 * 4];
+        converted.CopyPixels(expected, 2 * 4, 0);
+        Assert.Equal(new PixelSize(2, 3), actual.Size);
+        Assert.Equal((ushort)6, actual.Metadata.Orientation);
+        Assert.Equal(expected, actual.Pixels.ToArray());
+        Assert.Equal((byte)128, actual.Pixels.Span[2]);
     }
 
     [Fact]

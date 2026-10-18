@@ -1,5 +1,11 @@
 # 发现记录
 
+## 2026-10-19：WIC同尺寸预览重复初始化
+
+- 指定maximumSize后原WIC路径无条件重新创建BitmapImage/OnLoad，即使源尺寸已满足目标；保留原frame可消除一次codec初始化和OnLoad缓存。
+- 只对无ColorContext且常规RGB像素格式使用该路径，profile/CMYK/高位深/缩小继续使用旧行为。非sRGB灰度JPEG在旧BitmapImage路径实测仍输出128，不能将其假定为ICC已转sRGB；新增回归按实际旧输出验证。
+- 最终六对热输入同机对照：1200×800 PNG每组均值中位数6.9773/5.8777ms，JPEG3.9904/2.3267ms；缩小2048² PNG25.3943/25.3798ms。只是codec核心，不能解释旧CI整个切图差异；详见wic-preview-performance.md。
+
 ## 2026-10-19：失败后的导航位置
 
 - ImageOpenCoordinator失败时保留旧Image/FilePath与PendingPath，浏览session.CurrentIndex仍正确代表显示的图片。
