@@ -504,6 +504,40 @@ public sealed class ViewportBrowsingTests
         Assert.Equal(2, requests);
     });
 
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(2)]
+    public Task QueuedAutomaticDetailPrecedesRenderWorkAndRejectsStaleRequests(int invalidation) => RunSta(() =>
+    {
+        AutomaticDetailDecoder decoder = new();
+        using ImageOpenCoordinator coordinator = new(new AutomaticDetailPicker(), decoder);
+        using MainWindowViewModel model = new(new AutomaticDetailLocalization(), coordinator, new ImageBrowseSession());
+        using ImageViewport viewport = CreateViewport();
+        coordinator.PropertyChanged += (_, _) => viewport.Presentation = coordinator.State;
+        Assert.True(coordinator.OpenAsync("detail-priority.png").GetAwaiter().GetResult());
+        Layout(viewport, 400, 300);
+        viewport.ActualSize();
+        Assert.True(viewport.IsAutomaticDetailRequired);
+        int detailCallsAtRender = -1;
+        _ = viewport.Dispatcher.InvokeAsync(() =>
+        {
+            detailCallsAtRender = decoder.DetailCalls;
+        }, DispatcherPriority.Render);
+        bool loaded = true;
+        MainWindow.QueueAutomaticDetail(viewport, model, () => loaded);
+        Assert.Equal(0, decoder.DetailCalls);
+        if (invalidation == 1)
+        {
+            Assert.True(coordinator.OpenAsync("different-detail.png").GetAwaiter().GetResult());
+            viewport.ActualSize();
+        }
+        else if (invalidation == 2) { loaded = false; }
+        DrainAutomaticDetailQueue(viewport);
+        Assert.Equal(invalidation == 0 ? 1 : 0, detailCallsAtRender);
+        Assert.Equal(invalidation == 0 ? 1 : 0, decoder.DetailCalls);
+    });
+
     [Fact]
     public Task ManualDetailInFitIsNotRestrictedByAutomaticDemand() => RunSta(() =>
     {
