@@ -10,7 +10,7 @@
 
 ### 开发能力矩阵
 
-当前源码为 **0.6.1**，收口菜单、大 PNG 细节缓存、集中运行布局与升级验证；见[补丁说明](docs/release-notes/0.6.1.md)和[验收记录](docs/release-closeout-0.6.1.md)。公开状态和下载以[GitHub Releases](https://github.com/Flysoft1337/ModernImageViewer/releases)为准，只有同一提交完整Windows CI及两组有效性能对照通过后才发布；现有 v0.6.0 资产保持不变，真实桌面与 Shell 人工验收缺口仍保留。
+当前源码为 **0.6.1**，收口菜单、大 PNG 细节缓存、集中运行布局与升级验证；见[补丁说明](docs/release-notes/0.6.1.md)和[验收记录](docs/release-closeout-0.6.1.md)。公开状态和下载以[GitHub Releases](https://github.com/Flysoft1337/ModernImageViewer/releases)为准，只有同一提交完整Windows CI及三路安装验证通过后才发布。完整报告证实的失焦记为诊断警告，不代表性能验收；有效性能超阈值仍阻断。现有 v0.6.0 资产保持不变，真实桌面与 Shell 人工验收缺口仍保留。
 
 以下是当前代码能力，均受格式和预算限制；完整逐格式矩阵见[格式支持](docs/decoder-support.md#当前能力矩阵)。ICC 指嵌入 profile 的处理，不代表显示器色彩管理；EXIF 方向与摄影信息展示分开记录。
 

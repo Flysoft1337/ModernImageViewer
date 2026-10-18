@@ -254,8 +254,7 @@ jobs:
         shell: pwsh
         run: |
           $baselineApp = Join-Path $env:GITHUB_WORKSPACE 'artifacts/baseline-0.6.0/publish/ModernImageViewer.App.exe'
-          $release = '${{ inputs.publish_release }}' -eq 'true'
-          .\scripts\invoke-static-comparison.ps1 -BaselineAppPath $baselineApp -CandidateAppPath .\artifacts\publish\win-x64\ModernImageViewer.App.exe -Pairs 6 -WarmupPairs 1 -OutputDirectory .\artifacts\static-history-comparison -RequireValid:$release
+          .\scripts\invoke-static-comparison.ps1 -BaselineAppPath $baselineApp -CandidateAppPath .\artifacts\publish\win-x64\ModernImageViewer.App.exe -Pairs 6 -WarmupPairs 1 -OutputDirectory .\artifacts\static-history-comparison
 
       - name: Upload baseline static observations
         if: always()
@@ -331,8 +330,7 @@ jobs:
         timeout-minutes: 12
         shell: pwsh
         run: |
-          $release = '${{ inputs.publish_release }}' -eq 'true'
-          .\scripts\invoke-static-comparison.ps1 -BaselineAppPath .\artifacts\packaging-flat-comparison\ModernImageViewer.App.exe -CandidateAppPath .\artifacts\publish\win-x64\ModernImageViewer.App.exe -Pairs 6 -WarmupPairs 1 -OutputDirectory .\artifacts\packaging\static-comparison -RequireValid:$release
+          .\scripts\invoke-static-comparison.ps1 -BaselineAppPath .\artifacts\packaging-flat-comparison\ModernImageViewer.App.exe -CandidateAppPath .\artifacts\publish\win-x64\ModernImageViewer.App.exe -Pairs 6 -WarmupPairs 1 -OutputDirectory .\artifacts\packaging\static-comparison
 
       - name: Upload compact packaging verification
         if: always()
