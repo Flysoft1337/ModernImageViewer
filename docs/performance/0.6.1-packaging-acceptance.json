@@ -1,0 +1,19 @@
+{
+  "SchemaVersion": 1,
+  "Version": "0.6.1",
+  "Comparison": "SameSourceFlatVsSingleFile",
+  "ReviewedCommit": "d051b12802a88ae6d2ebf7158986e61ab3f67761",
+  "Evidence": "https://github.com/Flysoft1337/ModernImageViewer/actions/runs/39155310654",
+  "DecisionDate": "2026-10-19",
+  "UserDecision": "接受并记录这项风险，继续安装验证和发布",
+  "Reason": "接受该版本同源码散装/单文件包装的已知切图及主动细节开销；历史版本6对有效对照全部通过。功能、安装及其他性能指标仍须通过。",
+  "ObservedMedianPairRatios": {
+    "NeighborSwitchMeanMs": 1.2975338435693407,
+    "RequestedDetailMeanMs": 1.137220367755141
+  },
+  "MaximumPairRatios": {
+    "NeighborSwitchMeanMs": 1.2985,
+    "RequestedDetailMeanMs": 1.1375
+  },
+  "LimitPrecision": "以获批展示值+29.8%/+13.7%的0.1个百分点精度上界封顶；更大回退不在批准内。"
+}

@@ -278,7 +278,9 @@ jobs:
         timeout-minutes: 12
         shell: pwsh
         run: |
-          .\scripts\invoke-static-comparison.ps1 -BaselineAppPath .\artifacts\packaging-flat-comparison\ModernImageViewer.App.exe -CandidateAppPath .\artifacts\publish\win-x64\ModernImageViewer.App.exe -Pairs 6 -WarmupPairs 1 -OutputDirectory .\artifacts\packaging\static-comparison
+          git fetch --no-tags --depth=1 origin d051b12802a88ae6d2ebf7158986e61ab3f67761
+          if ($LASTEXITCODE -ne 0) { throw 'Reviewed product commit unavailable.' }
+          .\scripts\invoke-static-comparison.ps1 -BaselineAppPath .\artifacts\packaging-flat-comparison\ModernImageViewer.App.exe -CandidateAppPath .\artifacts\publish\win-x64\ModernImageViewer.App.exe -Pairs 6 -WarmupPairs 1 -OutputDirectory .\artifacts\packaging\static-comparison -PerformanceAcceptancePath .\docs\performance\0.6.1-packaging-acceptance.json
 
       - name: Upload compact packaging verification
         if: always()

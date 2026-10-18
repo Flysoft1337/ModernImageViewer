@@ -1,5 +1,12 @@
 #Requires -Version 7.0
-function Get-StaticComparisonDisposition($Report, [int]$ExitCode, [switch]$RequireValid) {
+function Get-StaticComparisonDisposition($Report, [int]$ExitCode, [switch]$RequireValid,
+    [hashtable]$ReviewedLimits = @{}) {
+    foreach ($metric in $ReviewedLimits.Keys) {
+        $limit = $ReviewedLimits[$metric]
+        if ($metric -notin @('NeighborSwitchMeanMs', 'RequestedDetailMeanMs') -or
+            $limit -is [string] -or $limit -is [bool] -or
+            -not [double]::IsFinite([double]$limit) -or $limit -le 1.1) { throw 'InvalidPerformanceReview' }
+    }
     if ($Report.SchemaVersion -ne 1 -or $Report.Success -isnot [bool] -or
         $Report.RequestedPairs -lt 1 -or $null -eq $Report.Runs -or $null -eq $Report.Statistics) {
         throw 'InvalidComparisonReport'
@@ -34,6 +41,7 @@ function Get-StaticComparisonDisposition($Report, [int]$ExitCode, [switch]$Requi
     foreach ($pair in 1..$Report.RequestedPairs) {
         if (@($ratios | Where-Object { $_.Pair -eq $pair }).Count -ne 1) { throw 'InvalidComparisonReport' }
     }
+    $riskAccepted = $false
     foreach ($metric in @('StartupWindowInputIdleMs', 'FirstRecognizableMs', 'NavigationAvailableMs',
         'NeighborSwitchMeanMs', 'FirstRequiredDetailMs', 'RequestedDetailMeanMs')) {
         $values = @(foreach ($pair in $ratios) {
@@ -54,7 +62,13 @@ function Get-StaticComparisonDisposition($Report, [int]$ExitCode, [switch]$Requi
         $values = @($values | Sort-Object)
         $middle = [int][Math]::Floor($values.Count / 2)
         $median = if ($values.Count % 2) { $values[$middle] } else { ($values[$middle - 1] + $values[$middle]) / 2 }
-        if ($median -gt 1.1) { throw "PerformanceReviewRequired:$metric" }
+        if ($median -gt 1.1) {
+            if (-not $ReviewedLimits.ContainsKey($metric) -or $median -gt $ReviewedLimits[$metric]) {
+                throw "PerformanceReviewRequired:$metric"
+            }
+            $riskAccepted = $true
+        }
     }
+    if ($riskAccepted) { return 'AcceptedRisk' }
     return 'Valid'
 }
