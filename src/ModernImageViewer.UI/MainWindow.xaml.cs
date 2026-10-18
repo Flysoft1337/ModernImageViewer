@@ -96,7 +96,8 @@ public partial class MainWindow : Window
 
     internal static void QueueAutomaticDetail(ImageViewport viewport, MainWindowViewModel viewModel, Func<bool> isLoaded)
     {
-        // Queue after the pixel/path binding has completed; do not reenter a WPF binding update.
+        // Defer past the current binding callback without putting a user's detail
+        // request behind thumbnail binding, layout and rendering work.
         ModernImageViewer.Imaging.PixelBuffer? requestedImage = viewModel.CurrentImage;
         _ = viewport.Dispatcher.InvokeAsync(async () =>
         {
@@ -104,7 +105,7 @@ public partial class MainWindow : Window
             {
                 await viewModel.RefineImageAsync();
             }
-        }, DispatcherPriority.Background);
+        }, DispatcherPriority.Normal);
     }
 
     private async void OnRefineClick(object sender, RoutedEventArgs e) => await _viewModel.RefineImageAsync();

@@ -1,5 +1,13 @@
 # 进度日志
 
+## 2026-10-19：用户决定暂缓发布并修复细节性能
+
+- 发布CI39149125118历史6对全部有效，RequestedDetailMeanMs A/B每轮中位数25.8801/40.681525ms，配对比值中位数约1.5426314，超过原10%规则。完整结果保存在artifacts/release-0.6.1/20261019-master-release-39149125118/history；启动/首图/导航/切图及首次细节未触发门槛。
+- 用户明确选择“先修复细节加载性能，暂缓发布”。停止发布推进，不豁免指标、不新建Tag/Release；基于master187df5b建立perf/detail-loading定位与修复。
+- 用隔离真实WPF诊断拆分排队/decoder/回绘：原Background需求到decoder约13.8–48.7ms；只改为Normal后约3.2–3.4ms，解码本身约23–27ms。仅局部诊断，不声称已解释全部CI回退；未改codec/缓存/预算/样本。
+- 新增3个确定性调度用例：细化在Render队列前开始、排队后切图拒绝、窗口失效拒绝；复用原8个DPI/需求撤销与重复细化用例，不做耗时断言。待本地与原CI验证。
+- 旧Background实现的新队列用例确实失败（其余2个失效用例通过）；恢复Normal后ViewportBrowsing最终39通过，format verify/diff通过。产品仅调度优先级一处改变；原固定样本/6对CI比较待执行，不发布。
+
 ## 2026-10-19：继续发布v0.6.1
 
 - 用户再次明确要求发布。核对master仍fc794af、草稿PR #43 head6852660，v0.6.1没有Tag或Release，本地干净。
