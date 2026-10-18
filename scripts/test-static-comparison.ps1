@@ -148,6 +148,10 @@ $focusReport = @{
     })
 }
 Assert-Condition ((Get-StaticComparisonDisposition $focusReport 1) -eq 'Inconclusive') 'OnlyCompleteFocusEvidenceIsInconclusive'
+$rejected = $false
+try { $null = Get-StaticComparisonDisposition $focusReport 1 -RequireValid }
+catch { $rejected = $_.Exception.Message -eq 'ValidComparisonRequired:ForegroundWindowLost' }
+Assert-Condition $rejected 'ReleaseCannotAcceptInconclusivePerformance'
 foreach ($failure in @('ChildScriptFailed', 'ChildScriptTimeout', 'MissingReport', 'InvalidReport',
     'IncompleteDetails', 'IncompleteSwitches', 'MissingCompletionSignal', 'MultipleViewers', 'BinaryChanged')) {
     $invalid = $focusReport | ConvertTo-Json -Depth 8 | ConvertFrom-Json -AsHashtable
@@ -173,6 +177,7 @@ $valid = @{ SchemaVersion = 1; Success = $true; Failure = $null; RequestedPairs 
     }}) }
 }
 Assert-Condition ((Get-StaticComparisonDisposition $valid 0) -eq 'Valid') 'ValidatedPairsWithinThreshold'
+Assert-Condition ((Get-StaticComparisonDisposition $valid 0 -RequireValid) -eq 'Valid') 'ReleaseAcceptsValidPerformance'
 $valid.Statistics.PairRatios[0].CandidateOverBaseline.FirstRecognizableMs = 1.11
 $valid.Runs[1].Metrics.FirstRecognizableMs = $valid.Runs[0].Metrics.FirstRecognizableMs * 1.11
 $rejected = $false
@@ -207,6 +212,13 @@ exit 1
     $disposition = Get-Content (Join-Path $focusDirectory 'disposition.json') -Raw | ConvertFrom-Json
     Assert-Condition ($disposition.ChildExitCode -eq 1 -and $disposition.Disposition -eq 'Inconclusive' -and
         -not $disposition.PerformanceAccepted) 'RealChildExitOneCaptured'
+    $releaseDirectory = Join-Path $temporary 'release-focus'
+    $rejected = $false
+    try { & (Join-Path $temporary 'invoke-static-comparison.ps1') -BaselineAppPath unused -CandidateAppPath unused -OutputDirectory $releaseDirectory -RequireValid }
+    catch { $rejected = $_.Exception.Message -eq 'ValidComparisonRequired:ForegroundWindowLost' }
+    $releaseDisposition = Get-Content (Join-Path $releaseDirectory 'disposition.json') -Raw | ConvertFrom-Json
+    Assert-Condition ($rejected -and $releaseDisposition.Disposition -eq 'Failed' -and
+        -not $releaseDisposition.PerformanceAccepted) 'ReleasePropagatesFocusFailureAndPreservesEvidence'
     $rejected = $false
     try { & (Join-Path $temporary 'invoke-static-comparison.ps1') -BaselineAppPath unused -CandidateAppPath unused -OutputDirectory $focusDirectory }
     catch { $rejected = $_.Exception.Message -eq 'OutputDirectoryNotEmpty' }

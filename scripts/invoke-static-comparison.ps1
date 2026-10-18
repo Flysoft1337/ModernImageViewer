@@ -6,7 +6,8 @@ param(
     [Parameter(Mandatory)][string]$OutputDirectory,
     [ValidateRange(1, 100)][int]$Pairs = 3,
     [ValidateRange(0, 20)][int]$WarmupPairs = 1,
-    [ValidateRange(60, 3600)][int]$DeadlineSeconds = 600
+    [ValidateRange(60, 3600)][int]$DeadlineSeconds = 600,
+    [switch]$RequireValid
 )
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'static-comparison-policy.ps1')
@@ -41,7 +42,7 @@ try {
     }
     $reportPath = Join-Path $OutputDirectory 'index.json'
     $report = Get-Content -LiteralPath $reportPath -Raw | ConvertFrom-Json -AsHashtable
-    try { $disposition = Get-StaticComparisonDisposition $report $process.ExitCode }
+    try { $disposition = Get-StaticComparisonDisposition $report $process.ExitCode -RequireValid:$RequireValid }
     catch {
         [pscustomobject]@{ SchemaVersion = 1; Disposition = 'Failed'; Failure = $_.Exception.Message
             ChildExitCode = $process.ExitCode; PerformanceAccepted = $false
