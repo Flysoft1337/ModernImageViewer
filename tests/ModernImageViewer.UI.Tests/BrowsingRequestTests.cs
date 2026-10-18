@@ -105,24 +105,75 @@ public sealed class BrowsingRequestTests
         Assert.Equal(files.Paths[0], model.CurrentFilePath);
     }
 
-    [Fact]
-    public async Task FailedOrDeletedFileKeepsDisplayAndAllowsNextNavigation()
+    [Theory]
+    [InlineData(-1, false)]
+    [InlineData(-1, true)]
+    [InlineData(1, false)]
+    [InlineData(1, true)]
+    public async Task FailedOrDeletedFileKeepsDisplayAndAllowsNextNavigation(int direction, bool deleted)
     {
         using Files files = new();
         DelayedDecoder decoder = new();
         ImageBrowseSession session = new();
         using ImageOpenCoordinator coordinator = new(new NullPicker(), decoder);
         using MainWindowViewModel model = new(new Localization(), coordinator, session);
-        Assert.True(await model.OpenPathAsync(files.Paths[0]));
+        Assert.True(await model.OpenPathAsync(files.Paths[2]));
         await coordinator.WaitForIndexingAsync(TestContext.Current.CancellationToken);
         PixelBuffer current = model.CurrentImage!;
-        Task next = model.NextCommand.ExecuteAsync();
-        File.Delete(files.Paths[1]);
-        decoder.Pending[0].Completion.SetException(new FileNotFoundException());
+        var command = direction > 0 ? model.NextCommand : model.PreviousCommand;
+        Task next = command.ExecuteAsync();
+        Assert.Equal(files.Paths[2 + direction], decoder.Pending[0].Path);
+        if (deleted) { File.Delete(files.Paths[2 + direction]); }
+        decoder.Pending[0].Completion.SetException(deleted ? new FileNotFoundException()
+            : new ImageDecodeException(ImageOpenError.CorruptFile));
         await next;
         Assert.Same(current, model.CurrentImage);
-        Assert.Equal(ImageOpenError.FileNotFound, model.Presentation.Error);
-        Assert.True(model.NextCommand.CanExecute(null));
+        Assert.Equal(files.Paths[2], model.CurrentFilePath);
+        Assert.Equal(2, session.CurrentIndex);
+        Assert.Equal(deleted ? ImageOpenError.FileNotFound : ImageOpenError.CorruptFile, model.Presentation.Error);
+        Assert.True(command.CanExecute(null));
+        Task continued = command.ExecuteAsync();
+        try { Assert.Equal(files.Paths[2 + 2 * direction], decoder.Pending[1].Path); }
+        finally { decoder.Pending[1].Completion.TrySetResult(Pixels()); await continued; }
+        Assert.Equal(files.Paths[2 + 2 * direction], model.CurrentFilePath);
+        Assert.Equal(ImageOpenStatus.Loaded, model.Presentation.Status);
+        Assert.Throws<ObjectDisposedException>(() => current.Pixels);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task RefreshOrSortAfterFailureReturnsNavigationToDisplayedImage(bool refresh)
+    {
+        using Files files = new();
+        DelayedDecoder decoder = new();
+        ImageBrowseSession session = new();
+        using ImageOpenCoordinator coordinator = new(new NullPicker(), decoder);
+        using MainWindowViewModel model = new(new Localization(), coordinator, session);
+        Assert.True(await model.OpenPathAsync(files.Paths[2]));
+        await coordinator.WaitForIndexingAsync(TestContext.Current.CancellationToken);
+        Task failed = model.NextCommand.ExecuteAsync();
+        File.Delete(files.Paths[3]);
+        decoder.Pending[0].Completion.SetException(new FileNotFoundException());
+        await failed;
+
+        if (refresh)
+        {
+            Task reloading = model.RefreshFolderAsync();
+            await WaitUntil(() => decoder.Pending.Count == 2);
+            decoder.Pending[1].Completion.SetResult(Pixels());
+            await reloading;
+            Assert.DoesNotContain(files.Paths[3], session.Items);
+        }
+        else
+        {
+            Assert.True(await model.ChangeSortAsync(BrowseSortMode.Name, true));
+        }
+        Task next = model.NextCommand.ExecuteAsync();
+        var pending = decoder.Pending[^1];
+        try { Assert.Equal(files.Paths[refresh ? 4 : 1], pending.Path); }
+        finally { pending.Completion.TrySetResult(Pixels()); await next; }
+        Assert.Equal(files.Paths[refresh ? 4 : 1], model.CurrentFilePath);
     }
 
     private static async Task WaitUntil(Func<bool> completed)

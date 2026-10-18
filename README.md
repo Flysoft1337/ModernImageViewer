@@ -14,6 +14,8 @@
 
 当前源码为 **0.6.1**，收口菜单、大 PNG 细节缓存、集中运行布局与升级验证；见[补丁说明](docs/release-notes/0.6.1.md)和[验收记录](docs/release-closeout-0.6.1.md)。公开状态和下载以[GitHub Releases](https://github.com/Flysoft1337/ModernImageViewer/releases)为准，只有同一提交完整Windows CI及三路安装验证通过后才发布。完整报告证实的失焦记为诊断警告，不代表性能验收；未经明确批准的有效性能超阈值仍阻断。现有 v0.6.0 资产保持不变，真实桌面与 Shell 人工验收缺口仍保留。
 
+v0.6.1发布后的开发小批修复了缺失/损坏图片切换失败后重复访问同一项的问题：已显示图片保留，再次按方向键可从失败项继续，F5/新输入/排序重置导航意图。本地完整612通过/1跳过，CI结果见[进度](docs/planning/progress.md)。此修改尚未发布，当前v0.6.1下载包不包含它。
+
 以下是当前代码能力，均受格式和预算限制；完整逐格式矩阵见[格式支持](docs/decoder-support.md#当前能力矩阵)。ICC 指嵌入 profile 的处理，不代表显示器色彩管理；EXIF 方向与摄影信息展示分开记录。
 
 | 格式/路径 | Static 静态 | Animation 动画 | Pages 多页 | Transparency 透明 | ICC | EXIF | Region 区域 | Edit 编辑 |
