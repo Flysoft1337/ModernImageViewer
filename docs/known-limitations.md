@@ -2,7 +2,7 @@
 
 历史0.6.0按公开测试版（Pre-release）分发；当前版本与发布属性以[GitHub Releases](https://github.com/Flysoft1337/ModernImageViewer/releases)为准。本页与[格式矩阵](decoder-support.md)描述0.6代码的实际范围，历史下载包不因此获得新能力；公开发布不表示完整人工验收已经完成。
 
-当前源码版本为0.6.1，发布状态以[GitHub Releases](https://github.com/Flysoft1337/ModernImageViewer/releases)为准。菜单、大PNG缓存和集中布局属于公开0.6.0之后的补丁；升级、性能及独立人工检查见[0.6.1收口记录](release-closeout-0.6.1.md)。历史最终master有效切图对照曾超过10%门槛，失焦复测不能推翻该失败；发布工作流要求两组有效对照及完整CI通过。无头CI失焦仅为Inconclusive，发布时会阻断，不自动豁免。
+当前源码版本为0.6.1，发布状态以[GitHub Releases](https://github.com/Flysoft1337/ModernImageViewer/releases)为准。菜单、大PNG缓存和集中布局属于公开0.6.0之后的补丁；升级、性能及独立人工检查见[0.6.1收口记录](release-closeout-0.6.1.md)。历史最终master有效切图对照曾超过10%门槛，后续有6对有效通过，也有失焦无效结果，不能保证所有设备无退化。无头CI完整失焦报告按用户原要求保留为Inconclusive诊断警告，核心、包与安装检查必须通过；真实错误及有效性能超阈值仍阻断，不自动豁免。
 
 0.6.1已因有效6对交替样本确认内部压缩启动回退而关闭它，保留单文件与集中目录。安装落盘体积会高于压缩试包；下载大小、安装后占用及启动时间分别记录，不以体积收益豁免性能。
 
