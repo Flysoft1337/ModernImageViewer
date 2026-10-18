@@ -385,3 +385,6 @@
 
 - [PR #29](https://github.com/Flysoft1337/ModernImageViewer/pull/29)功能提交b7286b2的[Windows CI 37346291867](https://github.com/Flysoft1337/ModernImageViewer/actions/runs/37346291867)成功：完整恢复/格式，Release构建0警告0错误；核心68+UI/codec185=253通过、1项本机真实RAW样本跳过。依赖审计、100MP观察、便携启动/12类格式激活、安装版同样激活、当前用户安装/同版本重装迁移/卸载均通过，Release job明确跳过。
 - CI format有既有workspace加载warning，不称全部工具零告警。末次仅Markdown验收记录，功能源/测试/CI流程与已通过b7286b2一致；最终合并状态见PR。保持0.5.0开发基线、公开v0.4.0，任意角度、调整/标注和完整元数据/ICC未实现。
+
+
+用户明确接受最终CI39155310654新发现的包装性能风险（切图配对中位数+29.8%、主动细节+13.7%），继续安装验证和发布。历史6对全部通过，原失败及三路安装未执行的事实保留。例外仅限0.6.1已审查产品/打包输入、同源码比较和两项展示精度上界，记录AcceptedRisk/PerformanceAccepted=false；默认门槛及其他错误不变。5项新增脚本边界通过，总49项，原9项publisher测试通过；实际原始6对报告正确分类AcceptedRisk，隔离Git假仓库的产品变化/版本变化均在启动viewer前拒绝。本机无真实安装。

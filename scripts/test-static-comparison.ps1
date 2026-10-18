@@ -178,6 +178,33 @@ $valid = @{ SchemaVersion = 1; Success = $true; Failure = $null; RequestedPairs 
 }
 Assert-Condition ((Get-StaticComparisonDisposition $valid 0) -eq 'Valid') 'ValidatedPairsWithinThreshold'
 Assert-Condition ((Get-StaticComparisonDisposition $valid 0 -RequireValid) -eq 'Valid') 'ReleaseAcceptsValidPerformance'
+$reviewed = $valid | ConvertTo-Json -Depth 10 | ConvertFrom-Json -AsHashtable
+$limits = @{ NeighborSwitchMeanMs = 1.2985; RequestedDetailMeanMs = 1.1375 }
+foreach ($metric in @('NeighborSwitchMeanMs', 'RequestedDetailMeanMs')) {
+    $reviewed.Statistics.PairRatios[0].CandidateOverBaseline[$metric] = 1.12
+    $reviewed.Runs[1].Metrics[$metric] = $reviewed.Runs[0].Metrics[$metric] * 1.12
+}
+Assert-Condition ((Get-StaticComparisonDisposition $reviewed 0 -ReviewedLimits $limits) -eq 'AcceptedRisk') 'ExplicitBoundedRiskIsNotPerformancePass'
+foreach ($case in @(
+    @{ Metric = 'RequestedDetailMeanMs'; Ratio = 1.14; Failure = 'PerformanceReviewRequired:RequestedDetailMeanMs' },
+    @{ Metric = 'StartupWindowInputIdleMs'; Ratio = 1.11; Failure = 'PerformanceReviewRequired:StartupWindowInputIdleMs' }
+)) {
+    $outside = $reviewed | ConvertTo-Json -Depth 10 | ConvertFrom-Json -AsHashtable
+    $outside.Statistics.PairRatios[0].CandidateOverBaseline[$case.Metric] = $case.Ratio
+    $outside.Runs[1].Metrics[$case.Metric] = $outside.Runs[0].Metrics[$case.Metric] * $case.Ratio
+    $rejected = $false
+    try { $null = Get-StaticComparisonDisposition $outside 0 -ReviewedLimits $limits }
+    catch { $rejected = $_.Exception.Message -eq $case.Failure }
+    Assert-Condition $rejected "ReviewCannotCover-$($case.Metric)"
+}
+$rejected = $false
+try { $null = Get-StaticComparisonDisposition $reviewed 1 -ReviewedLimits $limits }
+catch { $rejected = $_.Exception.Message -eq 'ComparisonFailed' }
+Assert-Condition $rejected 'ReviewCannotMaskDriverFailure'
+$rejected = $false
+try { $null = Get-StaticComparisonDisposition $valid 0 -ReviewedLimits @{ FirstRecognizableMs = 1.2 } }
+catch { $rejected = $_.Exception.Message -eq 'InvalidPerformanceReview' }
+Assert-Condition $rejected 'ReviewRejectsUnapprovedMetric'
 $valid.Statistics.PairRatios[0].CandidateOverBaseline.FirstRecognizableMs = 1.11
 $valid.Runs[1].Metrics.FirstRecognizableMs = $valid.Runs[0].Metrics.FirstRecognizableMs * 1.11
 $rejected = $false

@@ -68,3 +68,6 @@ Get-Content .\ModernImageViewer-0.4.0-win-x64-Setup.exe.sha256
 - `scripts/build-installer.ps1`：从同一版本属性生成安装器、便携包与哈希文件。
 
 该流程不会因为普通 push、PR、创建标签或合并代码自动发版；只有用户主动勾选发布的手动运行会创建 Release。
+
+
+0.6.1有用户明确批准的[包装性能例外](performance/0.6.1-packaging-acceptance.json)：校验版本、已审查产品/打包输入及同源码二进制身份，只允许切图/主动细节在展示精度上界内按AcceptedRisk记录，PerformanceAccepted仍为false。历史对照与其他指标、真实错误、坏报告、超时和安装失败不适用；产品、打包或版本改变时例外失效。
