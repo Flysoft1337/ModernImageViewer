@@ -5,7 +5,7 @@ param(
     [string]$BaselineInstallerPath,
     [string]$FixtureDirectory,
     [string]$LogDirectory = (Join-Path $PSScriptRoot '../artifacts/installer-smoke'),
-    [ValidateSet('0.4.0', '0.5.0', '0.6.0')][string]$BaselineVersion = '0.5.0',
+    [ValidateSet('0.4.0', '0.5.0', '0.6.0', '0.6.1')][string]$BaselineVersion = '0.5.0',
     [ValidateRange(30, 600)][int]$DeadlineSeconds = 240
 )
 $ErrorActionPreference = 'Stop'

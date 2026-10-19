@@ -233,8 +233,8 @@ jobs:
           [xml]$baselineProperties = Get-Content (Join-Path $baseline 'Directory.Build.props') -Raw
           [xml]$targetProperties = Get-Content (Join-Path $repository 'Directory.Build.props') -Raw
           if ([string]$baselineProperties.Project.PropertyGroup.Version -ne '0.6.0' -or
-              [string]$targetProperties.Project.PropertyGroup.Version -ne '0.6.1') {
-            throw 'Static comparison requires the fixed pre-patch 0.6.0 baseline and a 0.6.1 target.'
+              [string]$targetProperties.Project.PropertyGroup.Version -ne '0.6.2') {
+            throw 'Static comparison requires the fixed pre-patch 0.6.0 baseline and a 0.6.2 target.'
           }
           # Each checkout resolves native content relative to its own artifacts directory.
           # The baseline script revalidates archive, source, compiler and bridge hashes.
@@ -347,7 +347,7 @@ jobs:
             InstallerProductVersion = $versionInfo.ProductVersion.Trim()
           } | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $logs 'baseline-package.json') -Encoding utf8
 
-      - name: Check public 0.4 to 0.6.1 upgrade, reinstall and uninstall
+      - name: Check public 0.4 to 0.6.2 upgrade, reinstall and uninstall
         timeout-minutes: 5
         shell: pwsh
         run: |
@@ -396,7 +396,7 @@ jobs:
           retention-days: 14
 
   installer-public-06:
-    name: Verify public 0.6 upgrade in an isolated Windows VM
+    name: Verify public 0.6.1 upgrade in an isolated Windows VM
     needs: build-test-publish
     runs-on: windows-2025
     timeout-minutes: 10
@@ -410,35 +410,35 @@ jobs:
         with:
           name: format-fixtures
           path: artifacts/format-fixtures
-      - name: Download and verify public v0.6.0 upgrade baseline
+      - name: Download and verify public v0.6.1 upgrade baseline
         timeout-minutes: 5
         shell: pwsh
         run: |
-          $directory = Join-Path $env:GITHUB_WORKSPACE 'artifacts/baseline-0.6-public'
+          $directory = Join-Path $env:GITHUB_WORKSPACE 'artifacts/baseline-0.6.1-public'
           [IO.Directory]::CreateDirectory($directory) | Out-Null
-          $name = 'ModernImageViewer-0.6.0-win-x64-Setup.exe'
+          $name = 'ModernImageViewer-0.6.1-win-x64-Setup.exe'
           $path = Join-Path $directory $name
           Write-Host "Downloading pinned public baseline: $name."
-          curl.exe --fail --location --connect-timeout 30 --max-time 180 --output $path ('https://github.com/Flysoft1337/ModernImageViewer/releases/download/v0.6.0/' + $name)
-          if ($LASTEXITCODE -ne 0) { throw 'Public 0.6 baseline download failed.' }
-          if ((Get-Item -LiteralPath $path).Length -ne 69969305 -or
-              (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash -ine 'e5d871b50703ddebe0ea5dcb248244088ef455e1734893810703acc31582d6cf') {
-            throw 'Public 0.6 baseline asset size/checksum mismatch.'
+          curl.exe --fail --location --connect-timeout 30 --max-time 180 --output $path ('https://github.com/Flysoft1337/ModernImageViewer/releases/download/v0.6.1/' + $name)
+          if ($LASTEXITCODE -ne 0) { throw 'Public 0.6.1 baseline download failed.' }
+          if ((Get-Item -LiteralPath $path).Length -ne 61872144 -or
+              (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash -ine '2f1130974ec61d583f5b56e57e18ed9fb382a707a49b10ba1a271fcab5df1ba3') {
+            throw 'Public 0.6.1 baseline asset size/checksum mismatch.'
           }
-          Write-Host 'Public 0.6 baseline size and SHA256 verified.'
-      - name: Check public 0.6 to 0.6.1 upgrade, reinstall and uninstall
+          Write-Host 'Public 0.6.1 baseline size and SHA256 verified.'
+      - name: Check public 0.6.1 to 0.6.2 upgrade, reinstall and uninstall
         timeout-minutes: 5
         shell: pwsh
         run: |
           $installers = @(Get-ChildItem .\artifacts\installer\*-Setup.exe)
           if ($installers.Count -ne 1) { throw 'Expected exactly one installer.' }
-          .\scripts\invoke-installer-check.ps1 -InstallerPath $installers[0].FullName -BaselineInstallerPath .\artifacts\baseline-0.6-public\ModernImageViewer-0.6.0-win-x64-Setup.exe -BaselineVersion 0.6.0 -FixtureDirectory .\artifacts\format-fixtures -LogDirectory .\artifacts\installer-smoke-0.6
+          .\scripts\invoke-installer-check.ps1 -InstallerPath $installers[0].FullName -BaselineInstallerPath .\artifacts\baseline-0.6.1-public\ModernImageViewer-0.6.1-win-x64-Setup.exe -BaselineVersion 0.6.1 -FixtureDirectory .\artifacts\format-fixtures -LogDirectory .\artifacts\installer-smoke-0.6.1
       - name: Upload public 0.6 installer verification
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: installer-verification-0.6
-          path: artifacts/installer-smoke-0.6/**
+          name: installer-verification-0.6.1
+          path: artifacts/installer-smoke-0.6.1/**
           if-no-files-found: warn
           retention-days: 14
 
