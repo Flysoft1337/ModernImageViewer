@@ -1,5 +1,11 @@
 # 进度日志
 
+## 2026-10-19：按用户决定修复主动细节，暂停发布
+
+- 基线master1a766be，分支perf/detail-demand-latency；未建Tag/Release，不改失败/门槛/协议。
+- 完整普通PNG细节复用既有临时WIC会话，仅预算内原尺寸输出；局部兼容review未发现阻断，坏PNG完整回退和orientationOverride旧路径对照已补。
+- 原用例新增3组完整像素数据，预览/特殊回退/预算/取消/损坏和句柄回归扩展。六对非激活本机诊断确认局部解码与绘制需求耗时下降，完整GC仍存在；格式/Release通过，完整622通过/1真实RAW样本跳过，既有Windows CI待执行。
+
 ## 2026-10-19：0.6.2最终发布被性能门槛阻断
 
 - PR #48已合并；最终master 78c9b23的发布CI39195941435为619通过/1跳过，format/Release/audit/100MP/startup/activation/browsing/animation/打包通过。
