@@ -311,7 +311,17 @@ public sealed partial class MainWindowViewModel : INotifyPropertyChanged, IDispo
         try { return await _coordinator.OpenCandidatesAsync([path], _browseSession); }
         finally
         {
-            if (version == _inputVersion) { _navigationTarget = null; NotifyAll(); }
+            if (version == _inputVersion)
+            {
+                // Keep a failed target as the next direction key's anchor, without
+                // changing the displayed file or committing an unreadable entry.
+                if (_coordinator.State is not { Status: ImageOpenStatus.Error, PendingPath: { } failed }
+                    || !StringComparer.OrdinalIgnoreCase.Equals(Path.GetFullPath(failed), _navigationTarget))
+                {
+                    _navigationTarget = null;
+                }
+                NotifyAll();
+            }
         }
     }
 

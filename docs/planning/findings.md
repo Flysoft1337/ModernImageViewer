@@ -1,5 +1,26 @@
 # 发现记录
 
+## 2026-10-19：包装切图分段定位
+
+- CI39176604072六对有效包装对照，主要差异在大图Loading→PreviewPublished：每轮均值中位数A54.59/B62.45ms，回绘18.20/16.80ms；小图前段5.49/5.37ms、回绘17.47/16.76ms。前段含排队/解码/通知，不是纯codec。
+- 临时尝试对无profile缩小图复用frame+TransformedBitmap：像素hash一致，但2048² PNG核心27.28/27.01ms，未得到有意义收益，已撤销产品试改，不为门槛保留无效改动。
+- 发布配置未发现GC/JIT/R2R显式分叉；bundle程序集采用不同的映射加载路径，但缺少运行时证据，不将它判为本次切图根因。
+- 隔离WPF诊断发现每次大图预览伴随完整GC，WPF BitmapFrameDecode.CalculateSize按源尺寸登记压力，旧预览创建两份原始frame。直接使用Microsoft WIC同一decoder的临时COM会话可避开此登记并及时释放；未证明全部包装差异都由它引起。
+- 原始缩放frame复用和外置3个WPF程序集均未有一致延迟收益，均不纳入产品。最终8位PNG native会话复用只读原文件句柄，ICC/eXIf/交错/高位深等回退；输出budget、stamp、取消和主槽不变。vendor参数经独立review对齐WPF的Microsoft选择。
+- 最终六对热文件核心2048² PNG27.5347/25.6908ms，每组12次完整GC19–23/1–2；全部hash一致。局部诊断，非发布门槛或整机提升，详见wic-preview-performance.md。
+
+## 2026-10-19：WIC同尺寸预览重复初始化
+
+- 指定maximumSize后原WIC路径无条件重新创建BitmapImage/OnLoad，即使源尺寸已满足目标；保留原frame可消除一次codec初始化和OnLoad缓存。
+- 只对无ColorContext且常规RGB像素格式使用该路径，profile/CMYK/高位深/缩小继续使用旧行为。非sRGB灰度JPEG在旧BitmapImage路径实测仍输出128，不能将其假定为ICC已转sRGB；新增回归按实际旧输出验证。
+- 最终六对热输入同机对照：1200×800 PNG每组均值中位数6.9773/5.8777ms，JPEG3.9904/2.3267ms；缩小2048² PNG25.3943/25.3798ms。只是codec核心，不能解释旧CI整个切图差异；详见wic-preview-performance.md。
+
+## 2026-10-19：失败后的导航位置
+
+- ImageOpenCoordinator失败时保留旧Image/FilePath与PendingPath，浏览session.CurrentIndex仍正确代表显示的图片。
+- MainWindowViewModel已有_navigationTarget累计快速切图意图，但finally在失败后清空它；下一次方向键又选择同一条目，用户被缺失/损坏文件挡住。
+- 使用现有意图字段保存当前失败目标即可，不需要扫描目录、扩解码、复制像素或增加监听；排序/F5/显式新输入应回到真实显示位置或新请求，旧请求不得改写新意图。
+
 ## 2026-10-19：发布阻碍补充
 
 - 更新CI39153388121主job成功：607通过/1跳过；历史与包装均6对Valid且六项原门槛通过，包装首图配对比值中位数0.965684。公开0.6安装成功；clean与公开0.4在各自Windows2022 VM仍超过240秒/5分钟而未退出，日志API无可用内容，不能认定安装已通过或定位根因。仅将三路安装镜像切至Windows2025作一次有界环境对照，性能仍固定Windows2022；不改安装参数、脚本断言、样本和门槛。

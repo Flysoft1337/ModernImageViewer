@@ -40,6 +40,7 @@ public sealed partial class MainWindowViewModel
             return false;
         }
         IsSlideshowPlaying = false;
+        _navigationTarget = null;
         _sortCancellation?.Cancel();
         using CancellationTokenSource cancellation = new();
         _sortCancellation = cancellation;

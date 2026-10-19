@@ -100,6 +100,11 @@ public sealed class WicImageDecoder : IImageDecoder
         cancellationToken.ThrowIfCancellationRequested();
         try
         {
+            if (maximumSize is PixelSize previewSize && orientationOverride is null && stream is FileStream file
+                && WicPngPreview.TryDecode(file, previewSize, maximumDecodedBytes, cancellationToken) is { } png)
+            {
+                return png;
+            }
             BitmapDecoder decoder = BitmapDecoder.Create(stream,
                 BitmapCreateOptions.PreservePixelFormat | BitmapCreateOptions.DelayCreation,
                 BitmapCacheOption.None);
@@ -126,7 +131,10 @@ public sealed class WicImageDecoder : IImageDecoder
             }
             cancellationToken.ThrowIfCancellationRequested();
             BitmapSource source = frame;
-            if (maximumSize is PixelSize maximum)
+            // Reuse ordinary unprofiled RGB frames when they already fit. Keep BitmapImage's
+            // existing color handling for profiled, CMYK and high-bit-depth inputs.
+            if (maximumSize is PixelSize maximum
+                && (orientedSize.Width > maximum.Width || orientedSize.Height > maximum.Height || !CanReusePreviewFrame(frame)))
             {
                 PixelSize decodeMaximum = metadata.Orientation >= 5
                     ? new PixelSize(maximum.Height, maximum.Width) : maximum;
@@ -181,6 +189,25 @@ public sealed class WicImageDecoder : IImageDecoder
         catch (NotSupportedException exception)
         {
             throw new ImageDecodeException(ImageOpenError.UnsupportedFormat, exception);
+        }
+    }
+
+    private static bool CanReusePreviewFrame(BitmapFrame frame)
+    {
+        if (frame.Format != PixelFormats.Bgr24 && frame.Format != PixelFormats.Bgr32
+            && frame.Format != PixelFormats.Bgra32 && frame.Format != PixelFormats.Pbgra32)
+        {
+            return false;
+        }
+        try
+        {
+            return frame.ColorContexts is not { Count: > 0 };
+        }
+        catch (Exception exception) when (exception is NotSupportedException or ArgumentException
+            or InvalidOperationException or IOException or System.Runtime.InteropServices.COMException)
+        {
+            // An optional/broken profile must retain the existing BitmapImage behavior.
+            return false;
         }
     }
 }

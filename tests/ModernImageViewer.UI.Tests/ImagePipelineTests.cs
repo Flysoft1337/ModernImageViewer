@@ -111,6 +111,13 @@ public sealed class ImagePipelineTests
                 }
                 using PixelBuffer image = await decoder.DecodeAsync(path, TestContext.Current.CancellationToken);
                 using PixelBuffer thumbnail = await new ImageDecoder().DecodeThumbnailAsync(path, new PixelSize(20, 12), TestContext.Current.CancellationToken);
+                foreach (PixelSize bound in new[] { image.Size, new PixelSize(160, 160) })
+                {
+                    using PixelBuffer preview = await new ImageDecoder().DecodePreviewAsync(path, bound, TestContext.Current.CancellationToken);
+                    Assert.Equal(image.Size, preview.Size);
+                    Assert.Equal(image.Metadata, preview.Metadata);
+                    Assert.Equal(image.Pixels.ToArray(), preview.Pixels.ToArray());
+                }
                 Assert.InRange(thumbnail.Size.Width, 1, 20);
                 Assert.InRange(thumbnail.Size.Height, 1, 12);
                 Assert.Equal(orientation, thumbnail.Metadata.Orientation);

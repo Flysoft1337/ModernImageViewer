@@ -74,3 +74,6 @@ Get-Content .\ModernImageViewer-0.4.0-win-x64-Setup.exe.sha256
 
 
 2026-10-19已通过上述流程公开[v0.6.1正式版](https://github.com/Flysoft1337/ModernImageViewer/releases/tag/v0.6.1)，Tag指向2bcf2e8，五个job全部成功。最终资产/哈希、三路安装与性能实际分类见[公开验收](release-closeout-0.6.1.md#最终公开记录2026-10-19)，不以此补填缺失人工验收。
+
+
+0.6.1发布后的浏览稳定性修改改变了产品代码，现有CI不再传入上述PerformanceAcceptancePath；新改动按默认10%规则验证，历史批准记录保留但不延用，也不重新发布或覆盖v0.6.1。
