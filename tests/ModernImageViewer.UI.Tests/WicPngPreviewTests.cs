@@ -30,11 +30,14 @@ public sealed class WicPngPreviewTests : IDisposable
     [InlineData(true, 101, 67, 37, 29)]
     [InlineData(true, 4, 3, 40, 30)]
     [InlineData(false, 2048, 2048, 968, 391)]
-    public void DirectWicMatchesExistingWpfPixelsAndReleasesEverySession(bool alpha, int width, int height, int boundWidth, int boundHeight)
+    [InlineData(false, 101, 67, null, null)]
+    [InlineData(true, 101, 67, null, null)]
+    [InlineData(false, 2048, 2048, null, null)]
+    public async Task DirectWicMatchesExistingWpfPixelsAndReleasesEverySession(bool alpha, int width, int height, int? boundWidth, int? boundHeight)
     {
         string path = WritePng(alpha, width, height);
         byte[] original = File.ReadAllBytes(path);
-        PixelSize bound = new(boundWidth, boundHeight);
+        PixelSize? bound = boundWidth is { } w && boundHeight is { } h ? new(w, h) : null;
         using MemoryStream referenceStream = new(original, writable: false);
         using PixelBuffer expected = new WicImageDecoder().Decode(referenceStream, bound, Token);
         for (int i = 0; i < 3; i++)
@@ -52,6 +55,28 @@ public sealed class WicPngPreviewTests : IDisposable
             Assert.Equal(0, WicPngPreview.ObservedActiveHandles);
             Assert.Equal(0, file.Position);
             Assert.Equal(137, file.ReadByte()); // The caller still owns a usable file handle.
+        }
+        if (bound is null)
+        {
+            using PixelBuffer detail = await new ImageDecoder().DecodeDetailAsync(path, expected.Pixels.Length, Token);
+            Assert.Equal(expected.Size, detail.Size);
+            Assert.Equal(expected.Metadata, detail.Metadata);
+            Assert.Equal(expected.Pixels.ToArray(), detail.Pixels.ToArray());
+            Assert.NotNull(detail.SourceFileStamp);
+            Assert.Equal(0, WicPngPreview.ObservedActiveHandles);
+            await Assert.ThrowsAsync<ImageSizeLimitExceededException>(() =>
+                new ImageDecoder().DecodeDetailAsync(path, expected.Pixels.Length - 1, Token));
+            Assert.Equal(0, WicPngPreview.ObservedActiveHandles);
+            using MemoryStream rotatedReference = new(original, writable: false);
+            using FileStream rotatedFile = File.OpenRead(path);
+            WicImageDecoder wic = new();
+            using PixelBuffer expectedRotated = wic.Decode(rotatedReference, null, Token,
+                expected.Pixels.Length, orientationOverride: 6);
+            using PixelBuffer actualRotated = wic.Decode(rotatedFile, null, Token,
+                expected.Pixels.Length, orientationOverride: 6);
+            Assert.Equal(expectedRotated.Size, actualRotated.Size);
+            Assert.Equal(expectedRotated.Metadata, actualRotated.Metadata);
+            Assert.Equal(expectedRotated.Pixels.ToArray(), actualRotated.Pixels.ToArray());
         }
         Assert.Equal(original, File.ReadAllBytes(path));
     }
@@ -78,17 +103,24 @@ public sealed class WicPngPreviewTests : IDisposable
         string interlaced = WritePng(true, 17, 13, interlaced: true);
         foreach (string path in new[] { profiled, highDepth, interlaced, exif })
         {
-            using (FileStream file = File.OpenRead(path))
+            foreach (PixelSize? bound in new PixelSize?[] { new(11, 9), null })
             {
-                Assert.Null(WicPngPreview.TryDecode(file, new(11, 9), null, Token));
-                Assert.Equal(0, file.Position);
-                Assert.Equal(0, WicPngPreview.ObservedActiveHandles);
+                using (FileStream file = File.OpenRead(path))
+                {
+                    Assert.Null(WicPngPreview.TryDecode(file, bound, null, Token));
+                    Assert.Equal(0, file.Position);
+                    Assert.Equal(0, WicPngPreview.ObservedActiveHandles);
+                }
+                using MemoryStream reference = new(File.ReadAllBytes(path), writable: false);
+                using PixelBuffer expected = new WicImageDecoder().Decode(reference, bound, Token);
+                ImageDecoder decoder = new();
+                using PixelBuffer actual = bound is { } preview
+                    ? await decoder.DecodePreviewAsync(path, preview, Token)
+                    : await decoder.DecodeDetailAsync(path, expected.Pixels.Length, Token);
+                Assert.Equal(expected.Metadata, actual.Metadata);
+                Assert.Equal(expected.Size, actual.Size);
+                Assert.Equal(expected.Pixels.ToArray(), actual.Pixels.ToArray());
             }
-            using MemoryStream reference = new(File.ReadAllBytes(path), writable: false);
-            using PixelBuffer expected = new WicImageDecoder().Decode(reference, new(11, 9), Token);
-            using PixelBuffer actual = await new ImageDecoder().DecodePreviewAsync(path, new(11, 9), Token);
-            Assert.Equal(expected.Metadata, actual.Metadata);
-            Assert.Equal(expected.Pixels.ToArray(), actual.Pixels.ToArray());
         }
     }
 
@@ -98,27 +130,33 @@ public sealed class WicPngPreviewTests : IDisposable
         string path = WritePng(true, 101, 67);
         byte[] original = File.ReadAllBytes(path);
         using FileStream input = File.OpenRead(path);
-        Assert.Throws<ImageSizeLimitExceededException>(() => WicPngPreview.TryDecode(input, new(37, 29), 3, Token));
-        Assert.Equal(0, WicPngPreview.ObservedActiveHandles);
         using CancellationTokenSource cancellation = new();
         cancellation.Cancel();
-        Assert.ThrowsAny<OperationCanceledException>(() => WicPngPreview.TryDecode(input, new(37, 29), null, cancellation.Token));
-        Assert.Equal(0, WicPngPreview.ObservedActiveHandles);
+        foreach (PixelSize? bound in new PixelSize?[] { new(37, 29), null })
+        {
+            Assert.Throws<ImageSizeLimitExceededException>(() => WicPngPreview.TryDecode(input, bound, 3, Token));
+            Assert.Equal(0, WicPngPreview.ObservedActiveHandles);
+            Assert.ThrowsAny<OperationCanceledException>(() => WicPngPreview.TryDecode(input, bound, null, cancellation.Token));
+            Assert.Equal(0, WicPngPreview.ObservedActiveHandles);
+        }
         string broken = Path.Combine(_directory, "broken.png");
         // Keep a complete, correctly checksummed chunk table, with no decodable pixel stream.
         File.WriteAllBytes(broken, WithChunk(original, "IDAT"u8, [255, 255]));
-        using FileStream damaged = File.OpenRead(broken);
-        using PixelBuffer? partial = WicPngPreview.TryDecode(damaged, new(37, 29), null, Token);
-        using MemoryStream reference = new(File.ReadAllBytes(broken), writable: false);
-        try
+        foreach (PixelSize? bound in new PixelSize?[] { new(37, 29), null })
         {
-            // WIC can accept incomplete PNG data. Preserve the old output/error boundary.
-            using PixelBuffer expected = new WicImageDecoder().Decode(reference, new(37, 29), Token);
-            Assert.NotNull(partial);
-            Assert.Equal(expected.Pixels.ToArray(), partial.Pixels.ToArray());
+            using FileStream damaged = File.OpenRead(broken);
+            using PixelBuffer? partial = WicPngPreview.TryDecode(damaged, bound, null, Token);
+            using MemoryStream reference = new(File.ReadAllBytes(broken), writable: false);
+            try
+            {
+                // WIC can accept incomplete PNG data. Preserve the old output/error boundary.
+                using PixelBuffer expected = new WicImageDecoder().Decode(reference, bound, Token);
+                Assert.NotNull(partial);
+                Assert.Equal(expected.Pixels.ToArray(), partial.Pixels.ToArray());
+            }
+            catch (ImageDecodeException) { Assert.Null(partial); }
+            Assert.Equal(0, WicPngPreview.ObservedActiveHandles);
         }
-        catch (ImageDecodeException) { Assert.Null(partial); }
-        Assert.Equal(0, WicPngPreview.ObservedActiveHandles);
         Assert.Equal(original, File.ReadAllBytes(path));
     }
 

@@ -16,6 +16,56 @@ namespace ModernImageViewer.UI.Tests;
 public sealed class MainWindowViewModelTests
 {
     private static readonly string[] ThemeResourceFiles = ["Colors.xaml", "Controls.xaml", "Icons.xaml"];
+
+    [Fact]
+    public async Task SameSourceRefinementUpdatesPixelsAndActionsWithoutInvalidatingAllBindings()
+    {
+        using ImageDirectory directory = new();
+        PreviewDecoder decoder = new() { SourceSize = new(800, 600) };
+        using ImageOpenCoordinator coordinator = new(new FixedFilePicker(null), decoder);
+        coordinator.SetPreviewTarget(new(200, 150));
+        using MainWindowViewModel model = new(new TestLocalization(), coordinator, new ImageBrowseSession(),
+            imageClipboard: new PreviewClipboard());
+        Assert.True(await model.OpenPathAsync(directory.Second));
+        await coordinator.WaitForIndexingAsync(TestContext.Current.CancellationToken);
+        IReadOnlyList<BrowseItem> items = model.BrowseItems;
+        Assert.True(model.CanRefine);
+        Assert.False(model.CopyOriginalCommand.CanExecute(null));
+        model.ShowMessage("Clipboard_NoFiles");
+        Assert.True(model.HasStatusMessage);
+        ConcurrentQueue<string?> changed = new();
+        ConcurrentQueue<bool> staleMessages = new();
+        model.PropertyChanged += (_, e) =>
+        {
+            changed.Enqueue(e.PropertyName);
+            if (e.PropertyName == nameof(model.Presentation)) { staleMessages.Enqueue(model.HasStatusMessage); }
+        };
+
+        await model.RefineImageAsync();
+
+        Assert.DoesNotContain(changed, string.IsNullOrEmpty);
+        Assert.Contains(nameof(model.Presentation), changed);
+        Assert.Contains(nameof(model.IsRefining), changed);
+        Assert.Contains(nameof(model.ShowPreviewStatus), changed);
+        Assert.Same(items, model.BrowseItems);
+        Assert.Equal(decoder.SourceSize, model.CurrentImage!.Size);
+        Assert.False(model.IsRefining);
+        Assert.False(model.ShowPreviewStatus);
+        Assert.False(model.HasStatusMessage);
+        Assert.All(staleMessages, message => Assert.False(message));
+        Assert.True(model.CopyOriginalCommand.CanExecute(null));
+
+        changed.Clear();
+        Assert.True(await model.OpenPathAsync(directory.Third));
+        await coordinator.WaitForIndexingAsync(TestContext.Current.CancellationToken);
+        Assert.Contains(string.Empty, changed);
+        Assert.Equal(directory.Third, model.CurrentFilePath);
+        Assert.Equal("3 / 3", model.PositionText);
+        Assert.False(model.NextCommand.CanExecute(null));
+        Assert.True(model.ShowPreviewStatus);
+        Assert.False(model.CopyOriginalCommand.CanExecute(null));
+    }
+
     [Fact]
     public async Task PickerOpenEstablishesBrowsingAndNavigatesBothDirections()
     {
