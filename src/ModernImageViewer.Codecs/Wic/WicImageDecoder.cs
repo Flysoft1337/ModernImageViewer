@@ -100,6 +100,11 @@ public sealed class WicImageDecoder : IImageDecoder
         cancellationToken.ThrowIfCancellationRequested();
         try
         {
+            if (maximumSize is PixelSize previewSize && orientationOverride is null && stream is FileStream file
+                && WicPngPreview.TryDecode(file, previewSize, maximumDecodedBytes, cancellationToken) is { } png)
+            {
+                return png;
+            }
             BitmapDecoder decoder = BitmapDecoder.Create(stream,
                 BitmapCreateOptions.PreservePixelFormat | BitmapCreateOptions.DelayCreation,
                 BitmapCacheOption.None);

@@ -1,4 +1,39 @@
-# WIC 无缩放预览性能记录
+# WIC 预览性能记录
+
+## 2026-10-19：PNG预览的临时native会话
+
+基线`0fb11a7`的[CI39176604072](https://github.com/Flysoft1337/ModernImageViewer/actions/runs/39176604072)完整613通过/1跳过，历史六对有效且六项达标；包装六对有效、切图配对比值中位数1.17347827，超过原10%门槛，安装检查跳过。失败保留。本轮不将前一批局部收益解释为已经解决包装回退。
+
+拆分本次包装数据，大图Loading→PreviewPublished的每轮均值中位数为散装54.59ms/单文件62.45ms，发布→绘制18.20/16.80ms；小图前段5.49/5.37ms、回绘17.47/16.76ms。差异集中在大图前段，但它仍包含排队、解码和通知，不是纯codec时间。
+
+隔离WPF诊断显示，大图预览期间反复发生完整GC。WPF的[BitmapFrameDecode](https://github.com/dotnet/wpf/blob/v10.0.0/src/Microsoft.DotNet.Wpf/src/PresentationCore/System/Windows/Media/Imaging/BitmapFrameDecode.cs)在取原始frame时调用`CalculateSize`登记源尺寸内存压力；旧预览先读metadata frame，再由BitmapImage重新创建原始frame。即使最终只有391²像素，也重复登记2048²源图的内存压力。**这是确认存在的额外开销，两种包装都会受影响；尚未证明它解释全部17.35%差异。**
+
+现在对文件中的8位、非交错、无eXIf、无ColorContexts、BGR24/BGRA32 PNG预览/缩略图直接使用Windows自带Microsoft WIC decoder、Fant scaler和PBGRA converter。借用调用者已经只读打开并校验stamp的同一文件句柄，不重新按路径打开；COM对象在同步方法的`using`作用域内释放。没有WPF原始frame或额外整图BGRA副本，没有新增外部分发依赖、线程、缓存、GC设置或强制GC。输出尺寸、源尺寸、预乘像素及文件stamp沿用原约定。
+
+带ICC、eXIf、高位深、交错、其他像素格式和其他格式保留WPF路径；chunk预检只跳过payload，最多4096个chunk并检查取消，异常结构回退。平台/codec COM失败释放后恢复流位置，再由旧路径保持错误分类。完整/区域解码不变。运行中的native CopyPixels不能立即取消；真实返回后检查token，不提交过期结果。5个显式COM引用均受作用域控制，内部计数仅在开发观察打开时启用；不是对codec内部内存或整进程的硬上限。
+
+### 本地证据和边界
+
+最终保护条件下，热文件WIC核心单进程1对预热+6对AB/BA，每组12次，原类取自0fb11a7；全部对的像素hash相同，退出受控PixelBuffer为0，不强制GC。本次测量没有并行构建/测试。
+
+| 样本/目标 | 原/新每组均值的中位数(ms) | 每组12次内观测的完整GC次数：原/新 |
+| --- | --- | --- |
+| 64² PNG / 968×391 | .2061 / .1081 | 均0 |
+| 1200×800 PNG / 2560×1600 | 6.0302 / 5.5840 | 6–8 / 3–4 |
+| 2048² PNG / 968×391 | 27.5347 / 25.6908 | 19–23 / 1–2 |
+| 3019×1237 PNG / 997×433 | 27.7343 / 26.6968 | 24 / 3–4 |
+| 2048² JPEG / 968×391，路径未改 | 6.4527 / 6.5493 | 17–21 / 17–20 |
+
+完整报告/harness在`artifacts/wic-scaling-performance/native-final-core-results.json`及同目录。它是局部热输入测量，GC计数是进程级，可能包含前一组的延迟回收，不能等同每张图片的独立GC次数或应用切图提升，不是P95或CI验收。
+
+另外，临时隔离窗口的六对八次切图诊断，原过程完整GC分别20/19/17/18/17/17次，候选3/4/4/4/4/4次；有部分并行format负载、窗口不抢前台，也早于最终vendor/metadata兼容保护。只保留为GC排查线索，不将该组耗时用于性能门槛或提升声明。原始数据在`artifacts/packaging-decode-harness/native-final-summary.json`。复用缩小WPF frame和外置三份WPF程序集的探索未呈现一致延迟收益，均未纳入产品。
+
+- 新增6项有针对性的native回归：RGB/透明/不放大/非整数缩放固定像素；与原WPF逐字节及metadata比对；ICC/eXIf/高位深/交错回退；预算、预取消、坏压缩数据后的释放；同一借用句柄仍可读、原文件不变。WIC可接受部分坏压缩PNG，测试对照旧WPF的实际输出/错误，不假定它一定抛错。未把预取消用例说成CopyPixels中途可中断。
+- 本地最终完整190核心+429 UI/codec=619通过、1 RAW样本跳过，Release 0警告0错误，format verify/审计通过。
+- 最终100MP单次观察输出仍为1600²/10,240,000字节和140²/78,400字节，209.34/169.64ms，峰值工作集38,957,056/28,786,688字节。是单次观察且与审计并行，不推导性能或内存改善百分比。记录在`artifacts/packaging-decode-harness/native-100mp-final.json`。
+- 新提交使用原Windows CI及原10%门槛；以实际检查结果为准，不沿用旧风险批准、不重复跑到绿。实际桌面、混合DPI与长期跨设备验证不由这些诊断替代。版本仍0.6.1，不发布。
+
+## 前一批：无缩放WIC frame复用
 
 2026-10-19，基线 `1015e0c`。本批保持0.6.1，不发布。
 
