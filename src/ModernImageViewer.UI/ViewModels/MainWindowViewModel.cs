@@ -587,9 +587,12 @@ public sealed partial class MainWindowViewModel : INotifyPropertyChanged, IDispo
     {
         UpdateFramePlayback(_coordinator.State);
         if (e.PropertyName == nameof(ImageOpenCoordinator.State)
-            && _coordinator.State is { Status: ImageOpenStatus.Loaded, Sequence: not null } frameState
-            && _informationSourceIdentity == frameState.Source?.Identity)
+            && _coordinator.State is { Status: ImageOpenStatus.Loaded, Image: not null, Source: not null } imageState
+            && _informationSourceIdentity == imageState.Source.Identity)
         {
+            // Pixel/detail changes within one source do not invalidate directory, language
+            // or theme bindings. New sources and indexing still take the complete update.
+            if (imageState.Sequence is null) { _messageKey = null; }
             OnPropertyChanged(nameof(Presentation));
             OnPropertyChanged(nameof(CurrentImage));
             OnPropertyChanged(nameof(DimensionsText));
@@ -597,7 +600,13 @@ public sealed partial class MainWindowViewModel : INotifyPropertyChanged, IDispo
             OnPropertyChanged(nameof(IsRefining));
             OnPropertyChanged(nameof(CanRefine));
             OnPropertyChanged(nameof(PreviewStatusText));
-            NotifyFramePosition();
+            if (imageState.Sequence is not null) { NotifyFramePosition(); }
+            else
+            {
+                OnPropertyChanged(nameof(StatusText));
+                OnPropertyChanged(nameof(HasStatusMessage));
+                OnPropertyChanged(nameof(IsLoading));
+            }
             CopyPreviewCommand.RaiseCanExecuteChanged();
             CopyOriginalCommand.RaiseCanExecuteChanged();
             return;
