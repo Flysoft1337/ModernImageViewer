@@ -254,25 +254,21 @@ public sealed partial class ImageBrowseSession
 
     private static string[] Enumerate(string? directory, string? fallback, CancellationToken token)
     {
-        try
+        token.ThrowIfCancellationRequested();
+        if (directory is not null)
         {
-            if (directory is not null)
+            List<string> items = [];
+            foreach (string path in Directory.EnumerateFiles(directory))
             {
-                List<string> items = [];
-                foreach (string path in Directory.EnumerateFiles(directory))
-                {
-                    token.ThrowIfCancellationRequested();
-                    if (IsSupported(path))
-                    {
-                        items.Add(path);
-                    }
-                }
                 token.ThrowIfCancellationRequested();
-                return items.ToArray();
+                if (IsSupported(path))
+                {
+                    items.Add(path);
+                }
             }
+            token.ThrowIfCancellationRequested();
+            return items.ToArray();
         }
-        catch (IOException) { }
-        catch (UnauthorizedAccessException) { }
         return fallback is null ? [] : [fallback];
     }
 

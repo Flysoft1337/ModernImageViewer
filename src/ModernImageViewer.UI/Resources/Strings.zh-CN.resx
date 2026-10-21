@@ -63,6 +63,8 @@
   <data name="Slideshow_5Seconds" xml:space="preserve"><value>5 秒</value></data>
   <data name="Slideshow_10Seconds" xml:space="preserve"><value>10 秒</value></data>
   <data name="Status_EmptyFolder" xml:space="preserve"><value>文件夹中未找到可打开的图片</value></data>
+  <data name="Error_FolderReadFailed" xml:space="preserve"><value>无法读取文件夹，请检查其位置后重试。</value></data>
+  <data name="Error_FolderAccessDenied" xml:space="preserve"><value>没有权限读取该文件夹，请检查访问权限后重试。</value></data>
   <data name="Information_Exif" xml:space="preserve"><value>拍摄信息</value></data>
   <data name="Exif_Camera" xml:space="preserve"><value>相机</value></data>
   <data name="Exif_Lens" xml:space="preserve"><value>镜头</value></data>

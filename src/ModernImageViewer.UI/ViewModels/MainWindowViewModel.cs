@@ -341,7 +341,9 @@ public sealed partial class MainWindowViewModel : INotifyPropertyChanged, IDispo
 
     public Task<bool> OpenInputAsync(string path) => OpenInputsAsync([path]);
 
-    public async Task<bool> OpenInputsAsync(IReadOnlyList<string> paths)
+    public Task<bool> OpenInputsAsync(IReadOnlyList<string> paths) => OpenInputsCoreAsync(paths, folder: false);
+
+    private async Task<bool> OpenInputsCoreAsync(IReadOnlyList<string> paths, bool folder)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         ArgumentNullException.ThrowIfNull(paths);
@@ -371,7 +373,8 @@ public sealed partial class MainWindowViewModel : INotifyPropertyChanged, IDispo
                 ShowMessage("Input_TooManyFiles");
                 return false;
             }
-            if (paths.Count == 1 && request.Paths.Count == 1 && await Task.Run(() => Directory.Exists(request.Paths[0]), token))
+            if (paths.Count == 1 && request.Paths.Count == 1
+                && (folder || await Task.Run(() => Directory.Exists(request.Paths[0]), token)))
             {
                 return await OpenFolderCoreAsync(request.Paths[0], version, token);
             }
@@ -410,7 +413,7 @@ public sealed partial class MainWindowViewModel : INotifyPropertyChanged, IDispo
         }
     }
 
-    public Task<bool> OpenFolderAsync(string directory) => OpenInputAsync(directory);
+    public Task<bool> OpenFolderAsync(string directory) => OpenInputsCoreAsync([directory], folder: true);
 
     private async Task<bool> OpenFolderCoreAsync(string directory, long version, CancellationToken token)
     {
@@ -431,6 +434,14 @@ public sealed partial class MainWindowViewModel : INotifyPropertyChanged, IDispo
             _isIndexingFolder = false;
             return await _coordinator.OpenCandidatesAsync([first], _browseSession,
                 resetSelection: true, cancellationToken: token);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or System.Security.SecurityException)
+        {
+            if (!_disposed && version == _inputVersion && !token.IsCancellationRequested)
+            {
+                ShowMessage(exception is IOException ? "Error_FolderReadFailed" : "Error_FolderAccessDenied");
+            }
+            return false;
         }
         finally
         {
@@ -473,6 +484,14 @@ public sealed partial class MainWindowViewModel : INotifyPropertyChanged, IDispo
             NotifyAll();
         }
         catch (OperationCanceledException) { }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or System.Security.SecurityException)
+        {
+            if (!_disposed && version == _inputVersion && !cancellation.IsCancellationRequested)
+            {
+                _isSlideshowPlaying = false;
+                ShowMessage(exception is IOException ? "Error_FolderReadFailed" : "Error_FolderAccessDenied");
+            }
+        }
         finally
         {
             if (ReferenceEquals(_refreshCancellation, cancellation)) { _refreshCancellation = null; }
