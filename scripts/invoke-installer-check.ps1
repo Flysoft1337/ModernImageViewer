@@ -22,8 +22,14 @@ function Write-SmokeOutput([string]$Message) {
     $line = "[$([DateTimeOffset]::UtcNow.ToString('O'))] $Message"
     Add-Content -LiteralPath $outputPath -Value $line -Encoding utf8
     Write-Host $line
+    if ($Message -cmatch '\AMIV_INSTALLER_CHECKPOINT:([A-Za-z][A-Za-z0-9.]{0,63})\z') {
+        # Send a path-free checkpoint separately from the timestamped log. GitHub
+        # exposes them through check annotations as well as the normal log artifact.
+        Write-Host "::notice title=Installer checkpoint::$($Matches[1])"
+    }
 }
 Write-SmokeOutput "Starting isolated installer worker; deadline $DeadlineSeconds seconds."
+Write-SmokeOutput 'MIV_INSTALLER_CHECKPOINT:WorkerStarting'
 $info = [Diagnostics.ProcessStartInfo]::new((Join-Path $PSHOME 'pwsh.exe'))
 $info.UseShellExecute = $false
 $info.CreateNoWindow = $true

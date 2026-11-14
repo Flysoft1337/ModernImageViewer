@@ -261,3 +261,4 @@ finally {
     [IO.Directory]::Delete($temporary, $true)
 }
 Write-Output "Comparison boundary checks passed: $assertions assertions; no viewer launched."
+& (Join-Path $PSScriptRoot 'test-installer-observation.ps1')
