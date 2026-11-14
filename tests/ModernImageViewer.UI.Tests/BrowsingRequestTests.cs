@@ -93,6 +93,9 @@ public sealed class BrowsingRequestTests
         using Files files = new();
         using ManualResetEventSlim entered = new();
         using ManualResetEventSlim release = new();
+        using ManualResetEventSlim newIndexEntered = new();
+        using ManualResetEventSlim releaseNewIndex = new();
+        bool blockNewIndex = false;
         int failOnce = 0;
         ImageBrowseSession session = new((_, _, _) =>
         {
@@ -102,6 +105,11 @@ public sealed class BrowsingRequestTests
                 // An already executing directory read may return after cancellation.
                 release.Wait(TestContext.Current.CancellationToken);
                 throw new IOException();
+            }
+            if (Volatile.Read(ref blockNewIndex))
+            {
+                newIndexEntered.Set();
+                releaseNewIndex.Wait(TestContext.Current.CancellationToken);
             }
             return files.Paths;
         });
@@ -115,20 +123,41 @@ public sealed class BrowsingRequestTests
         try
         {
             Assert.True(entered.Wait(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken));
+            Volatile.Write(ref blockNewIndex, refresh);
             Task<bool> newer = model.OpenPathAsync(files.Paths[2]);
             await WaitUntil(() => decoder.Pending.Count == 1);
             PixelBuffer latest = Pixels();
             decoder.Pending[0].Completion.SetResult(latest);
             Assert.True(await newer);
+            if (refresh)
+            {
+                // A superseded F5 was indexing, so the new file must rebuild its
+                // own directory index. Loading the pixels does not finish it.
+                Assert.True(newIndexEntered.Wait(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken));
+                Assert.True(session.IsIndexing);
+            }
             model.ShowMessage("Clipboard_NoFiles");
             release.Set();
             await older;
             Assert.Same(latest, model.CurrentImage);
             Assert.Equal(files.Paths[2], model.CurrentFilePath);
+            if (refresh)
+            {
+                Assert.True(session.IsIndexing);
+                Assert.Equal("Status_ScanningFolder", model.StatusText);
+            }
+            releaseNewIndex.Set();
+            await coordinator.WaitForIndexingAsync(TestContext.Current.CancellationToken);
             Assert.Equal("Clipboard_NoFiles", model.StatusText);
             Assert.False(model.IsLoading);
         }
-        finally { release.Set(); await older; }
+        finally
+        {
+            release.Set();
+            releaseNewIndex.Set();
+            await older;
+            await coordinator.WaitForIndexingAsync(TestContext.Current.CancellationToken);
+        }
     }
 
     [Fact]

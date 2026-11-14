@@ -58,6 +58,10 @@
 
 ## 2026-11-15：性能阶段通过，升级超时待定位
 
+后续诊断脚本提交3cc35b2的[CI43653095970](https://github.com/Flysoft1337/ModernImageViewer/actions/runs/43653095970)在Test失败：633通过、1失败、1RAW跳过；离线检查点回归、格式与构建通过，性能和安装阶段均未执行。失败是目录错误回归refresh=true分支在新图片目录索引仍运行时期待普通提示，实际显示原有优先级更高的扫描提示；OpenPathAsync只等待像素，不保证目录索引完成。
+
+本批仅修正该已有用例的时序：事件屏障固定新索引在途，旧F5读错误返回后确认新图保留、新索引仍运行；再释放索引并等待WaitForIndexingAsync，确认新消息保留。finally释放两路并等待退出，不增加sleep、不改生产代码、状态优先级或原有消息断言，也不增加用例数量。定向2例、format verify、Release0警告0错误及完整带coverage的634通过/1RAW跳过；新CI结果待实际执行，原失败保留。
+
 PR #58源码2cd2eb6的[CI43648378250](https://github.com/Flysoft1337/ModernImageViewer/actions/runs/43648378250)最终cancelled。主检查634通过/1真实RAW样本跳过，历史与包装两组各6对Valid、RiskAccepted=false；包装主动细节+9.6891%，接近原10%门槛，先前+38.23%失败保留，不宣称根因已经解决。新阶段记录与逐项性能见[性能实测](wic-preview-performance.md)。
 
 同次全新安装及公开0.4升级job/lifecycle通过，重装、激活、关联/用户文件保护、卸载和清理有实际证据。公开0.6.1升级job 132613973350超时取消：GitHub check annotation明确“The job has exceeded the maximum execution time of 10m0s”；该路日志下载为BlobNotFound、没有lifecycle。只证明验收没完成，不能判定具体安装阶段或产品缺陷，不能用另外两路成功替代。

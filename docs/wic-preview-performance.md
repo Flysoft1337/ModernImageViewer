@@ -2,6 +2,8 @@
 
 ## 2026-11-15：新增阶段的Windows CI实测
 
+后续3cc35b2的CI43653095970因已有目录错误回归的后台索引时序断言失败（633通过/1失败/1跳过），未执行性能或安装阶段。本批用事件屏障修正该用例，没有改动产品、指标或门槛；本地带coverage完整634通过/1跳过，新CI待执行。前一轮性能通过与历史有效失败仍按各自提交记录，不能转移结果；详情见[发布验收](release-closeout-0.6.2.md#2026-11-15性能阶段通过升级超时待定位)。
+
 [PR #58](https://github.com/Flysoft1337/ModernImageViewer/pull/58)源码2cd2eb6的[CI43648378250](https://github.com/Flysoft1337/ModernImageViewer/actions/runs/43648378250)主检查成功，TRX确认194核心+440 UI/codec=634通过，1真实RAW样本跳过。格式、Release、依赖审计、100MP、启动、文件激活、浏览、动画分页观察及打包通过。历史与同源码包装两组各6对完整，均为Valid、PerformanceAccepted=true、RiskAccepted=false；没有更改或豁免原10%门槛：
 
 | 候选/基线配对比值中位数 | 固定历史基线 | 同源码散装/单文件 |

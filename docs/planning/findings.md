@@ -1,5 +1,11 @@
 # 发现记录
 
+## 2026-11-15：旧F5错误回归的异步索引前提
+
+- CI43653095970（3cc35b2）在Test失败：194核心+439 UI/codec=633通过、1失败、1RAW跳过；失败是OlderFolderOrRefreshErrorCannotReplaceNewerPictureOrMessage(refresh:true)期待Clipboard_NoFiles，实际Status_ScanningFolder。安装、性能和其他后续观察均未执行；离线安装检查点回归及格式/构建已过。
+- 代码确认OpenPathAsync只等待图片像素；旧F5使session.IsIndexing=true，新图不能复用完整目录快照，会BeginIndexing并后台重建。StatusText有意优先显示扫描状态，原用例未等该后台任务，断言存在调度竞争。没有证据表明新CI失败由安装脚本或解码产品回归造成。
+- 新事件屏障固定新目录索引在途，释放旧F5错误后验证新索引仍运行/新图保留；再释放新索引、await WaitForIndexingAsync，验证新提示仍在。finally同时释放两路并等待退出，不增加sleep、不改产品状态优先级或放宽原新消息断言。定向2例、format/Release0警告0错误、完整带coverage的634通过/1RAW跳过，独立review无阻断。
+
 ## 2026-11-15：升级检查超时与阶段诊断
 
 - 43648378250的0.6.1升级job最终cancelled，check annotation明确超过10分钟；日志API仍BlobNotFound、无该路artifact/lifecycle。具体卡点未知，不能据此修改安装器产品或延长超时。
