@@ -154,4 +154,59 @@ public sealed class BrowsingObservationTests
         Assert.Equal(60, observation.Samples.Single(s => s.Phase == BrowsingPhase.PreviewPublished).SinceRequestMs);
         Assert.Equal(80, observation.Samples.Single(s => s.Phase == BrowsingPhase.FirstRecognizablePainted).SinceRequestMs);
     }
+
+    [Fact]
+    public void FullDetailStagesSeparateRefinementFromPaintWithoutChangingDemandTiming()
+    {
+        double time = 10;
+        BrowsingObservation observation = new(() => time);
+        observation.OpenRequested(2, false);
+        observation.FramePainted(2, false);
+        time = 20;
+        observation.DetailDemandRequested(2);
+        time = 25;
+        observation.FullDetailStateChanged(2, true, false);
+        observation.FullDetailStateChanged(2, true, false);
+        time = 50;
+        observation.FullDetailStateChanged(2, false, true);
+        observation.FullDetailStateChanged(2, false, true);
+        Assert.False(observation.HasPhase(BrowsingPhase.RequiredDetailPainted));
+        time = 60;
+        observation.FramePainted(2, true);
+        Assert.Equal(25, observation.Samples.Single(s => s.Phase == BrowsingPhase.FullDetailStarted).SinceStartMs);
+        Assert.Equal(50, observation.Samples.Single(s => s.Phase == BrowsingPhase.FullDetailPublished).SinceStartMs);
+        Assert.Equal(40, observation.Samples.Single(s => s.Phase == BrowsingPhase.RequiredDetailPainted).SinceStartMs
+            - observation.Samples.Single(s => s.Phase == BrowsingPhase.RequiredDetailRequested).SinceStartMs);
+
+        observation.OpenRequested(3, true);
+        observation.FullDetailStateChanged(2, true, false);
+        observation.FullDetailStateChanged(2, false, true);
+        observation.FullDetailStateChanged(3, false, true);
+        Assert.False(observation.HasPhase(BrowsingPhase.FullDetailStarted));
+        Assert.False(observation.HasPhase(BrowsingPhase.FullDetailPublished));
+    }
+
+    [Fact]
+    public void FailedFullDetailDoesNotPublishAndRetriesRemainBounded()
+    {
+        double time = 1;
+        BrowsingObservation observation = new(() => time++);
+        observation.OpenRequested(1, false);
+        observation.FullDetailStateChanged(1, true, false);
+        observation.FullDetailStateChanged(1, false, false);
+        Assert.False(observation.HasPhase(BrowsingPhase.FullDetailPublished));
+        observation.FullDetailStateChanged(1, true, false);
+        observation.FullDetailStateChanged(1, false, true);
+        Assert.Equal(2, observation.Samples.Count(s => s.Phase == BrowsingPhase.FullDetailStarted));
+        Assert.Single(observation.Samples, s => s.Phase == BrowsingPhase.FullDetailPublished);
+
+        for (int attempt = 0; attempt < BrowsingObservation.MaximumSamples; attempt++)
+        {
+            observation.FullDetailStateChanged(1, true, false);
+            observation.FullDetailStateChanged(1, false, true);
+        }
+        Assert.Equal(BrowsingObservation.MaximumSamples, observation.Samples.Count);
+        observation.FramePainted(1, true);
+        Assert.True(observation.HasPhase(BrowsingPhase.RequiredDetailPainted));
+    }
 }

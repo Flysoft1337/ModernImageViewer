@@ -62,6 +62,11 @@ public partial class MainWindow
         if (state.Status == ImageOpenStatus.Loaded)
         {
             observation.PreviewPublished(state.RequestId);
+            if (state.Sequence is null)
+            {
+                observation.FullDetailStateChanged(state.RequestId, state.IsRefining,
+                    state.Image is not null && !state.IsPreview);
+            }
         }
         if (state.Status == ImageOpenStatus.Loaded && _viewModel.IsNavigationReady)
         {
@@ -247,6 +252,7 @@ public partial class MainWindow
                 FullResolutionOutputBytes = ImageOpenCoordinator.FullResolutionOutputLimit,
                 RegionBytes = ImageOpenCoordinator.MaximumRegionBytes,
                 ObservationRequests = BrowsingObservation.MaximumRequests,
+                ObservationSamples = BrowsingObservation.MaximumSamples,
                 Note = "Pixel/cache budgets, not a process/native working-set hard cap. Pin count is observed, not a process-global hard cap.",
             },
             Clock = "Milliseconds since observation initialization; not process creation. All phases share a monotonic clock.",
@@ -255,6 +261,7 @@ public partial class MainWindow
             PreviewDefinition = "Current Loaded pixels first observed through VM notification, before paint. Loading-to-preview includes decoding, scheduling and UI notification; not native-only codec time.",
             PaintDefinition = "Skia draw callback completed for current identity/pixel reference; not GPU scanout or proof of human recognition.",
             DetailDefinition = "Current viewport demand satisfied; may be sufficient preview, full pixels or current region. Not necessarily full-source decode.",
+            FullDetailDefinition = "Static whole-image refinement state observed on the UI thread. Started precedes the decoder call; Published observes accepted full pixels before paint. The interval includes scheduling, decoding, validation and UI delivery, not native-only codec time. Failed/cancelled attempts have no publication. No stages for already sufficient pixels, regions or frame sequences.",
             BudgetDefinition = "DetailBudgetLimited is a terminal budget outcome, not painted detail. Driver success means its sequence completed; AllRequiredDetailsPainted reports quality completion separately.",
         }, BrowsingObservationJson.Options);
         try

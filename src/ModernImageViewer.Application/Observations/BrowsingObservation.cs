@@ -14,6 +14,8 @@ public enum BrowsingPhase
     DetailBudgetLimited,
     RequiredDetailPainted,
     NeighborSwitchCompleted,
+    FullDetailStarted,
+    FullDetailPublished,
 }
 
 public sealed record BrowsingPhaseSample(long RequestId, BrowsingPhase Phase, double SinceStartMs, double? SinceRequestMs);
@@ -22,7 +24,7 @@ public sealed record BrowsingPhaseSample(long RequestId, BrowsingPhase Phase, do
 public sealed class BrowsingObservation
 {
     public const int MaximumRequests = 1024;
-    public const int MaximumSamples = (MaximumRequests * 10) + 1;
+    public const int MaximumSamples = (MaximumRequests * 12) + 1;
     private readonly Func<double> _elapsedMilliseconds;
     private readonly List<BrowsingPhaseSample> _samples = [];
     private readonly HashSet<BrowsingPhase> _currentPhases = [];
@@ -32,6 +34,7 @@ public sealed class BrowsingObservation
     private bool _windowVisible;
     private double? _pendingReceivedAt;
     private int _requestCount;
+    private bool _fullDetailRefining;
 
     public BrowsingObservation(Func<double>? elapsedMilliseconds = null)
     {
@@ -60,6 +63,7 @@ public sealed class BrowsingObservation
         _pendingReceivedAt = null;
         _neighbor = neighborSwitch;
         _currentPhases.Clear();
+        _fullDetailRefining = false;
         _requestCount++;
         if (_requestCount > MaximumRequests) { DroppedRequests++; }
         _currentPhases.Add(BrowsingPhase.OpenRequested);
@@ -84,6 +88,25 @@ public sealed class BrowsingObservation
     }
 
     public void DetailBudgetLimited(long requestId) => Record(requestId, BrowsingPhase.DetailBudgetLimited);
+
+    // UI-observed state boundaries, not native codec timings. Failed/cancelled
+    // attempts have a start without a publication; repeated notifications are ignored.
+    public void FullDetailStateChanged(long requestId, bool isRefining, bool hasFullResolutionPixels)
+    {
+        if (requestId != _requestId || requestId == 0) { return; }
+        if (isRefining && !_fullDetailRefining)
+        {
+            _fullDetailRefining = true;
+            _currentPhases.Remove(BrowsingPhase.FullDetailStarted);
+            _currentPhases.Remove(BrowsingPhase.FullDetailPublished);
+            Record(requestId, BrowsingPhase.FullDetailStarted);
+        }
+        else if (!isRefining && _fullDetailRefining)
+        {
+            _fullDetailRefining = false;
+            if (hasFullResolutionPixels) { Record(requestId, BrowsingPhase.FullDetailPublished); }
+        }
+    }
 
     public void FramePainted(long requestId, bool requiredDetail)
     {
