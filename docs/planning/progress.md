@@ -2,6 +2,10 @@
 
 ## 2026-11-15：继续性能定位小批
 
+- 后续核验：CI43648378250主检查成功；两组各6对Valid/无风险豁免，包装主动细节+9.6891%接近10%。TRX634通过/1跳过；大图新阶段已实际输出，分段与原失败并存记录在wic-preview-performance.md，不宣称已修复根因。
+- clean/公开0.4升级两路job、lifecycle及一致Setup哈希已核对成功；公开0.6.1升级尚无最终回传，保持待验。没有为了绿色重跑或放宽门槛，也没有安装到本机。
+- 取证中一次错误job ID请求404，随后只使用job API返回的132611162135/132613973350；annotations须用check-runs端点，已修正。一次PowerShell foreach直接管道语法错误，改为独立ignored分析脚本；报告未被改写。gh run view --log对进行中run不提供日志，使用artifact及完成job API，不凭日志缺失推断产品或环境原因。
+
 - 当前基线05506c7、分支perf/detail-phase-observation；PR #49/#50仍未合并，版本0.6.2，不建Tag/Release。
 - 复核CI39565130100包装主动细节+38.23%失败，安装三路跳过；历史基线/格式/构建/632测试及自动观察通过。此失败未被后续结果覆盖。
 - 完成既有非激活harness同源码包装诊断，原始事件、分段和摘要在artifacts/detail-demand-harness/packaging-*，未复现CI差异，不据此修改正常像素/调度路径。
