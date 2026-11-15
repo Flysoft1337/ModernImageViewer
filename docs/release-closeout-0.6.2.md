@@ -1,5 +1,37 @@
 # 0.6.2 发布验收
 
+## 最终公开记录（2026-11-15）
+
+[v0.6.2正式版](https://github.com/Flysoft1337/ModernImageViewer/releases/tag/v0.6.2)于香港时间2026-11-15 09:09:57公开，draft=false、prerelease=false、Latest=true。PR #49、#50、#58已按依赖顺序合并，Tag精确指向master提交`9f70293e5796f1b10dc775eb87020c73a9ab93da`，其完整内容树与合并前b5ce79e一致；后续文档提交不改变该Tag或公开资产。
+
+最终[CI43659387534](https://github.com/Flysoft1337/ModernImageViewer/actions/runs/43659387534)手动输入publish_release=true、prerelease=false。格式、Release、依赖审计、635通过/1真实RAW样本跳过、100MP、启动、文件激活、普通浏览、动画/多页资源生命周期、包清单通过。历史与同源码包装各6对完整有效，Disposition=Valid、PerformanceAccepted=true、RiskAccepted=false，原10%门槛无放宽。发布事件自动RequireValid已在实际运行使用，没有以Inconclusive绿色放行。
+
+| 最终CI配对比值中位数 | 固定历史基线 | 同源码散装/单文件 |
+| --- | --- | --- |
+| 窗口 | 0.81214761 | 1.02804109 |
+| 首图 | 0.93671404 | 1.02150237 |
+| 目录 | 0.78366164 | 1.01490010 |
+| 邻图切换 | 0.86857222 | 0.99020959 |
+| 首次细节 | 0.93671158 | 1.02149564 |
+| 主动细节 | 0.62913611 | 0.86651249 |
+
+包装主动细节两组每轮均值中位数17.93705/16.331075ms、邻图42.0866375/44.4413875ms；按逐对比值中位数判定，不能用组中位数之比替代。小样本不是P95或跨设备承诺，不能单独归因某一改动。
+
+首次attempt1主检查及公开0.4/0.6.1升级成功，全新安装job132648032652超时取消，annotation明确超过10分钟；普通及强制取消后结束，job日志404、无该路lifecycle，具体卡点未知。保留失败证据，只对该job调用rerun；attempt2未重新执行已通过性能/构建或两路升级，GitHub复用其成功依赖。全新安装job132652159689在新隔离环境通过，worker30.236秒、退出0、checkpoint=Verified；随后原publisher成功，整体conclusion=success。不是重跑性能至绿色，也不把首次超时解释成已知环境或产品根因。
+
+三路lifecycle均Success=true、UserFilesPreserved/UninstallVerified/CleanupSucceeded=true；公开0.4/0.6.1两路CrossVersionUpgradeVerified=true，包含同版重装、关联/激活与用户文件保护。三路目标安装器SHA256与公开Setup一致。本机未安装或修改实际关联。动画观察InstrumentationComplete=true，关闭后统计的帧/快照字节、pin、bitmap、timer、native session/decoder、PixelBuffer均归零，不证明整个进程无泄漏。
+
+公开四资产已重新下载，与候选及GitHub资产digest/大小逐项核对，两个校验文件内容也正确：
+
+| 资产 | 字节 | SHA256 |
+| --- | --- | --- |
+| ModernImageViewer-0.6.2-win-x64-Setup.exe | 61,865,581 | `26fa3458da74e2bbd033976e1a20d49ad9d3f844cec4e85c12705b8641490f2f` |
+| ModernImageViewer-0.6.2-win-x64-Setup.exe.sha256 | 108 | `520c1901dfe01cee36362b3b716819992cbf7aaedbd9f5e176f10568e411bb9c` |
+| ModernImageViewer-0.6.2-win-x64-Portable.zip | 80,148,747 | `a3881ad564b1d0df21da358f5f164a7904ff402f9db1913cf78c77a80d24e73d` |
+| ModernImageViewer-0.6.2-win-x64-Portable.zip.sha256 | 111 | `b6784c4b1ec42e2d5b10d57b567df31dd0a54607cdb3965b51f6157f4d93a36e` |
+
+证据保存在原Actions运行及ignored的`artifacts/release-0.6.2-final-20261115/`。最终源码没有引入dependabot依赖升级、扩大功能或提升版本。此前有效性能失败、失焦无结论和人工验收缺口继续保留；下文的暂停/待验是历史状态，以本节最终结果为准。
+
 ## 2026-11-15：授权有效包装通过后合并发布
 
 用户明确要求包装性能通过后合并发布0.6.2。以df875c4相同产品源码重新构建两种包装，原入口`-Pairs 6 -WarmupPairs 1 -RequireValid`完整通过：6有效对、Valid、PerformanceAccepted=true、RiskAccepted=false。六项配对比值中位数均不超过1.1，切图1.04842117、主动细节0.99581196。原始数据在ignored的`artifacts/release-0.6.2-packaging-20261115/`，完整统计见[性能记录](wic-preview-performance.md#2026-11-15发布授权后的严格包装对照)。不改判旧有效失败或失焦无结论。
