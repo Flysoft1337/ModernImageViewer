@@ -157,6 +157,58 @@ public sealed class BrowseSortingTests
         Assert.Equal([newerPath], session.Items);
     }
 
+    [Fact]
+    public async Task FindFirstWithRegularFileAsDirectoryThrowsIOException()
+    {
+        DirectoryInfo directory = Directory.CreateTempSubdirectory("ModernImageViewer-folder-read-");
+        string filePath = Path.Combine(directory.FullName, "ordinary-file.txt");
+        try
+        {
+            await File.WriteAllTextAsync(filePath, "not a directory", TestContext.Current.CancellationToken);
+            ImageBrowseSession session = new();
+
+            await Assert.ThrowsAnyAsync<IOException>(() => session.FindFirstAsync(filePath, TestContext.Current.CancellationToken));
+        }
+        finally
+        {
+            File.Delete(filePath);
+            directory.Delete();
+        }
+    }
+
+    [Fact]
+    public async Task FailedRefreshPreservesItemsPathAndIndexAndAllowsSuccessfulRetry()
+    {
+        string[] items = Paths("image1.png", "image2.png", "image10.png");
+        string[] enumeratedItems = items;
+        bool failEnumeration = false;
+        IOException failure = new("Directory enumeration failed.");
+        ImageBrowseSession session = new((_, _, _) => failEnumeration ? throw failure : enumeratedItems);
+        session.Commit(items[1]);
+        IReadOnlyList<string> originalItems = session.Items;
+        Assert.Equal(items, session.Items);
+        Assert.Equal(items[1], session.CurrentPath);
+        Assert.Equal(1, session.CurrentIndex);
+
+        failEnumeration = true;
+        Assert.Same(failure, await Assert.ThrowsAsync<IOException>(() => session.RefreshAsync(TestContext.Current.CancellationToken)));
+
+        Assert.Same(originalItems, session.Items);
+        Assert.Equal(items, session.Items);
+        Assert.Equal(items[1], session.CurrentPath);
+        Assert.Equal(1, session.CurrentIndex);
+        Assert.False(session.IsIndexing);
+
+        enumeratedItems = Paths("image0.png", "image1.png", "image2.png", "image10.png");
+        failEnumeration = false;
+        await session.RefreshAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(enumeratedItems, session.Items);
+        Assert.Equal(items[1], session.CurrentPath);
+        Assert.Equal(2, session.CurrentIndex);
+        Assert.False(session.IsIndexing);
+    }
+
     private static string[] Paths(params string[] names) => names.Select(name => Path.GetFullPath(Path.Combine("sorting", name))).ToArray();
 
     private sealed class ControlledProperties : IDisposable

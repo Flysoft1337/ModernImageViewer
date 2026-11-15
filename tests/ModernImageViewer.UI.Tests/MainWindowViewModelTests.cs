@@ -167,6 +167,7 @@ public sealed class MainWindowViewModelTests
         Directory.CreateDirectory(empty);
         PixelBuffer? image = viewModel.CurrentImage;
         Assert.False(await viewModel.OpenFolderAsync(empty));
+        Assert.Equal("Status_EmptyFolder", viewModel.StatusText);
         Assert.Same(image, viewModel.CurrentImage);
         Assert.False(viewModel.IsSlideshowPlaying);
     }

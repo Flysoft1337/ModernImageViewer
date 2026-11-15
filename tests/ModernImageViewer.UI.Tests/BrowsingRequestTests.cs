@@ -11,6 +11,153 @@ namespace ModernImageViewer.UI.Tests;
 
 public sealed class BrowsingRequestTests
 {
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task FolderReadFailureKeepsPictureAndListUntilRetrySucceeds(bool accessDenied)
+    {
+        using Files files = new();
+        Exception? failure = null;
+        ImageBrowseSession session = new((_, _, _) => failure is null ? files.Paths : throw failure);
+        DelayedDecoder decoder = new();
+        using ImageOpenCoordinator coordinator = new(new NullPicker(), decoder);
+        using MainWindowViewModel model = new(new Localization(), coordinator, session);
+        string directory = Path.GetDirectoryName(files.Paths[0])!;
+        Assert.True(await model.OpenFolderAsync(directory));
+        PixelBuffer image = model.CurrentImage!;
+        IReadOnlyList<string> items = session.Items;
+        model.IsSlideshowPlaying = true;
+        failure = accessDenied ? new UnauthorizedAccessException() : new IOException();
+
+        Assert.False(await model.OpenFolderAsync(directory));
+
+        Assert.Same(image, model.CurrentImage);
+        Assert.Same(items, session.Items);
+        Assert.Equal(files.Paths[0], model.CurrentFilePath);
+        Assert.Equal(accessDenied ? "Error_FolderAccessDenied" : "Error_FolderReadFailed", model.StatusText);
+        Assert.True(model.HasStatusMessage);
+        Assert.False(model.IsLoading);
+        Assert.False(model.IsSlideshowPlaying);
+        Assert.True(model.NextCommand.CanExecute(null));
+        failure = null;
+        Task<bool> retry = model.OpenFolderAsync(directory);
+        await WaitUntil(() => decoder.Pending.Count == 1);
+        decoder.Pending[0].Completion.SetResult(Pixels());
+        Assert.True(await retry);
+        Assert.False(model.HasStatusMessage);
+        Assert.Throws<ObjectDisposedException>(() => image.Pixels);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task RefreshReadFailureKeepsPictureAndListAndCanRecover(bool accessDenied)
+    {
+        using Files files = new();
+        Exception? failure = null;
+        ImageBrowseSession session = new((_, _, _) => failure is null ? files.Paths : throw failure);
+        DelayedDecoder decoder = new();
+        using ImageOpenCoordinator coordinator = new(new NullPicker(), decoder);
+        using MainWindowViewModel model = new(new Localization(), coordinator, session);
+        Assert.True(await model.OpenFolderAsync(Path.GetDirectoryName(files.Paths[0])!));
+        PixelBuffer image = model.CurrentImage!;
+        IReadOnlyList<string> items = session.Items;
+        model.IsSlideshowPlaying = true;
+        failure = accessDenied ? new UnauthorizedAccessException() : new IOException();
+
+        await model.RefreshFolderAsync();
+
+        Assert.Same(image, model.CurrentImage);
+        Assert.Same(items, session.Items);
+        Assert.Equal(0, session.CurrentIndex);
+        Assert.False(session.IsIndexing);
+        Assert.False(model.IsLoading);
+        Assert.False(model.IsSlideshowPlaying);
+        Assert.Equal(accessDenied ? "Error_FolderAccessDenied" : "Error_FolderReadFailed", model.StatusText);
+        failure = null;
+        Task retry = model.RefreshFolderAsync();
+        await WaitUntil(() => decoder.Pending.Count == 1);
+        decoder.Pending[0].Completion.SetResult(Pixels());
+        await retry;
+        Assert.False(model.HasStatusMessage);
+        Assert.Equal(files.Paths, session.Items);
+        Assert.True(model.NextCommand.CanExecute(null));
+        Assert.Throws<ObjectDisposedException>(() => image.Pixels);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task OlderFolderOrRefreshErrorCannotReplaceNewerPictureOrMessage(bool refresh)
+    {
+        using Files files = new();
+        using ManualResetEventSlim entered = new();
+        using ManualResetEventSlim release = new();
+        int failOnce = 0;
+        ImageBrowseSession session = new((_, _, _) =>
+        {
+            if (Interlocked.Exchange(ref failOnce, 0) == 1)
+            {
+                entered.Set();
+                // An already executing directory read may return after cancellation.
+                release.Wait(TestContext.Current.CancellationToken);
+                throw new IOException();
+            }
+            return files.Paths;
+        });
+        DelayedDecoder decoder = new();
+        using ImageOpenCoordinator coordinator = new(new NullPicker(), decoder);
+        using MainWindowViewModel model = new(new Localization(), coordinator, session);
+        string directory = Path.GetDirectoryName(files.Paths[0])!;
+        Assert.True(await model.OpenFolderAsync(directory));
+        failOnce = 1;
+        Task older = refresh ? model.RefreshFolderAsync() : model.OpenFolderAsync(directory);
+        try
+        {
+            Assert.True(entered.Wait(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken));
+            Task<bool> newer = model.OpenPathAsync(files.Paths[2]);
+            await WaitUntil(() => decoder.Pending.Count == 1);
+            PixelBuffer latest = Pixels();
+            decoder.Pending[0].Completion.SetResult(latest);
+            Assert.True(await newer);
+            model.ShowMessage("Clipboard_NoFiles");
+            release.Set();
+            await older;
+            Assert.Same(latest, model.CurrentImage);
+            Assert.Equal(files.Paths[2], model.CurrentFilePath);
+            Assert.Equal("Clipboard_NoFiles", model.StatusText);
+            Assert.False(model.IsLoading);
+        }
+        finally { release.Set(); await older; }
+    }
+
+    [Fact]
+    public async Task MissingExplicitFolderReportsReadFailureAndCanBeOpenedAfterCreation()
+    {
+        using Files files = new();
+        DelayedDecoder decoder = new();
+        ImageBrowseSession session = new();
+        using ImageOpenCoordinator coordinator = new(new NullPicker(), decoder);
+        using MainWindowViewModel model = new(new Localization(), coordinator, session);
+        Assert.True(await model.OpenPathAsync(files.Paths[0]));
+        await coordinator.WaitForIndexingAsync(TestContext.Current.CancellationToken);
+        PixelBuffer image = model.CurrentImage!;
+        string missing = Path.Combine(Path.GetDirectoryName(files.Paths[0])!, "later");
+        Assert.False(await model.OpenFolderAsync(missing));
+        Assert.Equal("Error_FolderReadFailed", model.StatusText);
+        Assert.Same(image, model.CurrentImage);
+        Directory.CreateDirectory(missing);
+        string path = Path.Combine(missing, "one.png");
+        File.WriteAllBytes(path, []);
+        Task<bool> retry = model.OpenFolderAsync(missing);
+        await WaitUntil(() => decoder.Pending.Count == 1);
+        decoder.Pending[0].Completion.SetResult(Pixels());
+        Assert.True(await retry);
+        Assert.Equal(path, model.CurrentFilePath);
+        Assert.Equal(1, session.Count);
+        Assert.False(model.HasStatusMessage);
+    }
+
     [Fact]
     public async Task RepeatedNextAccumulatesLatestIntentWhileFirstDecodeStillRuns()
     {
