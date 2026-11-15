@@ -9,7 +9,7 @@ using ModernImageViewer.Imaging;
 namespace ModernImageViewer.Codecs.Wic;
 
 // A short-lived WIC session avoids WPF's source-sized memory-pressure registrations
-// for ordinary PNG previews. All other inputs retain the existing WPF pipeline.
+// for ordinary PNG previews and budgeted detail. Other inputs retain the WPF pipeline.
 internal static unsafe partial class WicPngPreview
 {
     private static readonly Guid FactoryClass = new("cacaf262-9370-4615-a13b-9f5539da4c0a");
@@ -25,7 +25,7 @@ internal static unsafe partial class WicPngPreview
     internal static bool ObserveLifetime { get; set; }
     internal static int ObservedActiveHandles => Volatile.Read(ref s_activeHandles);
 
-    internal static PixelBuffer? TryDecode(FileStream input, PixelSize maximumSize, long? maximumDecodedBytes,
+    internal static PixelBuffer? TryDecode(FileStream input, PixelSize? maximumSize, long? maximumDecodedBytes,
         CancellationToken token)
     {
         token.ThrowIfCancellationRequested();
@@ -73,9 +73,10 @@ internal static unsafe partial class WicPngPreview
                 framePointer, 0, 0, &contexts));
             if (contexts != 0 || (format != Bgr24 && format != Bgra32)) { return null; }
             token.ThrowIfCancellationRequested();
-            double scale = Math.Min(1, Math.Min((double)maximumSize.Width / width, (double)maximumSize.Height / height));
+            PixelSize maximum = maximumSize ?? original;
+            double scale = Math.Min(1, Math.Min((double)maximum.Width / width, (double)maximum.Height / height));
             PixelSize output = new(Math.Max(1, (int)Math.Floor(width * scale)), Math.Max(1, (int)Math.Floor(height * scale)));
-            if (output.Width > maximumSize.Width || output.Height > maximumSize.Height) { return null; }
+            if (output.Width > maximum.Width || output.Height > maximum.Height) { return null; }
             int stride = ImageDecodeLimits.Default.ValidateAndGetStride(output);
             int bytes = checked(stride * output.Height);
             if (maximumDecodedBytes is { } budget && bytes > budget) { throw new ImageSizeLimitExceededException(); }

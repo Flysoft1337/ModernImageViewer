@@ -64,6 +64,7 @@ $legacyPayloadProtectionVerified = $false
 $associationMigrationVerified = $false
 $verificationSucceeded = $false
 $unusedOpenGlCleanupVerified = $false
+$legacyBaseline = $false
 
 function Assert-Equal($Actual, $Expected, [string]$Message) {
     if ($Actual -cne $Expected) { throw $Message }
@@ -422,8 +423,11 @@ try {
     & (Join-Path $PSScriptRoot "check-file-activation.ps1") -AppPath $executable -FixtureDirectory $initialFixtures
     Write-Host "$initialStage file activation completed."
 
+    # Public 0.6.1 already uses app/ and omits the unused GLFW runtime.
+    # Keep the strict legacy fixtures for older public flat-layout installers.
+    $legacyBaseline = $baselineInstaller -and ([version]$BaselineVersion -lt [version]'0.6.1')
     $previousGlfwBytes = $null
-    if ($baselineInstaller) {
+    if ($legacyBaseline) {
         $previousGlfw = Join-Path ([IO.Path]::GetDirectoryName($executable)) 'glfw3.dll'
         if (-not (Test-Path -LiteralPath $previousGlfw -PathType Leaf) -or
             (Get-FileHash -LiteralPath $previousGlfw -Algorithm SHA256).Hash -ine '7d79e8c50ecd369cf135af2fdd08a85a799973102304c732c83668f9168fe9b8') {
@@ -446,7 +450,7 @@ try {
         $protectedFiles[$path] = (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash
     }
     if ($baselineInstaller) {
-        Prepare-LegacyPayloadChecks
+        if ($legacyBaseline) { Prepare-LegacyPayloadChecks }
         # The baseline registered file associations. Upgrade must migrate that identity
         # even though the target explicitly leaves fileassoc unselected.
         Invoke-Setup $installer ($common + @($migrationTasks, "/LOG=$(Join-Path $logs "upgrade-$BaselineVersion-to-$targetVersionText.log")"))
@@ -462,7 +466,7 @@ try {
         foreach ($legacy in $legacyFilesToRemove) {
             if ([IO.File]::Exists((Join-Path $directory $legacy))) { throw "Upgrade left a known flat-layout runtime file behind: $legacy" }
         }
-        $legacyPayloadProtectionVerified = $true
+        $legacyPayloadProtectionVerified = $legacyBaseline
         Write-Host 'Checking upgraded file activation.'
         & (Join-Path $PSScriptRoot 'check-file-activation.ps1') -AppPath $executable -FixtureDirectory $FixtureDirectory
         Write-Host 'Upgraded file activation completed.'
@@ -575,11 +579,13 @@ finally {
             AssociationMigrationWithoutTaskVerified = $associationMigrationVerified
             ShortcutChecks = $shortcutChecks
             ShortcutRemovalVerified = $uninstallCompleted -and $verificationSucceeded
+            LegacyPayloadCheckApplicable = $legacyBaseline
             LegacyPayloadProtectionVerified = $legacyPayloadProtectionVerified
             ModifiedLegacyFiles = $modifiedLegacyFiles
             RemovedLegacyFiles = $legacyFilesToRemove
             UserFilesPreserved = $verificationSucceeded
             PortableCandidatesSeeded = $portableCandidateKeys.Count
+            UnusedOpenGlCleanupApplicable = $legacyBaseline
             UnusedOpenGlCleanupVerified = $unusedOpenGlCleanupVerified
             BaselineInstallerSha256 = if ($baselineInstaller) { (Get-FileHash -LiteralPath $baselineInstaller -Algorithm SHA256).Hash } else { $null }
             TargetInstallerSha256 = (Get-FileHash -LiteralPath $installer -Algorithm SHA256).Hash
