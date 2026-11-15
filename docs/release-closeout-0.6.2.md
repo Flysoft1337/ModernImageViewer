@@ -1,5 +1,11 @@
 # 0.6.2 发布验收
 
+## 2026-11-15：绘制像素复制修复，仍待远端验收
+
+d7a136c的CI43654805397同源码包装主动细节6对+10.7056%超原10%门槛，三路安装跳过，仍为有效失败。本批仅对共享只读像素包装标记immutable，避免DrawBitmap转换SKImage时再次整图复制；新增1项实际地址/绘制颜色/最后引用释放回归，未改decoder、预算、样本、计时或门槛。
+
+本地format/Release0警告0错误、完整635通过/1RAW跳过。既有真实WPF非激活harness 1预热+6对交替，大图需求→绘制38.30→33.13ms，发布→绘制14.89→9.42ms；非CI性能验收。原包装协议仅2对后ForegroundWindowLost，Inconclusive、未接受性能，未重跑；完整证据和边界见[性能记录](wic-preview-performance.md#2026-11-15共享只读像素消除每次绘制的整图复制)。远端完整CI及三路安装仍待验证，不合并或发布，不建Tag/Release。
+
 ## 范围和来源
 
 用户于2026-10-19授权合并PR并发布0.6.2正式版。PR [#48](https://github.com/Flysoft1337/ModernImageViewer/pull/48)已合并至master 7979bca，包含失败导航恢复、普通WIC无缩放预览复用及常规PNG临时native会话。产品实现及边界见[性能记录](wic-preview-performance.md)与[发布说明](release-notes/0.6.2.md)。本次发布准备只调整版本、文档与既有CI升级基线，不扩功能。

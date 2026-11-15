@@ -12,6 +12,37 @@ public sealed class PixelLifetimeGroup;
 public sealed class SharedPixelBitmapLifetimeTests
 {
     [Fact]
+    public void DrawingImageSharesPixelsAndRetainsPinUntilItsLastReferenceIsReleased()
+    {
+        int baseline = SharedPixelBitmap.ActivePinCount;
+        using PixelBuffer pixels = new(new(2, 1), 12, [30, 80, 150, 255, 0, 0, 255, 255, 1, 2, 3, 4]);
+        using SKColorSpace space = SKColorSpace.CreateSrgb();
+        using SKBitmap bitmap = SharedPixelBitmap.Create(pixels, space);
+        using SKImage image = SKImage.FromBitmap(bitmap);
+        using (SKPixmap view = image.PeekPixels())
+        {
+            // DrawBitmap creates this image on each paint: its storage must remain shared.
+            Assert.Equal(bitmap.GetPixels(), view.GetPixels());
+            Assert.Equal(bitmap.RowBytes, view.RowBytes);
+        }
+        pixels.Dispose();
+        bitmap.Dispose();
+        Assert.Equal(baseline + 1, SharedPixelBitmap.ActivePinCount);
+        using SKBitmap target = new(new SKImageInfo(2, 1, SKColorType.Bgra8888, SKAlphaType.Premul, space));
+        using (SKCanvas canvas = new(target))
+        {
+            canvas.Clear(SKColors.Transparent);
+            canvas.DrawImage(image, 0, 0, SKSamplingOptions.Default);
+        }
+        Assert.Equal(new SKColor(150, 80, 30), target.GetPixel(0, 0));
+        Assert.Equal(SKColors.Red, target.GetPixel(1, 0));
+        image.Dispose();
+        Assert.Equal(baseline, SharedPixelBitmap.ActivePinCount);
+        image.Dispose();
+        Assert.Equal(baseline, SharedPixelBitmap.ActivePinCount);
+    }
+
+    [Fact]
     public void BitmapPinsBorrowedPixelsUntilDisposeExactlyOnce()
     {
         int baseline = SharedPixelBitmap.ActivePinCount;

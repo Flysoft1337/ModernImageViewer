@@ -1,5 +1,12 @@
 # 发现记录
 
+## 2026-11-15：绘制共享像素避免整图复制
+
+- 4.153.1 DrawBitmap内部FromBitmap对mutable像素复制；本机新增回归在旧实现明确发现地址不同。共享helper成功安装后SetImmutable，指针共享、填充stride绘制、最后image释放pin及72项相关回归通过。
+- 独立只读审查GIF/WebP参考帧、TIFF、ICC、编辑/导出未发现发布后修改来源数组；可写编辑目标不变，不改decoder/缓存/预算/驱动。
+- 既有真实WPF非激活harness 1预热+6对交替：大图需求→绘制38.3048→33.1259ms、发布→绘制14.8902→9.4170ms，配对中位数0.866328/0.646292。decoder及每轮+1 GC2基本不变；不是CI或人工验收。详细正反记录见wic-preview-performance.md。
+- d7a136c的CI43654805397包装主动细节6对+10.7056%有效失败继续保留，安装未执行。PNG probe暂停、无测量、未改codec；不保证共享CI必过、不改10%门槛。
+
 ## 2026-11-15：旧F5错误回归的异步索引前提
 
 - CI43653095970（3cc35b2）在Test失败：194核心+439 UI/codec=633通过、1失败、1RAW跳过；失败是OlderFolderOrRefreshErrorCannotReplaceNewerPictureOrMessage(refresh:true)期待Clipboard_NoFiles，实际Status_ScanningFolder。安装、性能和其他后续观察均未执行；离线安装检查点回归及格式/构建已过。
