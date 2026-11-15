@@ -1,5 +1,23 @@
 # 0.6.2 发布验收
 
+## 2026-11-15：授权有效包装通过后合并发布
+
+用户明确要求包装性能通过后合并发布0.6.2。以df875c4相同产品源码重新构建两种包装，原入口`-Pairs 6 -WarmupPairs 1 -RequireValid`完整通过：6有效对、Valid、PerformanceAccepted=true、RiskAccepted=false。六项配对比值中位数均不超过1.1，切图1.04842117、主动细节0.99581196。原始数据在ignored的`artifacts/release-0.6.2-packaging-20261115/`，完整统计见[性能记录](wic-preview-performance.md#2026-11-15发布授权后的严格包装对照)。不改判旧有效失败或失焦无结论。
+
+补齐发布硬门槛：手动发布事件自动RequireValid，无结论不能再作为成功发布依赖；普通观察规则、workflow、计时和10%标准不变。51项比较断言、9项publisher边界通过。同步发布说明中的像素复制修复、635/1实际验证及人工边界；不增加功能或改变版本。
+
+接下来按PR #49→#50→#58依赖顺序合并；最终master的完整CI、历史和包装有效对照及三路隔离安装均通过后才发布。最终提交、CI与公开四资产尚待记录，不提前标记完成。
+
+## 2026-11-15：绘制像素复制修复，包装性能仍待有效验收
+
+d7a136c的CI43654805397同源码包装主动细节6对+10.7056%超原10%门槛，三路安装跳过，仍为有效失败。本批仅对共享只读像素包装标记immutable，避免DrawBitmap转换SKImage时再次整图复制；新增1项实际地址/绘制颜色/最后引用释放回归，未改decoder、预算、样本、计时或门槛。
+
+本地format/Release0警告0错误、完整635通过/1RAW跳过。既有真实WPF非激活harness 1预热+6对交替，大图需求→绘制38.30→33.13ms，发布→绘制14.89→9.42ms；非CI性能验收。原包装协议仅2对后ForegroundWindowLost，Inconclusive、未接受性能，未重跑；完整证据和边界见[性能记录](wic-preview-performance.md#2026-11-15共享只读像素消除每次绘制的整图复制)。远端结果如下，不合并或发布，不建Tag/Release。
+
+修复97db6e3的[CI43657166316](https://github.com/Flysoft1337/ModernImageViewer/actions/runs/43657166316)已最终success：635通过/1真实RAW跳过，格式/构建/审计/100MP/启动/激活/浏览/动画观察通过；历史6对Valid、无风险豁免。三路隔离安装lifecycle均Success、最终Verified、退出0，公开0.4/0.6.1升级及全新安装的用户文件保护/卸载/清理成功，目标Setup哈希一致。
+
+包装性能仍欠验收：预热ForegroundWindowLost、0有效对、Inconclusive/PerformanceAccepted=false。原入口对无结论警告退出0，故整体绿色不能证明包装六项通过；不改规则、不重跑取绿，继续保留d7a136c的有效失败，不合并/发布。远端观察及安装证据在ignored的`artifacts/ci-43657166316/`，详见性能记录；文档后续提交不改变本次已验证的产品源码。
+
 ## 范围和来源
 
 用户于2026-10-19授权合并PR并发布0.6.2正式版。PR [#48](https://github.com/Flysoft1337/ModernImageViewer/pull/48)已合并至master 7979bca，包含失败导航恢复、普通WIC无缩放预览复用及常规PNG临时native会话。产品实现及边界见[性能记录](wic-preview-performance.md)与[发布说明](release-notes/0.6.2.md)。本次发布准备只调整版本、文档与既有CI升级基线，不扩功能。
@@ -55,6 +73,27 @@
 ## 后续有效性能仍需收口
 
 源f334b2c的CI39207120698再次在历史主动细节6对有效样本失败，配对比值中位数1.12258481（+12.26%），不能用两组耗时中位数15.58/14.90ms改判。包装和安装跳过，仍不发布。继续优化时已撤回未在实际浏览形成收益的数组/像素转换实验；仅保留同源静态细化的UI通知收紧，局部进入decoder约少0.33ms、整体绘制持平，不宣称该CI问题已解决。细节见[性能记录](wic-preview-performance.md)。
+
+## 2026-11-15：性能阶段通过，升级超时待定位
+
+后续诊断脚本提交3cc35b2的[CI43653095970](https://github.com/Flysoft1337/ModernImageViewer/actions/runs/43653095970)在Test失败：633通过、1失败、1RAW跳过；离线检查点回归、格式与构建通过，性能和安装阶段均未执行。失败是目录错误回归refresh=true分支在新图片目录索引仍运行时期待普通提示，实际显示原有优先级更高的扫描提示；OpenPathAsync只等待像素，不保证目录索引完成。
+
+本批仅修正该已有用例的时序：事件屏障固定新索引在途，旧F5读错误返回后确认新图保留、新索引仍运行；再释放索引并等待WaitForIndexingAsync，确认新消息保留。finally释放两路并等待退出，不增加sleep、不改生产代码、状态优先级或原有消息断言，也不增加用例数量。定向2例、format verify、Release0警告0错误及完整带coverage的634通过/1RAW跳过；新CI结果待实际执行，原失败保留。
+
+PR #58源码2cd2eb6的[CI43648378250](https://github.com/Flysoft1337/ModernImageViewer/actions/runs/43648378250)最终cancelled。主检查634通过/1真实RAW样本跳过，历史与包装两组各6对Valid、RiskAccepted=false；包装主动细节+9.6891%，接近原10%门槛，先前+38.23%失败保留，不宣称根因已经解决。新阶段记录与逐项性能见[性能实测](wic-preview-performance.md)。
+
+同次全新安装及公开0.4升级job/lifecycle通过，重装、激活、关联/用户文件保护、卸载和清理有实际证据。公开0.6.1升级job 132613973350超时取消：GitHub check annotation明确“The job has exceeded the maximum execution time of 10m0s”；该路日志下载为BlobNotFound、没有lifecycle。只证明验收没完成，不能判定具体安装阶段或产品缺陷，不能用另外两路成功替代。
+
+本批给现有隔离安装脚本补最小诊断，不改安装器产品、超时或验收断言：
+
+- worker到达安装、校验、激活、升级、重装、卸载阶段前，记录固定阶段名与UTC时间。只保留一个checkpoint.json和一个同名pending文件，单条阶段名最多64字符，不含安装路径或异常文本。
+- 外层worker启动及转发检查点时，额外发出GitHub notice检查注释；artifact不可用时可尝试从check annotations获取最后已回传阶段。主机/服务失联或注释未送达时仍可能没有证据，不保证日志一定保留。
+- 检查点文件被占用或没有写权限时继续原验收、保留正常输出；原始安装/激活/保护断言仍决定失败。阶段名或“Verified”注释都不能代替worker退出状态和成功lifecycle。
+- 新脚本回归只AST提取日志helper，使用自建临时目录检查快照替换、无success输出污染、notice格式、非法标记拒绝、文件占用失败隔离及解除占用后恢复。不运行安装器/viewer，不访问注册表或用户关联。
+
+本地脚本语法、检查点回归、原49项比较边界/9项发布边界及diff检查通过。首轮时间断言遇到PowerShell自动将ISO时间转为本地DateTime，已改读原始JSON时间字符串；审查发现可选快照I/O可能改变验收结果，已修正并补真实文件占用回归。因本批只改诊断脚本与CI接线，复用已通过的634/1产品测试，不重复本机构建/WPF测试；新源码的Windows CI以实际运行记录为准。
+
+检查点回传本身还需GitHub-hosted Windows验证。本轮继续使用原完整CI，没有新增workflow/矩阵，没有对旧失败运行重跑至绿色；原性能/安装门槛和0.6.2发布暂停保持不变。
 
 ## 未完成人工验收
 

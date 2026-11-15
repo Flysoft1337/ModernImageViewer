@@ -1,5 +1,44 @@
 # 发现记录
 
+## 2026-11-15：严格包装验收与发布放行
+
+- 新授权要求性能有效通过后合并发布。df875c4产品两种包装的严格6对完整Valid、无豁免；窗口1.03563367、首图0.97315768、目录0.91825747、切图1.04842117、首次细节0.97316096、主动细节0.99581196，按配对中位数而非组中位数之比验收。
+- 发布workflow原来未传RequireValid，publisher又仅校验安装资产，故无结论绿色存在放行缺口。共用入口仅在GitHub手动发布事件自动RequireValid，两组均生效；解析失败硬失败，普通非发布不改规则。独立审查无阻断，string/bool true行为与finally环境恢复正确；51项比较/9项发布边界通过，无workflow权限扩展。
+- 最终master必须有自身完整CI与有效历史/包装/三路安装，不沿用本机或旧提交结果；其他dependabot依赖升级不纳入本次发布。
+
+## 2026-11-15：绘制共享像素避免整图复制
+
+- 4.153.1 DrawBitmap内部FromBitmap对mutable像素复制；本机新增回归在旧实现明确发现地址不同。共享helper成功安装后SetImmutable，指针共享、填充stride绘制、最后image释放pin及72项相关回归通过。
+- 独立只读审查GIF/WebP参考帧、TIFF、ICC、编辑/导出未发现发布后修改来源数组；可写编辑目标不变，不改decoder/缓存/预算/驱动。
+- 既有真实WPF非激活harness 1预热+6对交替：大图需求→绘制38.3048→33.1259ms、发布→绘制14.8902→9.4170ms，配对中位数0.866328/0.646292。decoder及每轮+1 GC2基本不变；不是CI或人工验收。详细正反记录见wic-preview-performance.md。
+- d7a136c的CI43654805397包装主动细节6对+10.7056%有效失败继续保留，安装未执行。PNG probe暂停、无测量、未改codec；不保证共享CI必过、不改10%门槛。
+- 修复97db6e3的CI43657166316整体success：635通过/1RAW跳过、历史6对Valid、三路隔离安装lifecycle均成功。包装在预热ForegroundWindowLost、0有效对，Inconclusive/未验收，原脚本警告退出0使CI绿色；不能称全部性能已通过，不重跑取绿，不发布。
+
+## 2026-11-15：旧F5错误回归的异步索引前提
+
+- CI43653095970（3cc35b2）在Test失败：194核心+439 UI/codec=633通过、1失败、1RAW跳过；失败是OlderFolderOrRefreshErrorCannotReplaceNewerPictureOrMessage(refresh:true)期待Clipboard_NoFiles，实际Status_ScanningFolder。安装、性能和其他后续观察均未执行；离线安装检查点回归及格式/构建已过。
+- 代码确认OpenPathAsync只等待图片像素；旧F5使session.IsIndexing=true，新图不能复用完整目录快照，会BeginIndexing并后台重建。StatusText有意优先显示扫描状态，原用例未等该后台任务，断言存在调度竞争。没有证据表明新CI失败由安装脚本或解码产品回归造成。
+- 新事件屏障固定新目录索引在途，释放旧F5错误后验证新索引仍运行/新图保留；再释放新索引、await WaitForIndexingAsync，验证新提示仍在。finally同时释放两路并等待退出，不增加sleep、不改产品状态优先级或放宽原新消息断言。定向2例、format/Release0警告0错误、完整带coverage的634通过/1RAW跳过，独立review无阻断。
+
+## 2026-11-15：升级检查超时与阶段诊断
+
+- 43648378250的0.6.1升级job最终cancelled，check annotation明确超过10分钟；日志API仍BlobNotFound、无该路artifact/lifecycle。具体卡点未知，不能据此修改安装器产品或延长超时。
+- 原worker文本日志未形成可下载证据，现仅补阶段JSON快照与外层转发的GitHub notice；阶段名静态、无路径/异常文本、快照文件数有界，所有原隔离/超时/断言保留。
+- 审查发现可选快照I/O失败会中断原验收，已隔离IO/权限异常并用独占文件锁验证正常结果/原快照保留、解除锁后恢复。测试只AST提取日志helper，无实际安装/注册表操作。
+- 首轮时间断言失败源于ConvertFrom-Json将ISO时间转成本地DateTime，改用原始JSON字符串解析UTC时间；后续脚本回归/语法、49项比较边界和9项发布边界通过。PowerShell脚本后的LASTEXITCODE可能为空，改用ErrorActionPreference=Stop并只在native命令后检查退出码，避免提前exit跳过后续验证。
+
+## 2026-11-15：包装细节性能拆分
+
+- 新CI43648378250（2cd2eb6）主检查成功，TRX634通过/1跳过；两组各6对Valid、无风险豁免。包装主动细节配对比值1.09689134（+9.6891%），接近原门槛，不代表39565130100失败已修复。
+- 新包装大图阶段散装/单文件中位数：需求→开始2.99545/3.04330ms，开始→发布22.8575/25.8102ms，发布→绘制6.59395/6.11495ms。差异偏发布前，但现有数据不能细分调度/native/校验/UI通知，不据此盲改产品。
+- 新CI的clean及公开0.4升级job和lifecycle成功，同目标Setup BFA5E673…DBC0AF3，重装/关联/用户文件/卸载/清理有实际证据。公开0.6.1升级最后核对仍运行，logs请求BlobNotFound；没有最终证据，暂不合并或发布。
+
+- 05506c7的CI39565130100为632通过/1跳过；包装主动细节6对配对中位数+38.2316%有效失败，三路安装跳过。原始事件显示主要差异在2048²大图：散装24.61–35.71ms、单文件29.65–49.83ms；64²小图多数0.40–0.53ms（散装一轮12.34ms）。
+- 本机非激活harness同源码散装/单文件，1对预热+6对交替，大图需求到绘制中位数36.7559/38.73325ms、配对中位数1.027984。decoder约19.1857/19.4424ms，返回至绘制14.5637/15.9072ms；每轮GC2均+1。与CI并非同环境/驱动，不能改判原失败或推导包装无开销。
+- 独立只读review未找到可证明的重复主图DrawBitmap、强制布局或UI线程等待，暂不改渲染/解码路径。补充现有opt-in、同一单调时钟的完整细化开始/像素发布阶段，分离发布前后耗时；开始到发布包含调度、解码、校验、UI通知，不称纯native时间。
+- rg文件名通配路径在Windows无效，后续用目录与-g过滤；首轮读错报告字段BrowsingPhases，正确为PhaseObservation，已纠正。规划首次按CRLF替换未匹配，改补丁写入。format首轮xUnit2031失败，已改Assert.Single谓词重载，失败不计通过。
+
+
 ## 2026-10-21：目录读取错误与恢复
 
 - ImageBrowseSession.Enumerate吞IO/权限异常，FindFirstAsync因此把失败当空目录；RefreshAsync会把旧列表替换成仅当前文件。OpenFolderAsync又依赖Directory.Exists，目录删除后显式打开会被归为无支持文件。

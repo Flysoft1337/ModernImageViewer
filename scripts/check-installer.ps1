@@ -66,6 +66,25 @@ $verificationSucceeded = $false
 $unusedOpenGlCleanupVerified = $false
 $legacyBaseline = $false
 
+function Write-InstallerCheckpoint([ValidatePattern('\A[A-Za-z][A-Za-z0-9.]{0,63}\z')][string]$Stage) {
+    # Fixed operation names only: never export installer paths or exception text.
+    try {
+        [IO.Directory]::CreateDirectory($logs) | Out-Null
+        $checkpoint = [ordered]@{ SchemaVersion = 1; Stage = $Stage; AtUtc = [DateTimeOffset]::UtcNow.ToString('O') }
+        $temporary = Join-Path $logs 'checkpoint.json.pending'
+        [IO.File]::WriteAllText($temporary, ($checkpoint | ConvertTo-Json))
+        [IO.File]::Move($temporary, (Join-Path $logs 'checkpoint.json'), $true)
+    }
+    catch [IO.IOException], [UnauthorizedAccessException] {
+        # Optional diagnostics cannot change the installer's validation outcome.
+        Write-Host 'Installer checkpoint snapshot unavailable; continuing validation.'
+    }
+    # Host output avoids changing the success output of version/identity helpers.
+    Write-Host "MIV_INSTALLER_CHECKPOINT:$Stage"
+}
+
+Write-InstallerCheckpoint 'Preflight'
+
 function Assert-Equal($Actual, $Expected, [string]$Message) {
     if ($Actual -cne $Expected) { throw $Message }
 }
@@ -382,6 +401,7 @@ $portableRegistration = Read-RegistryValue $registeredApplicationsKey "ModernIma
 
 try {
     [IO.Directory]::CreateDirectory($logs) | Out-Null
+    Write-InstallerCheckpoint 'PrepareAssociations'
     foreach ($extension in $extensions) {
         $path = "Software\Classes\$extension\OpenWithProgids"
         $key = $currentUser.CreateSubKey($path)
@@ -408,7 +428,9 @@ try {
     $migrationTasks = '/TASKS=desktopicon'
     $firstInstaller = if ($baselineInstaller) { $baselineInstaller } else { $installer }
     $firstLog = if ($baselineInstaller) { 'baseline-install.log' } else { 'install.log' }
+    Write-InstallerCheckpoint 'InitialInstall'
     Invoke-Setup $firstInstaller ($common + @($registrationTasks, "/LOG=$(Join-Path $logs $firstLog)"))
+    Write-InstallerCheckpoint 'InitialValidation'
     $uninstallIdentity = Read-UninstallIdentity
     $initialStage = if ($baselineInstaller) { 'BaselineInstall' } else { 'Install' }
     $initialExpectedVersion = if ($baselineInstaller) { $baselineInstallerVersion } else { $targetVersion }
@@ -420,6 +442,7 @@ try {
     # 0.4 can open the generated PNG/WebP, but not the newer codec fixture groups.
     $initialFixtures = if ($baselineInstaller -and $BaselineVersion -eq '0.4.0') { $null } else { $FixtureDirectory }
     Write-Host "Checking $initialStage file activation."
+    Write-InstallerCheckpoint 'InitialActivation'
     & (Join-Path $PSScriptRoot "check-file-activation.ps1") -AppPath $executable -FixtureDirectory $initialFixtures
     Write-Host "$initialStage file activation completed."
 
@@ -450,10 +473,13 @@ try {
         $protectedFiles[$path] = (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash
     }
     if ($baselineInstaller) {
+        Write-InstallerCheckpoint 'PrepareUpgrade'
         if ($legacyBaseline) { Prepare-LegacyPayloadChecks }
         # The baseline registered file associations. Upgrade must migrate that identity
         # even though the target explicitly leaves fileassoc unselected.
+        Write-InstallerCheckpoint 'Upgrade'
         Invoke-Setup $installer ($common + @($migrationTasks, "/LOG=$(Join-Path $logs "upgrade-$BaselineVersion-to-$targetVersionText.log")"))
+        Write-InstallerCheckpoint 'UpgradeValidation'
         $upgradedVersion = Read-InstalledVersion 'CrossVersionUpgrade'
         Assert-InstalledPayload $upgradedVersion
         Assert-Shortcuts 'CrossVersionUpgrade'
@@ -468,10 +494,12 @@ try {
         }
         $legacyPayloadProtectionVerified = $legacyBaseline
         Write-Host 'Checking upgraded file activation.'
+        Write-InstallerCheckpoint 'UpgradeActivation'
         & (Join-Path $PSScriptRoot 'check-file-activation.ps1') -AppPath $executable -FixtureDirectory $FixtureDirectory
         Write-Host 'Upgraded file activation completed.'
     }
     else { $upgradedVersion = $initialVersion }
+    Write-InstallerCheckpoint 'PrepareReinstall'
     if ([IO.Path]::GetDirectoryName($executable) -cne (Join-Path $directory 'app')) { throw 'The current package must keep its runtime in app/.' }
     if (@(Get-ChildItem -LiteralPath ([IO.Path]::GetDirectoryName($executable)) -File).Count -gt 20) { throw 'The compact app directory contains unexpected loose runtime files.' }
     if ([IO.Directory]::Exists((Join-Path $directory 'app/licenses'))) { throw 'Notices must be kept in licenses/, outside the runtime directory.' }
@@ -498,7 +526,9 @@ try {
     }
     # Existing owned desktop links must enter the replacement uninstall log
     # even when reinstall explicitly leaves desktopicon unselected.
+    Write-InstallerCheckpoint 'Reinstall'
     Invoke-Setup $installer ($common + @('/TASKS=fileassoc', "/LOG=$(Join-Path $logs 'same-version-reinstall.log')"))
+    Write-InstallerCheckpoint 'ReinstallValidation'
     if ($null -ne $previousGlfwBytes) {
         if (Test-Path -LiteralPath $customGlfw) { throw 'Reinstall left the known unused GLFW runtime behind.' }
         $unusedOpenGlCleanupVerified = $true
@@ -515,14 +545,18 @@ try {
     Assert-Equal (Read-UninstallIdentity) $uninstallIdentity "Reinstall created a different uninstall identity."
     Assert-ProtectedFiles -IncludeModifiedLegacy
     Write-Host 'Checking reinstalled file activation.'
+    Write-InstallerCheckpoint 'ReinstallActivation'
     & (Join-Path $PSScriptRoot 'check-file-activation.ps1') -AppPath $executable -FixtureDirectory $FixtureDirectory
     Write-Host 'Reinstalled file activation completed.'
 
     # An older description must also be removed; unrelated custom values remain protected.
+    Write-InstallerCheckpoint 'PrepareUninstall'
     $capabilities = $currentUser.OpenSubKey("$applicationKey\Capabilities", $true)
     try { $capabilities.SetValue("ApplicationDescription", "Browse JPEG and PNG images with Modern Image Viewer.") }
     finally { $capabilities.Dispose() }
+    Write-InstallerCheckpoint 'Uninstall'
     Invoke-Setup $uninstaller @("/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/LOG=$(Join-Path $logs 'uninstall.log')")
+    Write-InstallerCheckpoint 'UninstallValidation'
     $uninstallCompleted = $true
     if ([IO.File]::Exists($executable)) { throw "Uninstall left the application executable behind." }
     if ([IO.File]::Exists((Join-Path $directory 'app/ModernImageViewer.install.json'))) { throw "Uninstall left the installed distribution marker behind." }
@@ -539,6 +573,7 @@ try {
         if (Test-RegistryValue $path $progId) { throw "Uninstall left an owned Open with candidate behind." }
     }
     Assert-ProtectedState
+    Write-InstallerCheckpoint 'Verified'
     $verificationSucceeded = $true
     $upgradeResult = if ($baselineInstaller) { "verified actual $initialVersion -> $upgradedVersion upgrade" } else { 'cross-version upgrade not requested or verified' }
     Write-Output "Installer verification passed: target $targetVersionText, current-user install, $upgradeResult, shortcut targets, payload protection, same-version reinstall, installed file activation and clean uninstall."

@@ -219,6 +219,10 @@ Write-Output 'Observation disposition boundary cases passed.'
 # Exercise actual child `exit 1`, rather than assuming a caller try/catch sees it.
 $temporary = Join-Path ([IO.Path]::GetTempPath()) ('Miv-exit-unit-' + [Guid]::NewGuid().ToString('N'))
 [void][IO.Directory]::CreateDirectory($temporary)
+$priorFailure = $env:MIV_EXIT_TEST_FAILURE
+$priorActions = $env:GITHUB_ACTIONS
+$priorEventName = $env:GITHUB_EVENT_NAME
+$priorEventPath = $env:GITHUB_EVENT_PATH
 try {
     foreach ($script in @('invoke-static-comparison.ps1', 'static-comparison-policy.ps1')) {
         Copy-Item -LiteralPath (Join-Path $PSScriptRoot $script) -Destination $temporary
@@ -232,7 +236,10 @@ param($BaselineAppPath, $CandidateAppPath, $OutputDirectory, $Pairs, $WarmupPair
   ConvertTo-Json -Depth 8 | Set-Content (Join-Path $OutputDirectory 'index.json')
 exit 1
 '@ | Set-Content -LiteralPath (Join-Path $temporary 'measure-static-comparison.ps1') -Encoding utf8
-    $priorFailure = $env:MIV_EXIT_TEST_FAILURE
+    $env:GITHUB_ACTIONS = 'true'
+    $env:GITHUB_EVENT_NAME = 'workflow_dispatch'
+    $env:GITHUB_EVENT_PATH = Join-Path $temporary 'workflow-event.json'
+    '{"inputs":{"publish_release":"false"}}' | Set-Content -LiteralPath $env:GITHUB_EVENT_PATH
     $env:MIV_EXIT_TEST_FAILURE = 'ForegroundWindowLost'
     $focusDirectory = Join-Path $temporary 'focus'
     & (Join-Path $temporary 'invoke-static-comparison.ps1') -BaselineAppPath unused -CandidateAppPath unused -OutputDirectory $focusDirectory
@@ -246,6 +253,17 @@ exit 1
     $releaseDisposition = Get-Content (Join-Path $releaseDirectory 'disposition.json') -Raw | ConvertFrom-Json
     Assert-Condition ($rejected -and $releaseDisposition.Disposition -eq 'Failed' -and
         -not $releaseDisposition.PerformanceAccepted) 'ReleasePropagatesFocusFailureAndPreservesEvidence'
+    foreach ($inputValue in @('"true"', 'true')) {
+        ('{"inputs":{"publish_release":' + $inputValue + '}}') | Set-Content -LiteralPath $env:GITHUB_EVENT_PATH
+        $releaseDirectory = Join-Path $temporary ('automatic-release-' + [Guid]::NewGuid().ToString('N'))
+        $rejected = $false
+        try { & (Join-Path $temporary 'invoke-static-comparison.ps1') -BaselineAppPath unused -CandidateAppPath unused -OutputDirectory $releaseDirectory }
+        catch { $rejected = $_.Exception.Message -eq 'ValidComparisonRequired:ForegroundWindowLost' }
+        $releaseDisposition = Get-Content (Join-Path $releaseDirectory 'disposition.json') -Raw | ConvertFrom-Json
+        Assert-Condition ($rejected -and $releaseDisposition.Disposition -eq 'Failed' -and
+            -not $releaseDisposition.PerformanceAccepted) 'ReleaseEventRequiresValidComparisonWithoutCallerSwitch'
+    }
+    '{"inputs":{"publish_release":"false"}}' | Set-Content -LiteralPath $env:GITHUB_EVENT_PATH
     $rejected = $false
     try { & (Join-Path $temporary 'invoke-static-comparison.ps1') -BaselineAppPath unused -CandidateAppPath unused -OutputDirectory $focusDirectory }
     catch { $rejected = $_.Exception.Message -eq 'OutputDirectoryNotEmpty' }
@@ -258,6 +276,10 @@ exit 1
 }
 finally {
     $env:MIV_EXIT_TEST_FAILURE = $priorFailure
+    $env:GITHUB_ACTIONS = $priorActions
+    $env:GITHUB_EVENT_NAME = $priorEventName
+    $env:GITHUB_EVENT_PATH = $priorEventPath
     [IO.Directory]::Delete($temporary, $true)
 }
 Write-Output "Comparison boundary checks passed: $assertions assertions; no viewer launched."
+& (Join-Path $PSScriptRoot 'test-installer-observation.ps1')

@@ -12,6 +12,15 @@ param(
 )
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'static-comparison-policy.ps1')
+# Release jobs must not turn an inconclusive foreground observation into a
+# successful publishing dependency, even if the caller omits -RequireValid.
+if ($env:GITHUB_ACTIONS -eq 'true' -and $env:GITHUB_EVENT_NAME -eq 'workflow_dispatch') {
+    try {
+        $workflowEvent = Get-Content -LiteralPath $env:GITHUB_EVENT_PATH -Raw | ConvertFrom-Json -AsHashtable
+        if ($workflowEvent.inputs.publish_release -eq 'true') { $RequireValid = $true }
+    }
+    catch { throw 'InvalidWorkflowEvent' }
+}
 $review = $null
 $reviewedLimits = @{}
 if ($PerformanceAcceptancePath) {

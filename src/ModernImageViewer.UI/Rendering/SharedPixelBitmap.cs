@@ -32,6 +32,9 @@ public static class SharedPixelBitmap
             {
                 throw new InvalidOperationException("The pixel buffer could not be attached to the renderer.");
             }
+            // Published pixels are read-only. Let DrawBitmap's temporary SKImage share
+            // this storage instead of copying the entire bitmap on every paint.
+            bitmap.SetImmutable();
             return bitmap;
         }
         catch
