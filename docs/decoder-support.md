@@ -1,12 +1,14 @@
 # 解码器与图片格式支持
 
+> 2026-11-15依赖升级候选：当前分支使用SkiaSharp 4.156.0及Magick.NET 15.1.0，未增加格式或放宽解码/缓存预算；本地635通过/1RAW跳过、格式/Release/依赖审计通过，Windows CI以本轮实际记录为准。公开v0.6.2仍指向9f70293，保持旧依赖和资产不变；以下较早版本说明为历史。
+
 > 0.6.1补丁候选（2026-10-11）：未增加格式或解码路径，菜单/大PNG/布局收口见[验收记录](release-closeout-0.6.1.md)。公开v0.6.0资产不变；下文0.6.0记录保留历史验证边界。
 
 > 最新状态（2026-10-09）：0.6.0按公开测试版（Pre-release）分发，发布状态见[v0.6.0](https://github.com/Flysoft1337/ModernImageViewer/releases/tag/v0.6.0)，最新稳定版仍v0.4.0。WebP ANIM背景、透明Source/Over及矩形disposal已有固定像素回归；准备基线master 5c024fb完整Windows CI为599通过/1真实RAW样本跳过，最终发布提交须再次通过同一条CI。实际证据见[收口验收](release-closeout-0.6.0.md)。真实人工交互、混合DPI/跨设备低内存长测未完成，不承诺所有变体或零性能退化。
 
 ## 实际解码与绘制路径
 
-JPEG、PNG、BMP、单页 TIFF、ICO 和 JPEG XR 沿用 WPF/WIC 静态路径；GIF 代表帧与动画使用随包 SkiaSharp 4.153.1 的 `SKCodec` 依赖合成。静态 WebP 使用 Skia；WebP 动画按 ANIM/ANMF 元信息用同一 SKCodec 解压局部位流，再在有界画布处理背景、Source/Over 和矩形disposal，复用统一会话/播放器。动画代表帧、缩略图和预取使用同一合成入口。多页 TIFF 使用最小系统 WIC COM adapter，在专有串行线程持有 decoder 和只读流，按页取得 frame/scaler/converter 并显式释放，不靠 WPF finalizer，也不每页重开容器。无需新增 native 包或系统 WebP 扩展。所有显示输出均为预乘 Alpha 的 8-bit BGRA；受限 SVG 按目标栅格化，所有路径不修改原文件。
+JPEG、PNG、BMP、单页 TIFF、ICO 和 JPEG XR 沿用 WPF/WIC 静态路径；GIF 代表帧与动画使用随包 SkiaSharp 4.156.0 的 `SKCodec` 依赖合成。静态 WebP 使用 Skia；WebP 动画按 ANIM/ANMF 元信息用同一 SKCodec 解压局部位流，再在有界画布处理背景、Source/Over 和矩形disposal，复用统一会话/播放器。动画代表帧、缩略图和预取使用同一合成入口。多页 TIFF 使用最小系统 WIC COM adapter，在专有串行线程持有 decoder 和只读流，按页取得 frame/scaler/converter 并显式释放，不靠 WPF finalizer，也不每页重开容器。无需新增 native 包或系统 WebP 扩展。所有显示输出均为预乘 Alpha 的 8-bit BGRA；受限 SVG 按目标栅格化，所有路径不修改原文件。
 
 普通静态图片、单帧 GIF、静态 WebP 和单页 TIFF 不建立活动帧会话、不显示帧控件、不启动动画时钟。缩略图和邻图缓存只保存代表帧/首页。动画时钟与 `F6` 文件幻灯片独立；内部帧/页变化不改变目录位置或重置文件停留时间，也不等待动画完整循环。GIF/WebP 支持播放、暂停、重播、定位与有限/无限循环，用户定位暂停播放；不可见、失活、最小化与卸载暂停呈现，恢复不解除用户暂停。TIFF 页切换重置页面视口身份并清除旧页区域，同页升级保留视口。
 
@@ -34,7 +36,7 @@ JPEG、PNG、BMP、单页 TIFF、ICO 和 JPEG XR 沿用 WPF/WIC 静态路径；G
 | WebP | `.webp` | 静态/动画及ANIM背景固定像素回归通过；最终CI见收口记录 | SkiaSharp SKCodec + ANIM/ANMF有界合成 | 背景alpha、局部首帧、透明Source/Over、矩形disposal；播放、暂停、重播、定位和循环；无ROI；非线性光合成 |
 | JPEG XR / HD Photo | `.jxr`、`.wdp`、`.hdp` | 开发代码支持 | WIC | 主图、预览、缩略图与ROI；输出BGRA8，不保证HDR/高位深准确输出 |
 | 受限 SVG | `.svg` | 开发代码支持 | Svg.Skia 5.2.3 + Skia | 基础形状/路径/变换/本地渐变，直接完整目标栅格化；文字/图片/脚本/外部引用/use/clip/mask/filter/动画不支持 |
-| HEIF/HEIC、AVIF | `.heif`、`.heic`、`.avif` | 开发代码支持 | Magick.NET-Q8-x64 14.17.2 | 静态首图；容器方向一次纠正，RGB ICC→sRGB；源32MP/32768边/文件128MiB，序列与ROI不支持，HDR不保证 |
+| HEIF/HEIC、AVIF | `.heif`、`.heic`、`.avif` | 开发代码支持 | Magick.NET-Q8-x64 15.1.0 | 静态首图；容器方向一次纠正，RGB ICC→sRGB；源32MP/32768边/文件128MiB，序列与ROI不支持，HDR不保证 |
 | RAW 内嵌预览 | `.dng/.cr2/.cr3/.nef/.arw/.raf/.rw2/.orf/.pef` | 开发代码支持 | 固定LibRaw0.22.2 /MT桥接 | JPEG/RGB8/RGB16预览，独立tflip/EXIF一次纠正；尺寸是预览，输入256MiB/预览32MiB；无可读预览明确反馈，不显影，无ROI |
 
 统一格式目录驱动文件选择器、目录/多选过滤、关联注册和安装器的扩展名清单，扩展名不区分大小写。解码器另外核对真实容器：把未支持的格式改名为 `.jpg` 不会使其获得支持。已有支持容器使用其他扩展名也不属于完整浏览/关联流程的支持范围，建议保留正确扩展名。

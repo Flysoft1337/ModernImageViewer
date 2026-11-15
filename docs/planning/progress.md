@@ -1,5 +1,12 @@
 # 进度日志
 
+## 2026-11-15：处理剩余5个依赖PR
+
+- 新授权“处理所有PR”，核对仅剩53–57；保留各PR原始提交合入chore/dependency-updates，不逐个触发重复完整验证。三处中央版本文件相邻冲突按升级组合解决；未改解码/浏览代码、预算或运行时版本。
+- 本地format、Release0警告0错误、完整635/1、漏洞审计通过；100MP及47文件包布局native校验成功。Magick许可证来源更新由独立agent负责，公开0.6.2不变。
+- 正在原6对+1预热严格比较公开0.6.2与新依赖包浏览性能，记录实际结论后复用Windows CI；未提前合并/重发布或关闭原PR。
+- 本机严格比较2对后失焦、RequireValid阻断，明确无性能结论，失败报告保留。第三方agent只改modern README来源，许可正文与Copyright一致未变；完整Notice继续自动入包。新CI及合并以实际报告为准，详情dependency-maintenance-2026-11.md。
+
 ## 2026-11-15：合并并发布0.6.2完成
 
 - 严格本机包装6对通过后按授权合并PR49/50/58至master9f70293，tree与候选一致，取消重复push构建，执行最终手动发布CI43659387534（publish_release=true/prerelease=false）。自动RequireValid实际生效，635通过/1RAW跳过，历史/包装各6对Valid无豁免，六项原门槛内。
