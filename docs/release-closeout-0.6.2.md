@@ -1,10 +1,14 @@
 # 0.6.2 发布验收
 
-## 2026-11-15：绘制像素复制修复，仍待远端验收
+## 2026-11-15：绘制像素复制修复，包装性能仍待有效验收
 
 d7a136c的CI43654805397同源码包装主动细节6对+10.7056%超原10%门槛，三路安装跳过，仍为有效失败。本批仅对共享只读像素包装标记immutable，避免DrawBitmap转换SKImage时再次整图复制；新增1项实际地址/绘制颜色/最后引用释放回归，未改decoder、预算、样本、计时或门槛。
 
-本地format/Release0警告0错误、完整635通过/1RAW跳过。既有真实WPF非激活harness 1预热+6对交替，大图需求→绘制38.30→33.13ms，发布→绘制14.89→9.42ms；非CI性能验收。原包装协议仅2对后ForegroundWindowLost，Inconclusive、未接受性能，未重跑；完整证据和边界见[性能记录](wic-preview-performance.md#2026-11-15共享只读像素消除每次绘制的整图复制)。远端完整CI及三路安装仍待验证，不合并或发布，不建Tag/Release。
+本地format/Release0警告0错误、完整635通过/1RAW跳过。既有真实WPF非激活harness 1预热+6对交替，大图需求→绘制38.30→33.13ms，发布→绘制14.89→9.42ms；非CI性能验收。原包装协议仅2对后ForegroundWindowLost，Inconclusive、未接受性能，未重跑；完整证据和边界见[性能记录](wic-preview-performance.md#2026-11-15共享只读像素消除每次绘制的整图复制)。远端结果如下，不合并或发布，不建Tag/Release。
+
+修复97db6e3的[CI43657166316](https://github.com/Flysoft1337/ModernImageViewer/actions/runs/43657166316)已最终success：635通过/1真实RAW跳过，格式/构建/审计/100MP/启动/激活/浏览/动画观察通过；历史6对Valid、无风险豁免。三路隔离安装lifecycle均Success、最终Verified、退出0，公开0.4/0.6.1升级及全新安装的用户文件保护/卸载/清理成功，目标Setup哈希一致。
+
+包装性能仍欠验收：预热ForegroundWindowLost、0有效对、Inconclusive/PerformanceAccepted=false。原入口对无结论警告退出0，故整体绿色不能证明包装六项通过；不改规则、不重跑取绿，继续保留d7a136c的有效失败，不合并/发布。远端观察及安装证据在ignored的`artifacts/ci-43657166316/`，详见性能记录；文档后续提交不改变本次已验证的产品源码。
 
 ## 范围和来源
 

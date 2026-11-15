@@ -21,7 +21,17 @@
 
 每轮细节阶段GC2仍增加1，不宣称解决所有GC或包装差异。证据位于ignored的`artifacts/immutable-bitmap/`（baseline/candidate快照、14轮原始事件、`wpf-summary.json`及失败/成功TRX）。此harness不是前台CI协议，也不是人工桌面验收。没有更改10%门槛、失败判定、样本或风险批准规则；共享runner不能保证下一次必过。PNG更换codec候选未测量，未进入产品。
 
-本地format verify、Release构建0警告0错误，带coverage的完整194核心+441 UI/codec=635通过、1真实RAW样本跳过。两个测试项目指定相同TRX名，后完成的UI报告覆盖核心TRX，控制台仍记录194项通过，coverage附件分别保留；不因此重复运行测试。原脚本同源码散装/单文件6对请求在第3对出现`ForegroundWindowLost`，仅完成2对，实际为`Inconclusive`、PerformanceAccepted=false、RiskAccepted=false；没有关闭前台保护或重跑取绿。报告在`static-comparison/`。新Windows CI待执行，本机不安装、不改关联，不恢复发布。
+本地format verify、Release构建0警告0错误，带coverage的完整194核心+441 UI/codec=635通过、1真实RAW样本跳过。两个测试项目指定相同TRX名，后完成的UI报告覆盖核心TRX，控制台仍记录194项通过，coverage附件分别保留；不因此重复运行测试。原脚本同源码散装/单文件6对请求在第3对出现`ForegroundWindowLost`，仅完成2对，实际为`Inconclusive`、PerformanceAccepted=false、RiskAccepted=false；没有关闭前台保护或重跑取绿。报告在`static-comparison/`。远端结果见下，本机不安装、不改关联，不恢复发布。
+
+### 修复提交97db6e3的远端结果
+
+[CI43657166316](https://github.com/Flysoft1337/ModernImageViewer/actions/runs/43657166316)固定源码97db6e302d30b0ff0f5fbbadcff67af25e582df2，publish_release=false，最终conclusion=success。实际下载两份TRX确认194核心+441 UI/codec=635通过、1真实RAW样本NotExecuted（TRX counters.notExecuted为0，以结果项为准）。格式、Release、依赖审计、100MP、启动、激活、连续浏览、动画分页及包检查均成功。动画观察InstrumentationComplete=true，关闭后项目统计的像素包装、pin、bitmap、动画timer、native session/decoder及保留帧字节全部为0；不等于整个进程无泄漏。
+
+固定历史基线6对完整，Disposition=Valid、PerformanceAccepted=true、RiskAccepted=false。窗口、首图、目录、邻图、首次细节、主动细节的配对比值中位数依次为0.74366136、0.94016584、0.78877372、0.84522967、0.94016608、0.74660448。主动细节两组每轮均值中位数31.208025/22.998575ms；历史比较包括此前全部浏览优化，不用于单独归因本次只读标记。
+
+**同源码包装性能没有验收通过。** 本轮散装预热浏览时出现ForegroundWindowLost，CompletePairs=0、Disposition=Inconclusive、PerformanceAccepted=false、RiskAccepted=false。原入口允许Inconclusive以警告退出0，因此job/整体绿色不能替代有效性能样本。未改该规则、未关闭前台校验或重跑到绿；d7a136c的+10.7056%等历史有效失败继续保留。
+
+三路隔离安装lifecycle均Success=true、最终检查点Verified、worker退出0：全新安装，公开0.4.0及公开0.6.1升级；两个升级均CrossVersionUpgradeVerified=true，三路UserFilesPreserved/UninstallVerified/CleanupSucceeded=true，目标Setup SHA256均978069A2B7317A10AB0FB698F5007213D0B4599358023B8B23605E61B22C1209。证据在ignored的`artifacts/ci-43657166316/`。不把这轮通过解释为已修复早前升级超时根因；不在本机安装，不合并、不发布。后续仍需一次有完整有效样本的同源码包装对照。
 
 ## 2026-11-15：新增阶段的Windows CI实测
 
