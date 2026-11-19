@@ -25,6 +25,8 @@ public enum ViewerAction
     ToggleFullScreen,
     DismissOverlay,
     RevealInExplorer,
+    RenameFile,
+    RecycleFile,
     ShowShortcutHelp,
     RotateRight,
     RotateLeft,
@@ -80,6 +82,8 @@ public static class ShortcutCatalog
         Define(ViewerAction.ShowShortcutHelp, "Window", "ShowShortcutHelp", new ViewerShortcutGesture(Key.F1)),
         Define(ViewerAction.RefreshFolder, "File", "RefreshFolder", new ViewerShortcutGesture(Key.F5)),
         Define(ViewerAction.RevealInExplorer, "File", "RevealInExplorer", new ViewerShortcutGesture(Key.E, ModifierKeys.Control | ModifierKeys.Shift)),
+        Define(ViewerAction.RenameFile, "File", "RenameFile", new ViewerShortcutGesture(Key.F2)),
+        Define(ViewerAction.RecycleFile, "File", "RecycleFile", new ViewerShortcutGesture(Key.Delete)),
         Define(ViewerAction.EditImage, "File", "EditImage", new ViewerShortcutGesture(Key.E, ModifierKeys.Control)),
     ]);
 

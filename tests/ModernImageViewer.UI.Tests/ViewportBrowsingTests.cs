@@ -6,6 +6,7 @@ using System.Windows.Threading;
 
 using ModernImageViewer.Application.Browsing;
 using ModernImageViewer.Application.Images;
+using ModernImageViewer.Application.Settings;
 using ModernImageViewer.Imaging;
 using ModernImageViewer.UI.Controls;
 using ModernImageViewer.UI.Localization;
@@ -59,6 +60,22 @@ public sealed class ViewportBrowsingTests
         Assert.Equal(1.15, density, 8);
         viewport.RotateRight();
         Assert.Equal(1.15, density, 8);
+
+        transform.Pan(20, -12);
+        Point center = new(200, 150);
+        var anchor = viewport.ToSourcePoint(center);
+        viewport.ZoomTo(1.275);
+        Assert.Equal(ViewportMode.Custom, transform.Mode);
+        Assert.Equal(1.275 / dpi, transform.Scale, 8);
+        Assert.Equal(1.275, density, 8);
+        var adjusted = viewport.ToSourcePoint(center);
+        Assert.Equal(anchor.X, adjusted.X, 8);
+        Assert.Equal(anchor.Y, adjusted.Y, 8);
+
+        viewport.ZoomTo(1000);
+        Assert.Equal(64, transform.Scale);
+        viewport.ZoomTo(0.0001);
+        Assert.Equal(0.01, transform.Scale);
     });
 
     [Theory]
@@ -81,6 +98,63 @@ public sealed class ViewportBrowsingTests
         Assert.Equal(new PixelSize((int)(400 * dpi), (int)(300 * dpi)), viewport.CurrentPreviewTarget);
         Assert.Equal(viewport.CurrentPreviewTarget, target);
         Assert.Same(pixels, viewport.Image);
+    });
+
+    [Fact]
+    public Task CanvasBackgroundRepaintsTransparentPreviewAndRegionWithoutChangingPixelsOrViewport() => RunSta(() =>
+    {
+        PixelSize source = new(96, 32);
+        byte[] previewBytes = new byte[48 * 16 * 4];
+        for (int row = 0; row < 16; row++)
+        {
+            for (int column = 16; column < 48; column++)
+            {
+                int index = ((row * 48) + column) * 4;
+                previewBytes[index + 2] = previewBytes[index + 3] = column < 32 ? (byte)128 : (byte)255;
+            }
+        }
+        byte[] regionBytes = new byte[16 * 32 * 4];
+        for (int index = 0; index < regionBytes.Length; index += 4)
+        {
+            regionBytes[index + 2] = regionBytes[index + 3] = 128;
+        }
+
+        using PixelBuffer preview = new(new(48, 16), 48 * 4, previewBytes, sourceSize: source);
+        using DecodedImageRegion region = new(new(new(16, 32), 16 * 4, regionBytes, sourceSize: source), new(48, 0, 16, 32));
+        using ImageViewport viewport = CreateViewport();
+        viewport.CanvasBackground = Brushes.Blue;
+        viewport.Resources["CheckerDarkBrush"] = Brushes.DarkGray;
+        viewport.Resources["CheckerLightBrush"] = Brushes.LightGray;
+        viewport.Presentation = State(preview) with { Region = region };
+        Layout(viewport, 96, 96);
+        viewport.Fit();
+        SKBitmap? previewBitmap = Field<SKBitmap>(viewport, "_bitmap");
+        SKBitmap? detailBitmap = Field<SKBitmap>(viewport, "_regionBitmap");
+        Point initialPosition = viewport.ToCanvasPoint(0, 0);
+        using SKBitmap checkerboard = Paint(viewport, 96, 96);
+        Assert.Equal(CanvasBackgroundMode.Checkerboard, viewport.TransparencyBackground);
+        Assert.NotEqual(checkerboard.GetPixel(2, 34), checkerboard.GetPixel(10, 34));
+
+        foreach ((CanvasBackgroundMode mode, SKColor solid, SKColor blended) in new[]
+        {
+            (CanvasBackgroundMode.White, SKColors.White, new SKColor(255, 127, 127)),
+            (CanvasBackgroundMode.Black, SKColors.Black, new SKColor(128, 0, 0)),
+        })
+        {
+            viewport.TransparencyBackground = mode;
+            using SKBitmap rendered = Paint(viewport, 96, 96);
+            Assert.Equal(solid, rendered.GetPixel(2, 34));
+            Assert.Equal(blended, rendered.GetPixel(40, 48));
+            Assert.Equal(blended, rendered.GetPixel(56, 48));
+            Assert.Equal(new SKColor(255, 0, 0), rendered.GetPixel(80, 48));
+            Assert.Equal(SKColors.Blue, rendered.GetPixel(2, 16));
+        }
+
+        Assert.Same(previewBitmap, Field<SKBitmap>(viewport, "_bitmap"));
+        Assert.Same(detailBitmap, Field<SKBitmap>(viewport, "_regionBitmap"));
+        Assert.Equal(initialPosition, viewport.ToCanvasPoint(0, 0));
+        Assert.Equal((byte)128, preview.Pixels.Span[(20 * 4) + 3]);
+        Assert.Equal((byte)128, region.Image.Pixels.Span[3]);
     });
 
     [Theory]

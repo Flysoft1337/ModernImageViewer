@@ -6,6 +6,7 @@ using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
 
+using ModernImageViewer.Application.Settings;
 using ModernImageViewer.UI.Controls;
 using ModernImageViewer.UI.Themes;
 
@@ -91,6 +92,23 @@ public partial class MainWindow
         DarkThemeItem.IsChecked = _themes.CurrentTheme == AppTheme.Dark;
         LightThemeItem.IsChecked = _themes.CurrentTheme == AppTheme.Light;
         SystemThemeItem.IsChecked = _themes.CurrentTheme == AppTheme.System;
+        UpdateCanvasBackgroundChecks();
+    }
+
+    private void UpdateCanvasBackgroundChecks()
+    {
+        CheckerboardBackgroundItem.IsChecked = _viewModel.CanvasBackground == CanvasBackgroundMode.Checkerboard;
+        WhiteBackgroundItem.IsChecked = _viewModel.CanvasBackground == CanvasBackgroundMode.White;
+        BlackBackgroundItem.IsChecked = _viewModel.CanvasBackground == CanvasBackgroundMode.Black;
+    }
+
+    private void OnCanvasBackgroundClick(object sender, RoutedEventArgs e)
+    {
+        if (sender is MenuItem { Tag: CanvasBackgroundMode mode })
+        {
+            _viewModel.CanvasBackground = mode;
+            UpdateCanvasBackgroundChecks();
+        }
     }
 
     private void OnThemeClick(object sender, RoutedEventArgs e)

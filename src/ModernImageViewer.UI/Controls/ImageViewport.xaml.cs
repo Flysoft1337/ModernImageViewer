@@ -5,6 +5,7 @@ using System.Windows.Media;
 using System.Windows.Threading;
 
 using ModernImageViewer.Application.Images;
+using ModernImageViewer.Application.Settings;
 using ModernImageViewer.Imaging;
 using ModernImageViewer.UI.Rendering;
 
@@ -78,6 +79,16 @@ public partial class ImageViewport : UserControl, IDisposable
         set => SetValue(CanvasBackgroundProperty, value);
     }
 
+    public static readonly DependencyProperty TransparencyBackgroundProperty = DependencyProperty.Register(
+        nameof(TransparencyBackground), typeof(CanvasBackgroundMode), typeof(ImageViewport),
+        new PropertyMetadata(CanvasBackgroundMode.Checkerboard, (sender, _) => ((ImageViewport)sender)._surface?.InvalidateVisual()));
+
+    public CanvasBackgroundMode TransparencyBackground
+    {
+        get => (CanvasBackgroundMode)GetValue(TransparencyBackgroundProperty);
+        set => SetValue(TransparencyBackgroundProperty, value);
+    }
+
     private SKElement? _surface;
     private SKBitmap? _checkerTile;
     private SKPaint? _checkerPaint;
@@ -114,6 +125,7 @@ public partial class ImageViewport : UserControl, IDisposable
             return;
         }
 
+        StopTouchManipulation();
         _transform.Fit(DisplaySize, Canvas.ActualWidth, Canvas.ActualHeight);
         NotifyTransformChanged();
     }
@@ -125,6 +137,7 @@ public partial class ImageViewport : UserControl, IDisposable
             return;
         }
 
+        StopTouchManipulation();
         _transform.ActualSize(DisplaySize, Canvas.ActualWidth, Canvas.ActualHeight, 1 / VisualTreeHelper.GetDpi(Canvas).DpiScaleX);
         NotifyTransformChanged();
     }
@@ -141,6 +154,7 @@ public partial class ImageViewport : UserControl, IDisposable
         {
             return;
         }
+        StopTouchManipulation();
         _transform.Reorient(image.SourceSize, Orientation, orientation, Canvas.ActualWidth, Canvas.ActualHeight,
             1 / VisualTreeHelper.GetDpi(Canvas).DpiScaleX);
         Orientation = orientation;
@@ -160,6 +174,7 @@ public partial class ImageViewport : UserControl, IDisposable
         if (viewport._isUnloaded && !viewport._preserveTransform) { viewport._fitOnLoad = true; }
         if (!viewport._preserveTransform)
         {
+            viewport.StopTouchManipulation();
             viewport.EditRecipe = null;
             viewport.ClearOrientation();
         }
@@ -189,6 +204,7 @@ public partial class ImageViewport : UserControl, IDisposable
         if (_disposed) { return; }
         if (!_preserveTransform)
         {
+            StopTouchManipulation();
             if (_isUnloaded) { _fitOnLoad = true; }
             ClearOrientation();
         }
@@ -236,12 +252,10 @@ public partial class ImageViewport : UserControl, IDisposable
         DpiScale dpi = VisualTreeHelper.GetDpi(Canvas);
         canvas.Save();
         canvas.Scale((float)dpi.DpiScaleX, (float)dpi.DpiScaleY);
-        EnsureCheckerPaint();
-        PixelSize sourceSize = Image!.SourceSize;
         PixelSize displaySize = DisplaySize;
-        canvas.DrawRect(new SKRect((float)_transform.OffsetX, (float)_transform.OffsetY,
+        DrawTransparencyBackground(canvas, new SKRect((float)_transform.OffsetX, (float)_transform.OffsetY,
             (float)(_transform.OffsetX + (displaySize.Width * _transform.Scale)),
-            (float)(_transform.OffsetY + (displaySize.Height * _transform.Scale))), _checkerPaint!);
+            (float)(_transform.OffsetY + (displaySize.Height * _transform.Scale))));
         canvas.Translate((float)_transform.OffsetX, (float)_transform.OffsetY);
         canvas.Scale((float)_transform.Scale);
         if (EditRecipe is { } edited && (_editSourceProfile is not null || !edited.Adjustments.IsIdentity || !edited.Annotations.IsEmpty))
@@ -253,6 +267,21 @@ public partial class ImageViewport : UserControl, IDisposable
         else { DrawImagePixels(canvas, EditRecipe); }
         canvas.Restore();
         NotifyFramePresented();
+    }
+
+    private void DrawTransparencyBackground(SKCanvas canvas, SKRect bounds)
+    {
+        if (TransparencyBackground == CanvasBackgroundMode.Checkerboard)
+        {
+            EnsureCheckerPaint();
+            canvas.DrawRect(bounds, _checkerPaint!);
+            return;
+        }
+
+        canvas.Save();
+        canvas.ClipRect(bounds);
+        canvas.Clear(TransparencyBackground == CanvasBackgroundMode.White ? SKColors.White : SKColors.Black);
+        canvas.Restore();
     }
 
     private void DrawImagePixels(SKCanvas canvas, ImageEditRecipe? recipe)
@@ -296,6 +325,18 @@ public partial class ImageViewport : UserControl, IDisposable
 
     public void ZoomOut() => ZoomAtCenter(1 / 1.15);
 
+    internal void ZoomTo(double pixelScale)
+    {
+        if (_disposed || Image is null || Canvas.ActualWidth <= 0 || Canvas.ActualHeight <= 0)
+        {
+            return;
+        }
+        double dpi = VisualTreeHelper.GetDpi(Canvas).DpiScaleX;
+        StopTouchManipulation();
+        _transform.ZoomTo(pixelScale / dpi, Canvas.ActualWidth / 2, Canvas.ActualHeight / 2);
+        NotifyTransformChanged();
+    }
+
     private void OnMouseWheel(object sender, MouseWheelEventArgs e)
     {
         if (Image is null)
@@ -304,6 +345,7 @@ public partial class ImageViewport : UserControl, IDisposable
         }
 
         Point point = e.GetPosition(Canvas);
+        StopTouchManipulation();
         _transform.ZoomAt(Math.Pow(1.15, e.Delta / 120.0), point.X, point.Y);
         e.Handled = true;
         NotifyTransformChanged();
@@ -316,6 +358,7 @@ public partial class ImageViewport : UserControl, IDisposable
             return;
         }
 
+        StopTouchManipulation();
         if (e.ClickCount == 2)
         {
             ToggleFitAndActualSize();
@@ -385,6 +428,7 @@ public partial class ImageViewport : UserControl, IDisposable
             return;
         }
 
+        StopTouchManipulation();
         _transform.ZoomAt(factor, Canvas.ActualWidth / 2, Canvas.ActualHeight / 2);
         NotifyTransformChanged();
     }
@@ -542,6 +586,7 @@ public partial class ImageViewport : UserControl, IDisposable
     private void OnUnloaded(object sender, RoutedEventArgs e)
     {
         _isUnloaded = true;
+        StopTouchManipulation();
         _lastPreviewTarget = null;
         _lastPointer = null;
         Canvas.ReleaseMouseCapture();
@@ -565,6 +610,7 @@ public partial class ImageViewport : UserControl, IDisposable
     {
         if (_disposed) { return; }
         _disposed = true;
+        StopTouchManipulation();
         Loaded -= OnLoaded;
         Unloaded -= OnUnloaded;
         _lastPointer = null;

@@ -3,6 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
         xmlns:controls="clr-namespace:ModernImageViewer.UI.Controls"
+        xmlns:settings="clr-namespace:ModernImageViewer.Application.Settings;assembly=ModernImageViewer.Application"
         Title="{Binding Title}" Width="1280" Height="820" MinWidth="720" MinHeight="480"
         WindowStyle="None" Background="{DynamicResource WindowBackgroundBrush}"
         Foreground="{DynamicResource PrimaryTextBrush}" FontFamily="Segoe UI Variable, Segoe UI"
@@ -10,7 +11,7 @@
         AllowDrop="True" DragOver="OnDragOver" Drop="OnDrop" PreviewKeyDown="OnPreviewKeyDown"
         WindowStartupLocation="CenterScreen">
   <Window.Resources>
-    <Style x:Key="FrameIndexStyle" TargetType="TextBox">
+    <Style x:Key="ToolbarInputStyle" TargetType="TextBox">
       <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
       <Setter Property="Background" Value="{DynamicResource SurfaceHoverBrush}" />
       <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
@@ -21,8 +22,34 @@
         <Border x:Name="InputBorder" CornerRadius="4" BorderThickness="1" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" Padding="{TemplateBinding Padding}">
           <ScrollViewer x:Name="PART_ContentHost" VerticalAlignment="Center" />
         </Border>
-        <ControlTemplate.Triggers><Trigger Property="IsKeyboardFocusWithin" Value="True"><Setter TargetName="InputBorder" Property="BorderBrush" Value="{DynamicResource AccentBrush}" /></Trigger></ControlTemplate.Triggers>
+        <ControlTemplate.Triggers>
+          <Trigger Property="IsKeyboardFocusWithin" Value="True"><Setter TargetName="InputBorder" Property="BorderBrush" Value="{DynamicResource AccentBrush}" /></Trigger>
+          <Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.45" /></Trigger>
+        </ControlTemplate.Triggers>
       </ControlTemplate></Setter.Value></Setter>
+    </Style>
+    <Style x:Key="SelectableInformationValueStyle" TargetType="TextBox">
+      <Setter Property="IsReadOnly" Value="True" />
+      <Setter Property="TextWrapping" Value="Wrap" />
+      <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
+      <Setter Property="SelectionBrush" Value="{DynamicResource AccentBrush}" />
+      <Setter Property="SelectionTextBrush" Value="{DynamicResource PrimaryTextBrush}" />
+      <Setter Property="SelectionOpacity" Value="0.3" />
+      <Setter Property="FontSize" Value="13" />
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="TextBox">
+            <Border x:Name="ValueBorder" Background="Transparent" BorderBrush="Transparent" BorderThickness="0,0,0,1">
+              <ScrollViewer x:Name="PART_ContentHost" Focusable="False" />
+            </Border>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsKeyboardFocused" Value="True">
+                <Setter TargetName="ValueBorder" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+              </Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
     </Style>
   </Window.Resources>
   <shell:WindowChrome.WindowChrome>
@@ -56,6 +83,9 @@
                   <MenuItem Header="{Binding RevealLabel}" InputGestureText="Ctrl+Shift+E" Click="OnRevealClick" IsEnabled="{Binding CanReveal}" />
                   <MenuItem Header="{Binding CopyPathLabel}" Click="OnCopyPathClick" IsEnabled="{Binding CanCopyPath}" />
                   <Separator />
+                  <MenuItem Header="{Binding RenameFileLabel}" InputGestureText="F2" Click="OnRenameClick" IsEnabled="{Binding CanChangeFile}" />
+                  <MenuItem Header="{Binding RecycleFileLabel}" InputGestureText="Del" Click="OnRecycleClick" IsEnabled="{Binding CanChangeFile}" />
+                  <Separator />
                   <MenuItem Header="{Binding CopyPreviewLabel}" InputGestureText="Ctrl+C" Command="{Binding CopyPreviewCommand}" ToolTip="{Binding CopyPreviewHint}" />
                   <MenuItem Header="{Binding CopyOriginalLabel}" Command="{Binding CopyOriginalCommand}" ToolTip="{Binding CopyOriginalHint}" ToolTipService.ShowOnDisabled="True" />
                 </MenuItem>
@@ -76,6 +106,11 @@
                   <MenuItem Header="{Binding FlipVerticalLabel}" Tag="Vertical" IsCheckable="True" IsChecked="{Binding IsFlippedVertically, Mode=OneWay}" Click="OnOrientationClick" />
                   <Separator />
                   <MenuItem Header="{Binding ResetOrientationLabel}" Tag="Reset" Click="OnOrientationClick" IsEnabled="{Binding HasViewOrientation}" />
+                </MenuItem>
+                <MenuItem Header="{Binding CanvasBackgroundLabel}">
+                  <MenuItem x:Name="CheckerboardBackgroundItem" Header="{Binding CheckerboardBackgroundLabel}" Tag="{x:Static settings:CanvasBackgroundMode.Checkerboard}" IsCheckable="True" Click="OnCanvasBackgroundClick" />
+                  <MenuItem x:Name="WhiteBackgroundItem" Header="{Binding WhiteBackgroundLabel}" Tag="{x:Static settings:CanvasBackgroundMode.White}" IsCheckable="True" Click="OnCanvasBackgroundClick" />
+                  <MenuItem x:Name="BlackBackgroundItem" Header="{Binding BlackBackgroundLabel}" Tag="{x:Static settings:CanvasBackgroundMode.Black}" IsCheckable="True" Click="OnCanvasBackgroundClick" />
                 </MenuItem>
                 <MenuItem Header="{Binding InformationLabel}" InputGestureText="Ctrl+I" IsCheckable="True" IsChecked="{Binding ShowInformation, Mode=OneWay}" Click="OnInformationClick" />
                 <MenuItem Header="{Binding FilmstripLabel}" InputGestureText="Ctrl+T" IsCheckable="True" IsChecked="{Binding ShowFilmstrip, Mode=OneWay}" Click="OnFilmstripClick" />
@@ -98,7 +133,7 @@
                   <MenuItem x:Name="Slideshow10Item" Header="{Binding Slideshow10Label}" Tag="10" IsCheckable="True" Click="OnSlideshowSpeedClick" />
                   </MenuItem>
                 </MenuItem>
-                <Separator /><MenuItem Header="{Binding RefreshLabel}" InputGestureText="F5" Click="OnRefreshClick" IsEnabled="{Binding HasImage}" />
+                <Separator /><MenuItem Header="{Binding RefreshLabel}" InputGestureText="F5" Click="OnRefreshClick" IsEnabled="{Binding CanRefreshFolder}" />
                 <MenuItem Header="{Binding HelpLabel}" InputGestureText="F1" Click="OnShortcutHelpClick" />
               </ContextMenu>
             </Button.ContextMenu>
@@ -112,7 +147,8 @@
     </Border>
     <Grid x:Name="CanvasLayout" Grid.Row="1" Background="{DynamicResource CanvasBrush}">
       <Grid.Style><Style TargetType="Grid"><Style.Triggers><DataTrigger Binding="{Binding IsFullScreen}" Value="True"><Setter Property="Grid.RowSpan" Value="3" /></DataTrigger></Style.Triggers></Style></Grid.Style>
-        <controls:ImageViewport x:Name="Viewport" Presentation="{Binding Presentation}" CanvasBackground="{DynamicResource CanvasBrush}">
+        <controls:ImageViewport x:Name="Viewport" IsManipulationEnabled="True" Presentation="{Binding Presentation}" CanvasBackground="{DynamicResource CanvasBrush}"
+                                TransparencyBackground="{Binding CanvasBackground}">
           <controls:ImageViewport.Style><Style TargetType="controls:ImageViewport"><Setter Property="Margin" Value="28,28,28,92" /><Style.Triggers><DataTrigger Binding="{Binding IsCompactLayout, RelativeSource={RelativeSource AncestorType=Window}}" Value="True"><Setter Property="Margin" Value="12,12,12,76" /></DataTrigger><DataTrigger Binding="{Binding IsFullScreen}" Value="True"><Setter Property="Margin" Value="0" /></DataTrigger></Style.Triggers></Style></controls:ImageViewport.Style>
         </controls:ImageViewport>
         <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="{Binding HasImage, Converter={StaticResource InverseBooleanToVisibilityConverter}}">
@@ -162,7 +198,7 @@
             <Button Style="{StaticResource ToolbarButtonStyle}" Click="OnAnimationRestartClick" ToolTip="{Binding AnimationRestartLabel}" AutomationProperties.Name="{Binding AnimationRestartLabel}" Visibility="{Binding IsAnimation, Converter={StaticResource BooleanToVisibilityConverter}}"><Path Style="{StaticResource IconStyle}" Data="{StaticResource Icon.Refresh}" /></Button>
             <Button Style="{StaticResource ToolbarButtonStyle}" Click="OnPreviousFrameClick" ToolTip="{Binding FramePreviousLabel}" AutomationProperties.Name="{Binding FramePreviousLabel}" IsEnabled="{Binding CanMovePreviousFrame}"><Path Style="{StaticResource IconStyle}" Data="{StaticResource Icon.Previous}" /></Button>
             <TextBlock Text="{Binding FramePositionLabel}" FontSize="12" VerticalAlignment="Center" Margin="4,0,6,0" />
-            <TextBox x:Name="FrameIndexInput" Style="{StaticResource FrameIndexStyle}" Text="{Binding FrameIndexText, Mode=OneWay}" Width="56" Height="28" Padding="4,2" VerticalContentAlignment="Center" TextAlignment="Center" MaxLength="5" GotKeyboardFocus="OnFrameIndexFocus" PreviewKeyDown="OnFrameIndexKeyDown" LostKeyboardFocus="OnFrameIndexLostFocus" ToolTip="{Binding FrameIndexHint}" AutomationProperties.Name="{Binding FramePositionLabel}" />
+            <TextBox x:Name="FrameIndexInput" Style="{StaticResource ToolbarInputStyle}" Text="{Binding FrameIndexText, Mode=OneWay}" Width="56" Height="28" Padding="4,2" VerticalContentAlignment="Center" TextAlignment="Center" MaxLength="5" GotKeyboardFocus="OnFrameIndexFocus" PreviewKeyDown="OnFrameIndexKeyDown" LostKeyboardFocus="OnFrameIndexLostFocus" ToolTip="{Binding FrameIndexHint}" AutomationProperties.Name="{Binding FramePositionLabel}" />
             <TextBlock Text="{Binding FrameCountText}" Width="64" FontSize="12" VerticalAlignment="Center" Margin="6,0,0,0" Foreground="{DynamicResource SecondaryTextBrush}" />
             <Button Style="{StaticResource ToolbarButtonStyle}" Click="OnNextFrameClick" ToolTip="{Binding FrameNextLabel}" AutomationProperties.Name="{Binding FrameNextLabel}" IsEnabled="{Binding CanMoveNextFrame}"><Path Style="{StaticResource IconStyle}" Data="{StaticResource Icon.Next}" /></Button>
           </StackPanel>
@@ -173,7 +209,14 @@
             <Button Style="{StaticResource ToolbarButtonStyle}" Click="OnFitClick" ToolTip="{Binding FitLabel}" AutomationProperties.Name="{Binding FitLabel}"><Path Style="{StaticResource IconStyle}" Data="{StaticResource Icon.Fit}" /></Button>
             <Button Style="{StaticResource ToolbarButtonStyle}" Click="OnActualSizeClick" ToolTip="{Binding ActualSizeLabel}" Content="1:1" FontSize="12" />
             <Button Style="{StaticResource ToolbarButtonStyle}" Click="OnZoomOutClick" ToolTip="{Binding ZoomOutLabel}" AutomationProperties.Name="{Binding ZoomOutLabel}"><Path Style="{StaticResource IconStyle}" Data="{StaticResource Icon.ZoomOut}" /></Button>
-            <TextBlock Text="{Binding ZoomText}" Width="54" TextAlignment="Center" VerticalAlignment="Center" FontSize="12" />
+            <TextBox x:Name="ZoomInput" Style="{StaticResource ToolbarInputStyle}" Text="{Binding ZoomText, Mode=OneWay}"
+                     Width="80" Height="28" Padding="4,2" VerticalAlignment="Center" TextAlignment="Center"
+                     MaxLength="16" IsEnabled="{Binding HasImage}" SelectionOpacity="0.3"
+                     SelectionTextBrush="{DynamicResource PrimaryTextBrush}"
+                     PreviewMouseLeftButtonDown="OnZoomInputMouseDown"
+                     GotKeyboardFocus="OnZoomInputFocus" LostKeyboardFocus="OnZoomInputLostFocus"
+                     ToolTip="{Binding ZoomInputHint}" AutomationProperties.Name="{Binding ZoomInputLabel}"
+                     AutomationProperties.HelpText="{Binding ZoomInputHint}" />
             <Button Style="{StaticResource ToolbarButtonStyle}" Click="OnZoomInClick" ToolTip="{Binding ZoomInLabel}" AutomationProperties.Name="{Binding ZoomInLabel}"><Path Style="{StaticResource IconStyle}" Data="{StaticResource Icon.ZoomIn}" /></Button>
             <Border Style="{StaticResource ToolDividerStyle}" />
             <Button Style="{StaticResource ToolbarButtonStyle}" Click="OnSettingsClick" ToolTip="{Binding SettingsLabel}" AutomationProperties.Name="{Binding SettingsLabel}"><Path Style="{StaticResource IconStyle}" Data="{StaticResource Icon.More}" /></Button>
@@ -181,31 +224,48 @@
           </StackPanel>
         </Border>
       <Border x:Name="InformationPanel" Panel.ZIndex="30" HorizontalAlignment="Right" Width="272" CornerRadius="12" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1">
-        <Border.Style><Style TargetType="Border"><Setter Property="Margin" Value="12,12,12,92" /><Setter Property="Visibility" Value="Collapsed" /><Style.Triggers><MultiDataTrigger><MultiDataTrigger.Conditions><Condition Binding="{Binding ShowInformation}" Value="True" /><Condition Binding="{Binding IsChromeVisible, RelativeSource={RelativeSource AncestorType=Window}}" Value="True" /></MultiDataTrigger.Conditions><Setter Property="Visibility" Value="Visible" /></MultiDataTrigger><DataTrigger Binding="{Binding HasFrameSequence}" Value="True"><Setter Property="Margin" Value="12,12,12,136" /></DataTrigger><MultiDataTrigger><MultiDataTrigger.Conditions><Condition Binding="{Binding IsFullScreen}" Value="True" /><Condition Binding="{Binding IsFilmstripVisible}" Value="True" /></MultiDataTrigger.Conditions><Setter Property="Margin" Value="12,12,12,238" /></MultiDataTrigger><MultiDataTrigger><MultiDataTrigger.Conditions><Condition Binding="{Binding IsFullScreen}" Value="True" /><Condition Binding="{Binding IsFilmstripVisible}" Value="True" /><Condition Binding="{Binding HasFrameSequence}" Value="True" /></MultiDataTrigger.Conditions><Setter Property="Margin" Value="12,12,12,282" /></MultiDataTrigger></Style.Triggers></Style></Border.Style>
+        <Border.Style><Style TargetType="Border"><Setter Property="Margin" Value="12,12,12,92" /><Setter Property="Visibility" Value="Collapsed" /><Style.Triggers><MultiDataTrigger><MultiDataTrigger.Conditions><Condition Binding="{Binding HasImage}" Value="True" /><Condition Binding="{Binding ShowInformation}" Value="True" /><Condition Binding="{Binding IsChromeVisible, RelativeSource={RelativeSource AncestorType=Window}}" Value="True" /></MultiDataTrigger.Conditions><Setter Property="Visibility" Value="Visible" /></MultiDataTrigger><DataTrigger Binding="{Binding HasFrameSequence}" Value="True"><Setter Property="Margin" Value="12,12,12,136" /></DataTrigger><MultiDataTrigger><MultiDataTrigger.Conditions><Condition Binding="{Binding IsFullScreen}" Value="True" /><Condition Binding="{Binding IsFilmstripVisible}" Value="True" /></MultiDataTrigger.Conditions><Setter Property="Margin" Value="12,12,12,238" /></MultiDataTrigger><MultiDataTrigger><MultiDataTrigger.Conditions><Condition Binding="{Binding IsFullScreen}" Value="True" /><Condition Binding="{Binding IsFilmstripVisible}" Value="True" /><Condition Binding="{Binding HasFrameSequence}" Value="True" /></MultiDataTrigger.Conditions><Setter Property="Margin" Value="12,12,12,282" /></MultiDataTrigger></Style.Triggers></Style></Border.Style>
         <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
           <ScrollViewer.Resources><Style TargetType="ScrollBar" BasedOn="{StaticResource PanelScrollBarStyle}" /></ScrollViewer.Resources>
           <StackPanel Margin="22,18">
             <Grid><TextBlock Text="{Binding InformationLabel}" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center" /><Button HorizontalAlignment="Right" Style="{StaticResource ToolbarButtonStyle}" Click="OnInformationClick" ToolTip="{Binding CloseLabel}" AutomationProperties.Name="{Binding CloseLabel}"><Path Style="{StaticResource IconStyle}" Width="14" Height="14" Data="{StaticResource Icon.Close}" /></Button></Grid>
-            <TextBlock Style="{StaticResource PanelLabelStyle}" Text="{Binding FileNameLabel}" /><TextBlock Style="{StaticResource PanelValueStyle}" Text="{Binding CurrentFileName}" FontWeight="SemiBold" />
-            <TextBlock Style="{StaticResource PanelLabelStyle}" Text="{Binding InformationLocationLabel}" /><TextBox Text="{Binding InformationLocation, Mode=OneWay}" IsReadOnly="True" TextWrapping="Wrap" Background="Transparent" BorderThickness="0" Padding="0" Foreground="{DynamicResource SecondaryTextBrush}" />
-            <TextBlock Style="{StaticResource PanelLabelStyle}" Text="{Binding DimensionsLabel}" /><TextBlock Style="{StaticResource PanelValueStyle}" Text="{Binding DimensionsText}" />
-            <TextBlock Style="{StaticResource PanelLabelStyle}" Text="{Binding FormatLabel}" /><TextBlock Style="{StaticResource PanelValueStyle}" Text="{Binding FormatText}" />
-            <TextBlock Style="{StaticResource PanelLabelStyle}" Text="{Binding FileSizeLabel}" /><TextBlock Style="{StaticResource PanelValueStyle}" Text="{Binding FileSizeText}" />
-            <TextBlock Style="{StaticResource PanelLabelStyle}" Text="{Binding ModifiedLabel}" /><TextBlock Style="{StaticResource PanelValueStyle}" Text="{Binding ModifiedText}" />
+            <TextBlock Style="{StaticResource PanelLabelStyle}" Text="{Binding FileNameLabel}" />
+            <TextBox Style="{StaticResource SelectableInformationValueStyle}" Text="{Binding CurrentFileName, Mode=OneWay}" AutomationProperties.Name="{Binding FileNameLabel}" FontWeight="SemiBold" />
+            <TextBlock Style="{StaticResource PanelLabelStyle}" Text="{Binding InformationLocationLabel}" />
+            <TextBox Style="{StaticResource SelectableInformationValueStyle}" Text="{Binding InformationLocation, Mode=OneWay}" AutomationProperties.Name="{Binding InformationLocationLabel}" Foreground="{DynamicResource SecondaryTextBrush}" />
+            <TextBlock Style="{StaticResource PanelLabelStyle}" Text="{Binding DimensionsLabel}" />
+            <TextBox Style="{StaticResource SelectableInformationValueStyle}" Text="{Binding DimensionsText, Mode=OneWay}" AutomationProperties.Name="{Binding DimensionsLabel}" />
+            <TextBlock Style="{StaticResource PanelLabelStyle}" Text="{Binding FormatLabel}" />
+            <TextBox Style="{StaticResource SelectableInformationValueStyle}" Text="{Binding FormatText, Mode=OneWay}" AutomationProperties.Name="{Binding FormatLabel}" />
+            <TextBlock Style="{StaticResource PanelLabelStyle}" Text="{Binding FileSizeLabel}" />
+            <TextBox Style="{StaticResource SelectableInformationValueStyle}" Text="{Binding FileSizeText, Mode=OneWay}" AutomationProperties.Name="{Binding FileSizeLabel}" />
+            <TextBlock Style="{StaticResource PanelLabelStyle}" Text="{Binding ModifiedLabel}" />
+            <TextBox Style="{StaticResource SelectableInformationValueStyle}" Text="{Binding ModifiedText, Mode=OneWay}" AutomationProperties.Name="{Binding ModifiedLabel}" />
             <StackPanel Visibility="{Binding HasFrameSequence, Converter={StaticResource BooleanToVisibilityConverter}}">
-              <TextBlock Style="{StaticResource PanelLabelStyle}" Text="{Binding FramePositionLabel}" /><TextBlock Style="{StaticResource PanelValueStyle}" Text="{Binding FrameStatusText}" />
+              <TextBlock Style="{StaticResource PanelLabelStyle}" Text="{Binding FramePositionLabel}" />
+              <TextBox Style="{StaticResource SelectableInformationValueStyle}" Text="{Binding FrameStatusText, Mode=OneWay}" AutomationProperties.Name="{Binding FramePositionLabel}" />
               <StackPanel Visibility="{Binding IsAnimation, Converter={StaticResource BooleanToVisibilityConverter}}">
-                <TextBlock Style="{StaticResource PanelLabelStyle}" Text="{Binding FrameDurationLabel}" /><TextBlock Style="{StaticResource PanelValueStyle}" Text="{Binding FrameDurationText}" />
-                <TextBlock Style="{StaticResource PanelLabelStyle}" Text="{Binding FrameLoopLabel}" /><TextBlock Style="{StaticResource PanelValueStyle}" Text="{Binding FrameLoopText}" />
+                <TextBlock Style="{StaticResource PanelLabelStyle}" Text="{Binding FrameDurationLabel}" />
+                <TextBox Style="{StaticResource SelectableInformationValueStyle}" Text="{Binding FrameDurationText, Mode=OneWay}" AutomationProperties.Name="{Binding FrameDurationLabel}" />
+                <TextBlock Style="{StaticResource PanelLabelStyle}" Text="{Binding FrameLoopLabel}" />
+                <TextBox Style="{StaticResource SelectableInformationValueStyle}" Text="{Binding FrameLoopText, Mode=OneWay}" AutomationProperties.Name="{Binding FrameLoopLabel}" />
               </StackPanel>
             </StackPanel>
             <StackPanel Margin="0,26,0,0" Visibility="{Binding HasMetadata, Converter={StaticResource BooleanToVisibilityConverter}}">
               <Border BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,1,0,0" Padding="0,20,0,0"><TextBlock Text="{Binding ExifLabel}" FontSize="14" FontWeight="SemiBold" /></Border>
               <ItemsControl ItemsSource="{Binding MetadataItems}" Margin="0,12,0,0">
-                <ItemsControl.ItemTemplate><DataTemplate><Grid Margin="0,6"><Grid.ColumnDefinitions><ColumnDefinition Width="80" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions><TextBlock Text="{Binding Label}" Foreground="{DynamicResource SecondaryTextBrush}" FontSize="12" /><TextBlock Grid.Column="1" Text="{Binding Value}" TextWrapping="Wrap" FontSize="12" /></Grid></DataTemplate></ItemsControl.ItemTemplate>
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate>
+                    <Grid Margin="0,6">
+                      <Grid.ColumnDefinitions><ColumnDefinition Width="80" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                      <TextBlock Text="{Binding Label}" Foreground="{DynamicResource SecondaryTextBrush}" FontSize="12" TextWrapping="Wrap" Margin="0,0,8,0" />
+                      <TextBox Grid.Column="1" Style="{StaticResource SelectableInformationValueStyle}" Text="{Binding Value, Mode=OneWay}" AutomationProperties.Name="{Binding Label}" FontSize="12" />
+                    </Grid>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
               </ItemsControl>
             </StackPanel>
-            <Button Margin="0,28,0,0" HorizontalAlignment="Left" Style="{StaticResource ToolbarButtonStyle}" Click="OnCopyPathClick" IsEnabled="{Binding HasImage}"><StackPanel Orientation="Horizontal"><Path Style="{StaticResource IconStyle}" Data="{StaticResource Icon.Copy}" /><TextBlock Text="{Binding CopyPathLabel}" Margin="8,0,0,0" /></StackPanel></Button>
+            <Button Margin="0,28,0,0" HorizontalAlignment="Left" Style="{StaticResource ToolbarButtonStyle}" Click="OnCopyPathClick" IsEnabled="{Binding CanCopyPath}"><StackPanel Orientation="Horizontal"><Path Style="{StaticResource IconStyle}" Data="{StaticResource Icon.Copy}" /><TextBlock Text="{Binding CopyPathLabel}" Margin="8,0,0,0" /></StackPanel></Button>
           </StackPanel>
         </ScrollViewer>
       </Border>

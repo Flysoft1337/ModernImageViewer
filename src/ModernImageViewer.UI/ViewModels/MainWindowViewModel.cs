@@ -41,6 +41,7 @@ public sealed partial class MainWindowViewModel : INotifyPropertyChanged, IDispo
     private PixelRect? _visibleRegion;
     private PixelBuffer? _informationImage;
     private Guid? _informationSourceIdentity;
+    private string? _informationFilePath;
     private BrowseItem[] _browseItems = [];
 
     public MainWindowViewModel(
@@ -50,7 +51,8 @@ public sealed partial class MainWindowViewModel : INotifyPropertyChanged, IDispo
         Func<IFileRevealService>? fileReveal = null,
         IUserSettingsService? settings = null,
         IClipboardFileService? clipboardFiles = null,
-        IImageClipboardService? imageClipboard = null)
+        IImageClipboardService? imageClipboard = null,
+        IImageFileOperations? fileOperations = null)
     {
         _localization = localization;
         _coordinator = coordinator;
@@ -59,6 +61,7 @@ public sealed partial class MainWindowViewModel : INotifyPropertyChanged, IDispo
         _settings = settings;
         _clipboardFiles = clipboardFiles;
         _imageClipboard = imageClipboard;
+        _fileOperations = fileOperations;
         InitializePreferences();
         _selectedLanguage = FindCurrentLanguage();
         OpenCommand = new AsyncRelayCommand(PickInputAsync);
@@ -77,7 +80,8 @@ public sealed partial class MainWindowViewModel : INotifyPropertyChanged, IDispo
         ? Text("MainWindow_Title")
         : $"{CurrentFileName} — {Text("MainWindow_Title")}";
 
-    public string StatusText => IsSorting ? Text("Sort_Working") : _isIndexingFolder || _browseSession.IsIndexing ? Text("Status_ScanningFolder")
+    public string StatusText => IsChangingFile ? Text("File_OperationWorking")
+        : IsSorting ? Text("Sort_Working") : _isIndexingFolder || _browseSession.IsIndexing ? Text("Status_ScanningFolder")
         : _messageKey is not null ? Text(_messageKey) : _coordinator.State.Status switch
         {
             ImageOpenStatus.Loading => Text("Status_Loading"),
@@ -95,7 +99,7 @@ public sealed partial class MainWindowViewModel : INotifyPropertyChanged, IDispo
 
     public string ZoomText => string.Format(_localization.CurrentCulture, Text("Status_ZoomFormat"), _scale);
 
-    public string PositionText => _browseSession.Count == 0
+    public string PositionText => _browseSession.CurrentIndex < 0
         ? string.Empty
         : string.Format(_localization.CurrentCulture, Text("Status_PositionFormat"), _browseSession.CurrentIndex + 1, _browseSession.Count);
 
@@ -107,6 +111,8 @@ public sealed partial class MainWindowViewModel : INotifyPropertyChanged, IDispo
     public string ActualSizeLabel => Text("Command_ActualSize");
     public string ZoomInLabel => Text("Command_ZoomIn");
     public string ZoomOutLabel => Text("Command_ZoomOut");
+    public string ZoomInputLabel => Text("Zoom_InputLabel");
+    public string ZoomInputHint => Text("Zoom_InputHint");
     public string EmptyTitle => Text("Empty_Title");
     public string EmptyHint => Text("Empty_Hint");
     public string MinimizeLabel => Text("Window_Minimize");
@@ -134,7 +140,7 @@ public sealed partial class MainWindowViewModel : INotifyPropertyChanged, IDispo
     public string Slideshow5Label => Text("Slideshow_5Seconds");
     public string Slideshow10Label => Text("Slideshow_10Seconds");
     public string SlideshowSpeedLabel => Text("Slideshow_Speed");
-    public bool CanPlaySlideshow => HasImage && !_browseSession.IsIndexing && !IsSorting && _browseSession.Count > 1;
+    public bool CanPlaySlideshow => HasImage && !IsChangingFile && !_browseSession.IsIndexing && !IsSorting && _browseSession.Count > 1;
     public IReadOnlyList<MetadataItem> MetadataItems => _metadataItems;
     public bool HasMetadata => _metadataItems.Count > 0;
     public bool IsSlideshowPlaying
@@ -219,7 +225,7 @@ public sealed partial class MainWindowViewModel : INotifyPropertyChanged, IDispo
     public bool ShowPreviewStatus => HasImage && (Presentation.IsPreview || Presentation.RefinementError != ImageOpenError.None)
         && Presentation.Status != ImageOpenStatus.Loading;
     public bool IsRefining => Presentation.IsRefining || Presentation.IsRegionLoading;
-    public bool CanRefine => ShowPreviewStatus && Presentation.IsPreview && Presentation.Status == ImageOpenStatus.Loaded && !IsRefining
+    public bool CanRefine => !IsChangingFile && ShowPreviewStatus && Presentation.IsPreview && Presentation.Status == ImageOpenStatus.Loaded && !IsRefining
         && (Presentation.Sequence is null || _coordinator.HasFrameSession);
     public string RefineLabel => Text("Preview_Refine");
     public string CancelLabel => Text("Preview_Cancel");
@@ -261,7 +267,7 @@ public sealed partial class MainWindowViewModel : INotifyPropertyChanged, IDispo
 
     public async Task RequestRegionDetailAsync(PixelRect region)
     {
-        if (_disposed || Presentation.Status != ImageOpenStatus.Loaded)
+        if (_disposed || IsChangingFile || Presentation.Status != ImageOpenStatus.Loaded)
         {
             return;
         }
@@ -277,9 +283,9 @@ public sealed partial class MainWindowViewModel : INotifyPropertyChanged, IDispo
 
     public PixelBuffer? CurrentImage => _coordinator.State.Image;
     public bool HasImage => CurrentImage is not null;
-    public bool IsLoading => _isIndexingFolder || _coordinator.State.Status == ImageOpenStatus.Loading;
-    public bool CanMovePrevious => !IsSorting && !_browseSession.IsIndexing && NavigationIndex > 0;
-    public bool CanMoveNext => !IsSorting && !_browseSession.IsIndexing && NavigationIndex >= 0 && NavigationIndex < _browseSession.Count - 1;
+    public bool IsLoading => IsChangingFile || _isIndexingFolder || _coordinator.State.Status == ImageOpenStatus.Loading;
+    public bool CanMovePrevious => !IsChangingFile && !IsSorting && !_browseSession.IsIndexing && NavigationIndex > 0;
+    public bool CanMoveNext => !IsChangingFile && !IsSorting && !_browseSession.IsIndexing && NavigationIndex >= 0 && NavigationIndex < _browseSession.Count - 1;
 
     public ICommand OpenCommand { get; }
     public AsyncRelayCommand PreviousCommand { get; }
@@ -303,6 +309,7 @@ public sealed partial class MainWindowViewModel : INotifyPropertyChanged, IDispo
     public async Task<bool> OpenPathAsync(string path)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
+        if (IsChangingFile) { return false; }
         NotifyBrowsingOpenRequested();
         CancelFolderWork();
         _refreshCancellation?.Cancel();
@@ -327,6 +334,7 @@ public sealed partial class MainWindowViewModel : INotifyPropertyChanged, IDispo
 
     public void UpdateScale(double scale)
     {
+        if (_scale == scale) { return; }
         _scale = scale;
         OnPropertyChanged(nameof(ZoomText));
     }
@@ -347,6 +355,8 @@ public sealed partial class MainWindowViewModel : INotifyPropertyChanged, IDispo
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         ArgumentNullException.ThrowIfNull(paths);
+        await WaitForFileOperationAsync();
+        if (_disposed) { return false; }
         if (paths.Count == 0)
         {
             return false;
@@ -360,6 +370,7 @@ public sealed partial class MainWindowViewModel : INotifyPropertyChanged, IDispo
         long version = _inputVersion;
         CancellationTokenSource cancellation = new();
         _folderCancellation = cancellation;
+        OnPropertyChanged(nameof(CanChangeFile));
         CancellationToken token = cancellation.Token;
         try
         {
@@ -408,6 +419,7 @@ public sealed partial class MainWindowViewModel : INotifyPropertyChanged, IDispo
             if (ReferenceEquals(_folderCancellation, cancellation))
             {
                 _folderCancellation = null;
+                if (!_disposed) { OnPropertyChanged(nameof(CanChangeFile)); }
             }
             cancellation.Dispose();
         }
@@ -428,6 +440,11 @@ public sealed partial class MainWindowViewModel : INotifyPropertyChanged, IDispo
             }
             if (first is null)
             {
+                if (!HasImage)
+                {
+                    _coordinator.TrackEmptyDirectory(_browseSession, directory);
+                    UpdateBrowseItems();
+                }
                 ShowMessage("Status_EmptyFolder");
                 return false;
             }
@@ -455,8 +472,13 @@ public sealed partial class MainWindowViewModel : INotifyPropertyChanged, IDispo
 
     public async Task RefreshFolderAsync()
     {
-        if (!HasImage || _disposed || Presentation.IsMemorySource)
+        if (_disposed || IsChangingFile || !CanRefreshFolder)
         {
+            return;
+        }
+        if (!HasImage && WatchedDirectory is { } emptyDirectory)
+        {
+            await OpenFolderAsync(emptyDirectory);
             return;
         }
         CancelFolderWork();
@@ -554,15 +576,23 @@ public sealed partial class MainWindowViewModel : INotifyPropertyChanged, IDispo
         OnPropertyChanged(nameof(HasStatusMessage));
     }
 
+    internal void ClearMessage(string resourceKey)
+    {
+        if (_messageKey == resourceKey) { ShowMessage(null); }
+    }
+
     private async Task PickInputAsync()
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
+        await WaitForFileOperationAsync();
+        if (_disposed) { return; }
         IsSlideshowPlaying = false;
         CancelFolderWork();
         _refreshCancellation?.Cancel();
         _coordinator.CancelPendingOpen();
         using CancellationTokenSource cancellation = new();
         _folderCancellation = cancellation;
+        OnPropertyChanged(nameof(CanChangeFile));
         try
         {
             await _coordinator.PickAndOpenAsync(_browseSession, cancellation.Token);
@@ -573,6 +603,7 @@ public sealed partial class MainWindowViewModel : INotifyPropertyChanged, IDispo
             if (ReferenceEquals(_folderCancellation, cancellation))
             {
                 _folderCancellation = null;
+                if (!_disposed) { OnPropertyChanged(nameof(CanChangeFile)); }
             }
         }
     }
@@ -607,7 +638,8 @@ public sealed partial class MainWindowViewModel : INotifyPropertyChanged, IDispo
         UpdateFramePlayback(_coordinator.State);
         if (e.PropertyName == nameof(ImageOpenCoordinator.State)
             && _coordinator.State is { Status: ImageOpenStatus.Loaded, Image: not null, Source: not null } imageState
-            && _informationSourceIdentity == imageState.Source.Identity)
+            && _informationSourceIdentity == imageState.Source.Identity
+            && StringComparer.Ordinal.Equals(_informationFilePath, imageState.FilePath))
         {
             // Pixel/detail changes within one source do not invalidate directory, language
             // or theme bindings. New sources and indexing still take the complete update.
@@ -634,13 +666,26 @@ public sealed partial class MainWindowViewModel : INotifyPropertyChanged, IDispo
         {
             UpdateBrowseItems();
             if (e.PropertyName == nameof(ImageOpenCoordinator.State)
-                && (state.Source is { } source ? _informationSourceIdentity != source.Identity : !ReferenceEquals(_informationImage, state.Image)))
+                && (!StringComparer.Ordinal.Equals(_informationFilePath, state.FilePath)
+                    || (state.Source is { } source ? _informationSourceIdentity != source.Identity : !ReferenceEquals(_informationImage, state.Image))))
             {
                 _informationImage = state.Image;
                 _informationSourceIdentity = state.Source?.Identity;
+                _informationFilePath = state.FilePath;
                 _ = ReadFileInformationAsync();
                 UpdateMetadataItems();
             }
+        }
+        else if (e.PropertyName == nameof(ImageOpenCoordinator.State) && _coordinator.State.Status == ImageOpenStatus.Empty)
+        {
+            _informationImage = null;
+            _informationSourceIdentity = null;
+            _informationFilePath = null;
+            _fileInformationCancellation?.Cancel();
+            _fileLength = null;
+            _modified = null;
+            UpdateMetadataItems();
+            UpdateBrowseItems();
         }
         if (_coordinator.State.Status == ImageOpenStatus.Error)
         {

@@ -13,6 +13,7 @@ public static class DependencyInjection
         services.AddSingleton<ILocalizationService, LocalizationService>();
         services.AddSingleton<ThemeService>();
         services.AddSingleton<MainWindowViewModel>();
+        services.AddSingleton<FolderChangeMonitor>();
         services.AddSingleton<MainWindow>();
         return services;
     }

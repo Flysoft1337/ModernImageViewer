@@ -29,7 +29,7 @@ public sealed class UserSettingsServiceTests
         using SettingsFile file = new("""
             {"Language":"zh-CN","Theme":"Dark",
              "WindowPlacement":{"Left":10,"Top":10,"Width":-1,"Height":800,"DpiScale":0},
-             "Browsing":{"ShowInformation":true,"ShowFilmstrip":false,"SortMode":999,"SlideshowSeconds":-5}}
+             "Browsing":{"ShowInformation":true,"ShowFilmstrip":false,"SortMode":999,"SlideshowSeconds":-5,"CanvasBackground":999}}
             """);
         using UserSettingsService settings = new(file.Path);
 
