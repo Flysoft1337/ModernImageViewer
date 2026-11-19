@@ -83,7 +83,7 @@ jobs:
           if ([regex]::Matches($source, [regex]::Escape($marker)).Count -ne 1) { throw 'Expected one baseline setup checkpoint.' }
           $pause = @'
               $gateDeadline = [DateTimeOffset]::UtcNow.AddMinutes(2)
-              until ((Test-Path -LiteralPath (Join-Path $logs 'start-baseline')) -or [DateTimeOffset]::UtcNow -ge $gateDeadline) {
+              while (-not (Test-Path -LiteralPath (Join-Path $logs 'start-baseline')) -and [DateTimeOffset]::UtcNow -lt $gateDeadline) {
                   Start-Sleep -Milliseconds 250
               }
               if (-not (Test-Path -LiteralPath (Join-Path $logs 'start-baseline'))) { throw 'Missing baseline start signal.' }
@@ -146,7 +146,7 @@ jobs:
           $logs = Join-Path $env:GITHUB_WORKSPACE 'artifacts/installer-smoke'
           $result = Join-Path $logs 'worker-result.txt'
           $deadline = [DateTimeOffset]::UtcNow.AddMinutes(4)
-          until ((Test-Path -LiteralPath $result) -or [DateTimeOffset]::UtcNow -ge $deadline) {
+          while (-not (Test-Path -LiteralPath $result) -and [DateTimeOffset]::UtcNow -lt $deadline) {
               Start-Sleep -Seconds 1
           }
           Get-Content -LiteralPath (Join-Path $logs 'worker-stdout.txt'), (Join-Path $logs 'worker-stderr.txt')
