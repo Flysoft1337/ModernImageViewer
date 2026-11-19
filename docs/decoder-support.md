@@ -37,6 +37,7 @@ JPEG、PNG、BMP、单页 TIFF、ICO 和 JPEG XR 沿用 WPF/WIC 静态路径；G
 | JPEG XR / HD Photo | `.jxr`、`.wdp`、`.hdp` | 开发代码支持 | WIC | 主图、预览、缩略图与ROI；输出BGRA8，不保证HDR/高位深准确输出 |
 | 受限 SVG | `.svg` | 开发代码支持 | Svg.Skia 5.2.3 + Skia | 基础形状/路径/变换/本地渐变，直接完整目标栅格化；文字/图片/脚本/外部引用/use/clip/mask/filter/动画不支持 |
 | HEIF/HEIC、AVIF | `.heif`、`.heic`、`.avif` | 开发代码支持 | Magick.NET-Q8-x64 15.1.0 | 静态首图；容器方向一次纠正，RGB ICC→sRGB；源32MP/32768边/文件128MiB，序列与ROI不支持，HDR不保证 |
+| Photoshop PSD | `.psd` | 开发代码支持 | Magick.NET-Q8-x64 15.1.0 | 已保存的合成图，原始和 RLE 压缩；源 32MP/32768 边/128MiB 输入；PSB、ZIP 合成图和无合成图文档超出范围 |
 | RAW 内嵌预览 | `.dng/.cr2/.cr3/.nef/.arw/.raf/.rw2/.orf/.pef` | 开发代码支持 | 固定LibRaw0.22.2 /MT桥接 | JPEG/RGB8/RGB16预览，独立tflip/EXIF一次纠正；尺寸是预览，输入256MiB/预览32MiB；无可读预览明确反馈，不显影，无ROI |
 
 统一格式目录驱动文件选择器、目录/多选过滤、关联注册和安装器的扩展名清单，扩展名不区分大小写。解码器另外核对真实容器：把未支持的格式改名为 `.jpg` 不会使其获得支持。已有支持容器使用其他扩展名也不属于完整浏览/关联流程的支持范围，建议保留正确扩展名。
@@ -60,6 +61,7 @@ JPEG、PNG、BMP、单页 TIFF、ICO 和 JPEG XR 沿用 WPF/WIC 静态路径；G
 | JPEG XR | WIC支持的变体 | 无 | 无 | 依变体 | 浏览未显式转换 | WIC可读字段/方向 | WIC ROI | 既有静态编辑；输出8-bit |
 | 受限SVG | 目标栅格化 | 无 | 无 | 支持 | 无嵌入profile管线 | 无 | 无 | 既有栅格编辑；非矢量回写 |
 | AVIF/HEIF | 首图 | 无 | 无 | 依Magick支持的变体 | RGB ICC→sRGB | 容器方向；非完整摄影字段 | 无 | 既有静态编辑；非HDR |
+| PSD | 保存的合成图 | 无 | 无 | 合成图 Alpha | 嵌入 ICC 转 sRGB | 无 | 无 | 既有栅格编辑，可另存 PNG/JPEG/WebP |
 | RAW内嵌预览 | JPEG/RGB预览 | 无 | 无 | 不承诺 | 预览profile未统一 | 内嵌预览方向；非传感器元数据全集 | 无 | 仅预览编辑，不显影 |
 
 多帧 GIF/WebP 与多页 TIFF 禁止进入编辑窗口，本批不扩大编辑或完整 RAW 能力。剪贴板只复制当前已显示的不可变帧/页快照，保留查看方向；不复制动画容器、不按原路径重读首页、不自动解码未显示页。原尺寸复制仍要求当前显示的是完整像素且不超过64MiB，不包含ROI覆盖。

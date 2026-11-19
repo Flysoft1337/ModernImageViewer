@@ -5,6 +5,9 @@
 #ifndef PublishDirectory
   #error PublishDirectory must be supplied by the build script
 #endif
+#ifndef ShellPublishDirectory
+  #error ShellPublishDirectory must be supplied by the build script
+#endif
 #ifndef InstallerOutputDirectory
   #error InstallerOutputDirectory must be supplied by the build script
 #endif
@@ -48,11 +51,13 @@ Name: "chinesesimplified"; MessagesFile: "compiler:Languages\ChineseSimplified.i
 
 [CustomMessages]
 english.Associations=Add to Open with for supported image formats
+english.PsdPreview=Show PSD thumbnails and previews in File Explorer
 english.DesktopShortcut=Create a desktop shortcut
 english.OpenViewer=Open Modern Image Viewer
 english.UninstallViewer=Uninstall Modern Image Viewer
 english.AssociationCollision=The Open with registration belongs to another application. Clear the Open with option to continue installing without changing that registration.
 chinesesimplified.Associations=加入支持的图片格式的“打开方式”候选
+chinesesimplified.PsdPreview=在资源管理器中显示 PSD 缩略图和预览
 chinesesimplified.DesktopShortcut=创建桌面快捷方式
 chinesesimplified.OpenViewer=打开 Modern Image Viewer
 chinesesimplified.UninstallViewer=卸载 Modern Image Viewer
@@ -60,6 +65,7 @@ chinesesimplified.AssociationCollision=此“打开方式”注册项已被其�
 
 [Tasks]
 Name: "fileassoc"; Description: "{cm:Associations}"
+Name: "psdpreview"; Description: "{cm:PsdPreview}"
 Name: "desktopicon"; Description: "{cm:DesktopShortcut}"; Flags: unchecked
 
 [Files]
@@ -67,6 +73,9 @@ Source: "{#PublishDirectory}\*"; DestDir: "{app}\app"; Flags: ignoreversion recu
 Source: "{#PublishDirectory}\licenses\*"; DestDir: "{app}\licenses"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "{#PublishDirectory}\LICENSE.txt"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#PublishDirectory}\dependencies.json"; DestDir: "{app}"; Flags: ignoreversion
+Source: "{#ShellPublishDirectory}\ModernImageViewer.Shell.dll"; DestDir: "{app}\app\shell"; Flags: ignoreversion
+Source: "{#ShellPublishDirectory}\policy.xml"; DestDir: "{app}\app\shell"; Flags: ignoreversion
+Source: "{#ShellPublishDirectory}\THIRD-PARTY-NOTICES.TXT"; DestDir: "{app}\licenses\dotnet-nativeaot"; Flags: ignoreversion
 Source: "ModernImageViewer.install.json"; DestDir: "{app}\app"; Flags: ignoreversion
 Source: "legacy-layout.sha256"; Flags: dontcopy
 
@@ -95,6 +104,15 @@ const
   LegacyApplicationDescription = 'Browse JPEG and PNG images with Modern Image Viewer.';
   RegisteredApplicationsKey = 'Software\RegisteredApplications';
   KeyReadWrite64 = $2011F;
+  PsdHandlers = 'Software\Classes\SystemFileAssociations\.psd\ShellEx\';
+  ThumbnailInterface = '{E357FCCD-A995-4576-B01F-234630154E96}';
+  PreviewInterface = '{8895B1C6-B41F-4C1C-A562-0D564250836F}';
+  ThumbnailClass = '{8ECCFC5B-9E25-4DF5-8E2C-E6C9FF60F9E4}';
+  PreviewClass = '{CBD0D211-0458-404C-AACF-DB57871FCEFF}';
+  PreviewHostAppId = '{6D2B5079-2F0B-48DD-AB7F-97CEC514D30B}';
+  PreviewList = 'Software\Microsoft\Windows\CurrentVersion\PreviewHandlers';
+  ThumbnailName = 'Modern Image Viewer PSD Thumbnail';
+  PreviewName = 'Modern Image Viewer PSD Preview';
 
 function NativeRegCreateKeyEx(Root: NativeUInt; SubKey: String; Reserved: Cardinal;
   ClassName: NativeUInt; Options, Access: Cardinal; Security: NativeUInt;
@@ -263,6 +281,7 @@ begin
   RegisterExtension('.rw2');
   RegisterExtension('.orf');
   RegisterExtension('.pef');
+  RegisterExtension('.psd');
   WriteString(RegisteredApplicationsKey, ApplicationId, CapabilitiesKey);
   NotifyAssociations($08000000, 0, 0, 0);
 end;
@@ -331,6 +350,7 @@ begin
   UnregisterExtension('.rw2');
   UnregisterExtension('.orf');
   UnregisterExtension('.pef');
+  UnregisterExtension('.psd');
   DeleteMatching(RegisteredApplicationsKey, ApplicationId, CapabilitiesKey, False);
   DeleteMatching(ProgIdKey + '\shell\open\command', '', OpenCommand(), True);
   DeleteMatching(ProgIdKey + '\DefaultIcon', '', IconPath(), True);
@@ -412,6 +432,53 @@ begin
   end;
 end;
 
+function ShellPath(): String;
+begin
+  Result := ExpandConstant('{app}\app\shell\ModernImageViewer.Shell.dll');
+end;
+
+procedure RegisterPsdHandler(InterfaceId, ClassId, ClassName: String; IsPreview: Boolean);
+var
+  ClassKey, Existing: String;
+begin
+  ClassKey := 'Software\Classes\CLSID\' + ClassId;
+  if RegQueryStringValue(HKCR, 'CLSID\' + ClassId + '\InprocServer32', '', Existing)
+    and (CompareText(Existing, ShellPath()) <> 0) then exit;
+  if RegQueryStringValue(HKCR, 'SystemFileAssociations\.psd\ShellEx\' + InterfaceId, '', Existing)
+    and (CompareText(Existing, ClassId) <> 0) then exit;
+  WriteString(ClassKey, '', ClassName);
+  WriteString(ClassKey + '\InprocServer32', '', ShellPath());
+  WriteString(ClassKey + '\InprocServer32', 'ThreadingModel', 'Apartment');
+  if IsPreview then begin
+    WriteString(ClassKey, 'AppID', PreviewHostAppId);
+    WriteString(PreviewList, ClassId, ClassName);
+  end;
+  WriteString(PsdHandlers + InterfaceId, '', ClassId);
+end;
+
+procedure UnregisterPsdHandler(InterfaceId, ClassId, ClassName: String; IsPreview: Boolean);
+var
+  ClassKey: String;
+begin
+  ClassKey := 'Software\Classes\CLSID\' + ClassId;
+  if not ReadMatching(ClassKey + '\InprocServer32', '', ShellPath()) then exit;
+  DeleteMatching(PsdHandlers + InterfaceId, '', ClassId, True);
+  if IsPreview then begin
+    DeleteMatching(PreviewList, ClassId, ClassName, False);
+    DeleteMatching(ClassKey, 'AppID', PreviewHostAppId, False);
+  end;
+  DeleteMatching(ClassKey + '\InprocServer32', 'ThreadingModel', 'Apartment', False);
+  DeleteMatching(ClassKey + '\InprocServer32', '', ShellPath(), True);
+  DeleteMatching(ClassKey, '', ClassName, True);
+end;
+
+procedure UnregisterPsdHandlers();
+begin
+  UnregisterPsdHandler(ThumbnailInterface, ThumbnailClass, ThumbnailName, False);
+  UnregisterPsdHandler(PreviewInterface, PreviewClass, PreviewName, True);
+  NotifyAssociations($08000000, 0, 0, 0);
+end;
+
 procedure CurStepChanged(CurStep: TSetupStep);
 var
   GlfwPath, MarkerPath: String;
@@ -434,6 +501,11 @@ begin
   end;
   if CurStep = ssPostInstall then begin
     if WizardIsTaskSelected('fileassoc') or LegacyAssociationsOwned() then RegisterAssociations();
+    if WizardIsTaskSelected('psdpreview') then begin
+      RegisterPsdHandler(ThumbnailInterface, ThumbnailClass, ThumbnailName, False);
+      RegisterPsdHandler(PreviewInterface, PreviewClass, PreviewName, True);
+      NotifyAssociations($08000000, 0, 0, 0);
+    end else UnregisterPsdHandlers();
     CleanLegacyPayload();
     if RemovePreviousGlfw and FileExists(GlfwPath) then begin
       try
@@ -449,5 +521,8 @@ end;
 
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
 begin
-  if CurUninstallStep = usUninstall then UnregisterAssociations();
+  if CurUninstallStep = usUninstall then begin
+    UnregisterPsdHandlers();
+    UnregisterAssociations();
+  end;
 end;

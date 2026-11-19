@@ -153,6 +153,8 @@ PR #48已合并，错误恢复与WIC预览优化的完整CI已通过；用户追
 
 随包Skia仍不支持HEIF/AVIF，本批改用固定Magick.NET实测接入；RAW只提取LibRaw内嵌预览。受限SVG沿用，不代表完整SVG或显影；native实际分发/源码/完整许可与样本单独记录。
 
+开发版已加入 PSD 合成图浏览、应用缩略图和安装版资源管理器缩略图/预览窗格。支持范围见[格式矩阵](decoder-support.md)，安装选项见[文件关联](windows-file-association.md)。
+
 色彩管理单独推进：读取 ICC、无 profile 按 sRGB 解释、转换至显示器 profile、跨屏重新选择 profile，导出默认嵌入 sRGB。当前 WIC EXIF 方向纠正不代表 WebP EXIF、ICC 或 HDR 已支持；16-bit、CMYK、广色域和 HDR 行为要明确记录。元数据展示支持选择复制，GPS 不主动联网解析。
 
 ### 3.3 编辑与导出

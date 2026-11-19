@@ -49,7 +49,7 @@ internal static class ImageExportMetadata
                 // The HEIF decoder explicitly transforms pixels into sRGB. Ping reads profiles,
                 // never a second raster; retain only the allowlisted EXIF fields.
                 if (!preserve) { return new(ImageMetadata.Empty); }
-                if (stream.Length > HeifImageDecoder.MaximumInputBytes) { throw new ImageExportException(ImageExportError.BudgetExceeded); }
+                if (stream.Length > MagickPreviewDecoder.MaximumInputBytes) { throw new ImageExportException(ImageExportError.BudgetExceeded); }
                 using MagickImage image = new();
                 image.Progress += (_, args) => args.Cancel = token.IsCancellationRequested;
                 try
