@@ -6,7 +6,7 @@
 
 ## 实际解码与绘制路径
 
-JPEG、PNG、BMP、单页 TIFF、ICO 和 JPEG XR 沿用 WPF/WIC 静态路径；GIF 代表帧与动画使用随包 SkiaSharp 4.153.1 的 `SKCodec` 依赖合成。静态 WebP 使用 Skia；WebP 动画按 ANIM/ANMF 元信息用同一 SKCodec 解压局部位流，再在有界画布处理背景、Source/Over 和矩形disposal，复用统一会话/播放器。动画代表帧、缩略图和预取使用同一合成入口。多页 TIFF 使用最小系统 WIC COM adapter，在专有串行线程持有 decoder 和只读流，按页取得 frame/scaler/converter 并显式释放，不靠 WPF finalizer，也不每页重开容器。无需新增 native 包或系统 WebP 扩展。所有显示输出均为预乘 Alpha 的 8-bit BGRA；受限 SVG 按目标栅格化，所有路径不修改原文件。
+JPEG、PNG、BMP、单页 TIFF、ICO 和 JPEG XR 沿用 WPF/WIC 静态路径；GIF 代表帧与动画使用随包 SkiaSharp 4.153.1 的 `SKCodec` 依赖合成。静态 WebP 使用 Skia；WebP 动画按 ANIM/ANMF 元信息用同一 SKCodec 解压局部位流，再在有界画布处理背景、Source/Over 和矩形disposal，复用统一会话/播放器。动画代表帧、缩略图和预取使用同一合成入口。多页 TIFF 和多尺寸 ICO 使用系统 WIC COM adapter，在专有串行线程持有 decoder 和只读流，按页取得 frame/scaler/converter 并显式释放，不靠 WPF finalizer，也不每页重开容器。无需新增 native 包或系统 WebP 扩展。所有显示输出均为预乘 Alpha 的 8-bit BGRA；受限 SVG 按目标栅格化，所有路径不修改原文件。
 
 普通静态图片、单帧 GIF、静态 WebP 和单页 TIFF 不建立活动帧会话、不显示帧控件、不启动动画时钟。缩略图和邻图缓存只保存代表帧/首页。动画时钟与 `F6` 文件幻灯片独立；内部帧/页变化不改变目录位置或重置文件停留时间，也不等待动画完整循环。GIF/WebP 支持播放、暂停、重播、定位与有限/无限循环，用户定位暂停播放；不可见、失活、最小化与卸载暂停呈现，恢复不解除用户暂停。TIFF 页切换重置页面视口身份并清除旧页区域，同页升级保留视口。
 
@@ -30,7 +30,7 @@ JPEG、PNG、BMP、单页 TIFF、ICO 和 JPEG XR 沿用 WPF/WIC 静态路径；G
 | BMP | `.bmp` | 支持 | WIC | 静态；编码变体能否读取取决于 WIC，不承诺所有历史变体 |
 | GIF | `.gif` | 静态/动画固定样本与CI通过 | SkiaSharp SKCodec；单帧区域用WIC | 代表帧及动画；透明/局部/disposal依赖合成；播放、暂停、重播、定位和循环 |
 | TIFF | `.tif`、`.tiff` | 静态/分页固定样本与CI通过 | 单页 WPF/WIC；多页系统 WIC COM | 页数/定位、异尺寸和逐页方向；当前页预览/完整/区域读取；高位深转为8-bit |
-| ICO | `.ico` | 支持 | WIC | 仅第一个图标帧；没有多尺寸/多帧选择，不承诺总能自动选最大尺寸 |
+| ICO | `.ico` | 支持 | WIC | 单尺寸走静态路径，多尺寸主图支持自动匹配和手动切换 |
 | WebP | `.webp` | 静态/动画及ANIM背景固定像素回归通过；最终CI见收口记录 | SkiaSharp SKCodec + ANIM/ANMF有界合成 | 背景alpha、局部首帧、透明Source/Over、矩形disposal；播放、暂停、重播、定位和循环；无ROI；非线性光合成 |
 | JPEG XR / HD Photo | `.jxr`、`.wdp`、`.hdp` | 开发代码支持 | WIC | 主图、预览、缩略图与ROI；输出BGRA8，不保证HDR/高位深准确输出 |
 | 受限 SVG | `.svg` | 开发代码支持 | Svg.Skia 5.2.3 + Skia | 基础形状/路径/变换/本地渐变，直接完整目标栅格化；文字/图片/脚本/外部引用/use/clip/mask/filter/动画不支持 |
@@ -52,7 +52,7 @@ JPEG、PNG、BMP、单页 TIFF、ICO 和 JPEG XR 沿用 WPF/WIC 静态路径；G
 | GIF动画 | 代表帧用于缓存/超限反馈 | 播放/暂停/重播/定位/循环，codec合成 | 无 | 帧透明、局部与disposal合成 | SKCodec输出sRGB；嵌入ICC不承诺 | codec方向；无摄影字段 | 无 | 禁用 |
 | 单页TIFF | 支持 | 无 | 单页不建立会话 | 依WIC变体 | 浏览未显式转换；编辑可用RGB→sRGB | WIC可读字段、方向1–8 | WIC ROI | 单页可编辑 |
 | 多页TIFF | 代表首页用于缓存 | 无 | 随机按页读取，页尺寸独立 | 依WIC变体 | 未接ICC色彩转换 | 每页Orientation 1–8；不读取摄影字段 | 当前页ROI | 禁用 |
-| ICO | 第一个图标 | 无 | 无尺寸选择 | 依首个图标变体 | 未显式转换 | 仅WIC可读元数据 | 首图标WIC ROI | 既有静态编辑 |
+| ICO | 单尺寸直接显示，多尺寸默认按视口选择 | 无 | 列出内嵌尺寸，支持手动切换及恢复自动 | 依当前图标变体 | 未显式转换 | 仅WIC可读元数据 | 单尺寸 WIC ROI | 单尺寸沿用静态编辑，多尺寸以浏览为主 |
 | 静态WebP | 支持 | 无 | 无 | Alpha | RGB ICC→sRGB | 方向1–8；无摄影字段 | 无 | 既有静态编辑 |
 | WebP动画 | 同一合成入口的代表帧用于缓存/超限反馈 | 播放/暂停/重播/定位/循环，局部codec及有界画布 | 无 | ANIM背景alpha、Source/Over、矩形disposal | RGB ICC→sRGB，背景与帧一致 | codec方向1–8；无摄影字段 | 无 | 禁用 |
 | JPEG XR | WIC支持的变体 | 无 | 无 | 依变体 | 浏览未显式转换 | WIC可读字段/方向 | WIC ROI | 既有静态编辑；输出8-bit |
@@ -111,7 +111,7 @@ JPEG、PNG、BMP、单页 TIFF、ICO 和 JPEG XR 沿用 WPF/WIC 静态路径；G
 - [`SupportedImageFormats.cs`](../src/ModernImageViewer.Application/Images/SupportedImageFormats.cs)：统一格式和扩展名目录。
 - [`WicImageDecoder.cs`](../src/ModernImageViewer.Codecs/Wic/WicImageDecoder.cs)：WIC 容器、首帧、格式转换与尺寸检查。
 - [`ImageDecoder.Frames.cs`](../src/ModernImageViewer.Codecs/ImageDecoder.Frames.cs)、[`SkiaImageFrameSession.cs`](../src/ModernImageViewer.Codecs/Frames/SkiaImageFrameSession.cs)：帧会话派发、GIF代表帧及GIF/WebP动画合成与准入。
-- [`TiffImageFrameSession.cs`](../src/ModernImageViewer.Codecs/Frames/TiffImageFrameSession.cs)、[`TiffWicContext.cs`](../src/ModernImageViewer.Codecs/Frames/TiffWicContext.cs)：持久WIC分页、逐页方向、预算、文件戳与确定释放。
+- [`WicImageFrameSession.cs`](../src/ModernImageViewer.Codecs/Frames/WicImageFrameSession.cs)、[`WicFrameContext.cs`](../src/ModernImageViewer.Codecs/Frames/WicFrameContext.cs)：持久 WIC 会话、TIFF 逐页方向、ICO 尺寸索引、预算、文件戳与确定释放。
 - [`ImageFrameInfo.cs`](../src/ModernImageViewer.Imaging/ImageFrameInfo.cs)、[`ImageOpenCoordinator.Frames.cs`](../src/ModernImageViewer.Application/Images/ImageOpenCoordinator.Frames.cs)：帧政策、当前页细化和释放完成观测。
 - [`ImageDecodeLimits.cs`](../src/ModernImageViewer.Imaging/ImageDecodeLimits.cs)：主图单图默认限制。
 - [`NeighborPreviewCache.cs`](../src/ModernImageViewer.Application/Images/NeighborPreviewCache.cs)：单张邻图预览、文件属性复核与所有权转移。

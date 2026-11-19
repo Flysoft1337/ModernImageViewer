@@ -108,7 +108,7 @@ public partial class MainWindow
             _ = Dispatcher.InvokeAsync(() =>
             {
                 if (ReferenceEquals(Keyboard.FocusedElement, button) && Mouse.Captured is null
-                    && SettingsButton.ContextMenu?.IsOpen != true)
+                    && SettingsButton.ContextMenu?.IsOpen != true && IconSizeButton.ContextMenu?.IsOpen != true)
                 {
                     Viewport.Focus();
                 }
@@ -138,6 +138,7 @@ public partial class MainWindow
 
         if (AreAnyTouchesCapturedWithin || Mouse.Captured is not null || Mouse.LeftButton == MouseButtonState.Pressed
             || Mouse.RightButton == MouseButtonState.Pressed || SettingsButton.ContextMenu?.IsOpen == true
+            || IconSizeButton.ContextMenu?.IsOpen == true
             || Toolbar.IsMouseOver || InformationPanel.IsMouseOver || Filmstrip.IsMouseOver
             || PreviewStatusOverlay.IsMouseOver || StatusBar.IsMouseOver
             || LoadingOverlay.IsMouseOver || MessageOverlay.IsMouseOver

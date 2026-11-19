@@ -191,7 +191,7 @@
           </Style.Triggers></Style></Border.Style>
           <Border.Effect><DropShadowEffect BlurRadius="24" ShadowDepth="5" Opacity="0.18" /></Border.Effect>
           <StackPanel>
-          <StackPanel x:Name="FrameControls" Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,4" Visibility="{Binding HasFrameSequence, Converter={StaticResource BooleanToVisibilityConverter}}">
+          <StackPanel x:Name="FrameControls" Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,4" Visibility="{Binding HasNumberedFrames, Converter={StaticResource BooleanToVisibilityConverter}}">
             <Button Style="{StaticResource ToolbarButtonStyle}" Click="OnAnimationToggleClick" ToolTip="{Binding AnimationPlayLabel}" AutomationProperties.Name="{Binding AnimationPlayLabel}" Visibility="{Binding IsAnimation, Converter={StaticResource BooleanToVisibilityConverter}}">
               <Path><Path.Style><Style TargetType="Path" BasedOn="{StaticResource IconStyle}"><Setter Property="Data" Value="{StaticResource Icon.Play}" /><Style.Triggers><DataTrigger Binding="{Binding IsAnimationPlaying}" Value="True"><Setter Property="Data" Value="{StaticResource Icon.Pause}" /></DataTrigger></Style.Triggers></Style></Path.Style></Path>
             </Button>
@@ -202,6 +202,17 @@
             <TextBlock Text="{Binding FrameCountText}" Width="64" FontSize="12" VerticalAlignment="Center" Margin="6,0,0,0" Foreground="{DynamicResource SecondaryTextBrush}" />
             <Button Style="{StaticResource ToolbarButtonStyle}" Click="OnNextFrameClick" ToolTip="{Binding FrameNextLabel}" AutomationProperties.Name="{Binding FrameNextLabel}" IsEnabled="{Binding CanMoveNextFrame}"><Path Style="{StaticResource IconStyle}" Data="{StaticResource Icon.Next}" /></Button>
           </StackPanel>
+          <Button x:Name="IconSizeButton" Style="{StaticResource ToolbarButtonStyle}" HorizontalAlignment="Center"
+                  Width="Auto" Padding="10,0" Margin="0,0,0,4" FontSize="12" Click="OnIconSizeClick"
+                  ToolTip="{Binding IconSizeLabel}" AutomationProperties.Name="{Binding IconSizeLabel}"
+                  AutomationProperties.ItemStatus="{Binding IconSizeText}"
+                  Visibility="{Binding HasIconSizes, Converter={StaticResource BooleanToVisibilityConverter}}">
+            <StackPanel Orientation="Horizontal">
+              <TextBlock Text="{Binding IconSizeLabel}" Foreground="{DynamicResource SecondaryTextBrush}" />
+              <TextBlock Text="{Binding IconSizeText}" Margin="8,0" />
+              <Path Data="M 0,0 L 4,4 L 8,0" Stroke="{DynamicResource SecondaryTextBrush}" StrokeThickness="1.2" VerticalAlignment="Center" />
+            </StackPanel>
+          </Button>
           <StackPanel Orientation="Horizontal">
             <Button Style="{StaticResource ToolbarButtonStyle}" Command="{Binding PreviousCommand}" ToolTip="{Binding PreviousLabel}" AutomationProperties.Name="{Binding PreviousLabel}"><Path Style="{StaticResource IconStyle}" Data="{StaticResource Icon.Previous}" /></Button>
             <Button Style="{StaticResource ToolbarButtonStyle}" Command="{Binding NextCommand}" ToolTip="{Binding NextLabel}" AutomationProperties.Name="{Binding NextLabel}"><Path Style="{StaticResource IconStyle}" Data="{StaticResource Icon.Next}" /></Button>

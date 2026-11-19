@@ -7,9 +7,10 @@ using ModernImageViewer.Imaging;
 namespace ModernImageViewer.Codecs.Frames;
 
 // Raw COM pointers keep creation, use and final Release on the session's owning thread.
-internal sealed class TiffWicContext : IDisposable
+internal sealed class WicFrameContext : IDisposable
 {
     internal static readonly Guid TiffContainer = new("163BCC30-E2E9-4F0B-961D-A3E9FDB788A3");
+    internal static readonly Guid IconContainer = new("A3A860C4-338F-4C17-919A-FBA4B5628F21");
     private static readonly Guid Pbgra32 = new("6FDDC324-4E03-4BFE-B185-3D77768DC910");
     private readonly FileStream _file;
     private static int _activeContexts;
@@ -17,7 +18,7 @@ internal sealed class TiffWicContext : IDisposable
     private nint _factory, _stream, _decoder;
     private readonly string _path;
 
-    internal TiffWicContext(string path)
+    internal WicFrameContext(string path)
     {
         _path = path;
         _file = new(path, FileMode.Open, FileAccess.Read, FileShare.Read);
@@ -33,7 +34,7 @@ internal sealed class TiffWicContext : IDisposable
             Interlocked.Increment(ref _activeContexts);
             _counted = true;
             Check(Call<GetGuid>(_decoder, 5)(_decoder, out Guid container));
-            IsTiff = container == TiffContainer;
+            ContainerFormat = container;
             Check(Call<GetCount>(_decoder, 12)(_decoder, out uint count));
             Count = checked((int)count);
             ValidateStamp();
@@ -42,7 +43,7 @@ internal sealed class TiffWicContext : IDisposable
     }
 
     internal ImageFileStamp Stamp { get; } = null!;
-    internal bool IsTiff { get; }
+    internal Guid ContainerFormat { get; }
     internal int Count { get; }
     internal static int ActiveContextCount => Volatile.Read(ref _activeContexts);
     private ImageFileStamp ReadStamp() => new(_file.Length, File.GetLastWriteTimeUtc(_path));
@@ -59,6 +60,7 @@ internal sealed class TiffWicContext : IDisposable
         {
             PixelSize size = SizeOf(frame);
             ImageDecodeLimits.Default.ValidateAndGetStride(size);
+            if (ContainerFormat != TiffContainer) { return (size, 1); }
             ushort orientation = 1;
             int hr = Call<GetObject>(frame, 8)(frame, out reader);
             if (hr >= 0)

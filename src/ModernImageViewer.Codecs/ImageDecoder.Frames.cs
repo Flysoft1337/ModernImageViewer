@@ -87,6 +87,7 @@ public sealed partial class ImageDecoder
         string extension = Path.GetExtension(path);
         if (!extension.Equals(".gif", StringComparison.OrdinalIgnoreCase)
             && !extension.Equals(".webp", StringComparison.OrdinalIgnoreCase)
+            && !extension.Equals(".ico", StringComparison.OrdinalIgnoreCase)
             && !extension.Equals(".tif", StringComparison.OrdinalIgnoreCase)
             && !extension.Equals(".tiff", StringComparison.OrdinalIgnoreCase))
         {
@@ -113,7 +114,11 @@ public sealed partial class ImageDecoder
             || signature.AsSpan(0, 4).SequenceEqual("II\x2b\0"u8)
             || signature.AsSpan(0, 4).SequenceEqual("MM\0\x2b"u8)))
         {
-            return await TiffImageFrameSession.TryOpenAsync(path, cancellationToken).ConfigureAwait(false);
+            return await WicImageFrameSession.TryOpenAsync(path, cancellationToken).ConfigureAwait(false);
+        }
+        if (signature.Length >= 6 && signature.AsSpan(0, 4).SequenceEqual("\0\0\x01\0"u8))
+        {
+            return await WicImageFrameSession.TryOpenAsync(path, cancellationToken, ImageSequenceKind.IconSizes).ConfigureAwait(false);
         }
         return null;
     }

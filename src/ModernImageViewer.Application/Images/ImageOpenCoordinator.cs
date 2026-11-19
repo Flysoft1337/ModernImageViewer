@@ -123,8 +123,16 @@ public sealed partial class ImageOpenCoordinator(IImageFilePicker filePicker, II
                 }
                 decoded = frameSession is not null || _neighborCache is null ? null : await _neighborCache.TryTakeAsync(path, token);
                 bool cached = decoded is not null;
+                int frameIndex = 0;
+                PixelSize decodeTarget = previewTarget;
+                if (frameSession?.Info is { Kind: ImageSequenceKind.IconSizes } icons)
+                {
+                    ImageFrameInfo frame = icons.SelectIconFrame(previewTarget);
+                    frameIndex = frame.Index;
+                    decodeTarget = frame.CanvasSize;
+                }
                 decoded ??= frameSession is not null
-                    ? await frameSession.DecodeFrameAsync(0, previewTarget,
+                    ? await frameSession.DecodeFrameAsync(frameIndex, decodeTarget,
                         frameSession.Info.Kind == ImageSequenceKind.Animation ? ImageFrameLimits.MaximumFrameBytes : PreviewReservedBytes, token)
                     : decoder is IPreviewImageDecoder previewDecoder
                     ? await previewDecoder.DecodePreviewAsync(path, previewTarget, token)
@@ -136,10 +144,10 @@ public sealed partial class ImageOpenCoordinator(IImageFilePicker filePicker, II
                 }
                 if (decoded.Pixels.Length > PreviewReservedBytes || decoded.Size.Width > decoded.SourceSize.Width
                     || decoded.Size.Height > decoded.SourceSize.Height
-                    || (frameSession is not null && (decoded.SourceSize != frameSession.Info.Frames[0].CanvasSize
+                    || (frameSession is not null && (decoded.SourceSize != frameSession.Info.Frames[frameIndex].CanvasSize
                         || (frameSession.Info.Kind == ImageSequenceKind.Animation && decoded.Pixels.Length > ImageFrameLimits.MaximumFrameBytes)))
                     || (!cached && decoder is IPreviewImageDecoder
-                        && (decoded.Size.Width > previewTarget.Width || decoded.Size.Height > previewTarget.Height)))
+                        && (decoded.Size.Width > decodeTarget.Width || decoded.Size.Height > decodeTarget.Height)))
                 {
                     throw new ImageSizeLimitExceededException();
                 }
@@ -162,7 +170,7 @@ public sealed partial class ImageOpenCoordinator(IImageFilePicker filePicker, II
                 State = new(ImageOpenStatus.Loaded, decoded, Path.GetFullPath(path), IsPreview: decoded.Size != decoded.SourceSize,
                     Source: new ImageSource(Guid.NewGuid(), ImageSourceKind.File), RequestId: version, Sequence: _frameSession?.Info,
                     RefinementError: frameBudgetLimited ? ImageOpenError.ImageTooLarge : ImageOpenError.None,
-                    IsSequenceUnavailable: frameBudgetLimited);
+                    FrameIndex: frameIndex, IsSequenceUnavailable: frameBudgetLimited);
                 previous.Region?.Dispose();
                 previous.Image?.Dispose();
                 if (session is not null && indexingRevision is { } revision

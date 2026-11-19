@@ -1,6 +1,6 @@
 namespace ModernImageViewer.Imaging;
 
-public enum ImageSequenceKind { Static, Animation, Pages }
+public enum ImageSequenceKind { Static, Animation, Pages, IconSizes }
 public enum ImageFrameBlend { Source, Over }
 public enum ImageFrameDisposal { Keep, Background, Previous }
 
@@ -15,6 +15,25 @@ public sealed record ImageSequenceInfo(ImageSequenceKind Kind, IReadOnlyList<Ima
 {
     public int Count => Frames.Count;
     public long DurationMilliseconds => Frames.Sum(frame => (long)frame.DurationMilliseconds);
+
+    public ImageFrameInfo SelectIconFrame(PixelSize viewport)
+    {
+        ImageFrameInfo largest = Frames.MaxBy(frame => frame.CanvasSize.PixelCount)!;
+        PixelSize source = largest.CanvasSize;
+        double scale = Math.Min(1, Math.Min((double)viewport.Width / source.Width, (double)viewport.Height / source.Height));
+        int width = (int)Math.Ceiling(source.Width * scale);
+        int height = (int)Math.Ceiling(source.Height * scale);
+        ImageFrameInfo best = largest;
+        foreach (ImageFrameInfo frame in Frames)
+        {
+            PixelSize size = frame.CanvasSize;
+            if (size.Width >= width && size.Height >= height && size.PixelCount < best.CanvasSize.PixelCount)
+            {
+                best = frame;
+            }
+        }
+        return best;
+    }
 }
 
 public static class ImageFrameLimits
