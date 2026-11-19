@@ -11,7 +11,7 @@ permissions:
 jobs:
   installer-public-04:
     name: Verify public 0.4 upgrade in an isolated Windows VM
-    runs-on: windows-2022
+    runs-on: windows-2025-vs2026
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
@@ -73,13 +73,87 @@ jobs:
             InstallerProductVersion = $versionInfo.ProductVersion.Trim()
           } | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $logs 'baseline-package.json') -Encoding utf8
 
-      - name: Check public 0.4 to 0.6.2 upgrade, reinstall and uninstall
+      - name: Start verification and pause before baseline setup
+        shell: pwsh
+        run: |
+          $logs = Join-Path $env:GITHUB_WORKSPACE 'artifacts/installer-smoke'
+          $script = Join-Path $env:GITHUB_WORKSPACE 'scripts/check-installer.ps1'
+          $source = Get-Content -LiteralPath $script -Raw
+          $marker = "    Write-InstallerCheckpoint 'InitialInstall'"
+          if ([regex]::Matches($source, [regex]::Escape($marker)).Count -ne 1) { throw 'Expected one baseline setup checkpoint.' }
+          $pause = @'
+              $gateDeadline = [DateTimeOffset]::UtcNow.AddMinutes(2)
+              until ((Test-Path -LiteralPath (Join-Path $logs 'start-baseline')) -or [DateTimeOffset]::UtcNow -ge $gateDeadline) {
+                  Start-Sleep -Milliseconds 250
+              }
+              if (-not (Test-Path -LiteralPath (Join-Path $logs 'start-baseline'))) { throw 'Missing baseline start signal.' }
+          '@
+          $instrumented = Join-Path $env:GITHUB_WORKSPACE 'scripts/check-installer-diagnostic.ps1'
+          $source.Replace($marker, ($marker + [Environment]::NewLine + $pause)) | Set-Content -LiteralPath $instrumented -Encoding utf8
+          $worker = Join-Path $env:RUNNER_TEMP 'run-installer-check.ps1'
+          @'
+          $ErrorActionPreference = 'Stop'
+          $logs = Join-Path $env:GITHUB_WORKSPACE 'artifacts/installer-smoke'
+          Set-Location -LiteralPath $env:GITHUB_WORKSPACE
+          try {
+              $installers = @(Get-ChildItem .\artifacts\installer\*-Setup.exe)
+              if ($installers.Count -ne 1) { throw 'Expected exactly one installer.' }
+              .\scripts\check-installer-diagnostic.ps1 -InstallerPath $installers[0].FullName -BaselineInstallerPath .\artifacts\baseline-0.4\ModernImageViewer-0.4.0-win-x64-Setup.exe -BaselineVersion 0.4.0 -FixtureDirectory .\artifacts\format-fixtures
+              Set-Content -LiteralPath (Join-Path $logs 'worker-result.txt') -Value 'success'
+          } catch {
+              Set-Content -LiteralPath (Join-Path $logs 'worker-result.txt') -Value 'failure'
+              throw
+          }
+          '@ | Set-Content -LiteralPath $worker -Encoding utf8
+          Start-Process -FilePath (Get-Process -Id $PID).Path -ArgumentList @('-NoLogo', '-NoProfile', '-NonInteractive', '-File', ('"{0}"' -f $worker)) -WindowStyle Hidden -RedirectStandardOutput (Join-Path $logs 'worker-stdout.txt') -RedirectStandardError (Join-Path $logs 'worker-stderr.txt')
+          $checkpoint = Join-Path $logs 'checkpoint.json'
+          $deadline = [DateTimeOffset]::UtcNow.AddSeconds(20)
+          do {
+              Start-Sleep -Milliseconds 250
+              $stage = if (Test-Path -LiteralPath $checkpoint) { (Get-Content -LiteralPath $checkpoint -Raw | ConvertFrom-Json).Stage }
+          } until ($stage -eq 'InitialInstall' -or (Test-Path -LiteralPath (Join-Path $logs 'worker-result.txt')) -or [DateTimeOffset]::UtcNow -ge $deadline)
+          Write-Host "Last checkpoint before baseline setup: $stage"
+
+      - name: Save pre-install checkpoint
+        uses: actions/upload-artifact@v7
+        with:
+          name: installer-before-baseline
+          path: artifacts/installer-smoke/**
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Start public baseline install and capture early progress
+        shell: pwsh
+        run: |
+          $logs = Join-Path $env:GITHUB_WORKSPACE 'artifacts/installer-smoke'
+          New-Item -ItemType File -Path (Join-Path $logs 'start-baseline') | Out-Null
+          Start-Sleep -Seconds 12
+          $checkpoint = Join-Path $logs 'checkpoint.json'
+          if (Test-Path -LiteralPath $checkpoint) { Get-Content -LiteralPath $checkpoint }
+
+      - name: Save early installer progress
+        uses: actions/upload-artifact@v7
+        with:
+          name: installer-after-baseline-start
+          path: artifacts/installer-smoke/**
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Read installer verification result
         timeout-minutes: 5
         shell: pwsh
         run: |
-          $installers = @(Get-ChildItem .\artifacts\installer\*-Setup.exe)
-          if ($installers.Count -ne 1) { throw 'Expected exactly one installer.' }
-          .\scripts\check-installer.ps1 -InstallerPath $installers[0].FullName -BaselineInstallerPath .\artifacts\baseline-0.4\ModernImageViewer-0.4.0-win-x64-Setup.exe -BaselineVersion 0.4.0 -FixtureDirectory .\artifacts\format-fixtures
+          $logs = Join-Path $env:GITHUB_WORKSPACE 'artifacts/installer-smoke'
+          $result = Join-Path $logs 'worker-result.txt'
+          $deadline = [DateTimeOffset]::UtcNow.AddMinutes(4)
+          until ((Test-Path -LiteralPath $result) -or [DateTimeOffset]::UtcNow -ge $deadline) {
+              Start-Sleep -Seconds 1
+          }
+          Get-Content -LiteralPath (Join-Path $logs 'worker-stdout.txt'), (Join-Path $logs 'worker-stderr.txt')
+          if (-not (Test-Path -LiteralPath $result)) { throw 'Installer worker reached its observation deadline.' }
+          if ((Get-Content -LiteralPath $result -Raw).Trim() -ne 'success') { throw 'Installer worker failed.' }
+          $report = Get-Content -LiteralPath (Join-Path $logs 'lifecycle.json') -Raw | ConvertFrom-Json
+          if (-not ($report.Success -and $report.CrossVersionUpgradeVerified -and $report.CleanupSucceeded)) { throw 'Installer lifecycle is incomplete.' }
 
       - name: Upload installer verification logs
         if: always()
