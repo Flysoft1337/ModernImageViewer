@@ -42,3 +42,18 @@ Magick15.1.0实际包的Apache-2.0正文、Copyright与原来源文件一致；�
 第三次job132665140235自02:03:31 UTC执行至02:09:41仍无结果/日志，超过原5分钟时限；再次请求普通/强制取消并停止补跑，最终取消状态仍待GitHub回传。Computer-use实时日志检查因无法可靠识别浏览器网址被停止，未获得额外日志，未绕过限制。三次均不能当升级通过，也不能证明具体依赖不兼容；不增加猜测性的重试或安装兼容层。
 
 PR #59转为草稿，原#53–#57仍保留，待实际升级验收完成后再决定合并。原始证据位于ignored的`artifacts/dependency-updates-20261115/`，包括三轮状态、失败API/取消记录、有效性能和两路安装证据。未操作本机安装/关联，公开v0.6.2 Tag及四资产已核对未变，未发新版本。
+
+## 2026-11-19 复验
+
+候选分支 `bdb6dc4` 已合入 `master` 的 `2280e2e`（含 ICO 多尺寸），保留原始 #53–#57 提交。GitHub 为 PR 构建的合并提交 `c54399b` 与候选分支同树。本机 Release 构建无警告、无错误，646 项测试通过，1 项真实 RAW 样本测试跳过。NuGet 审计未报告漏洞。
+
+[常规 Windows CI](https://github.com/Flysoft1337/ModernImageViewer/actions/runs/44493809947) 首轮 F5 刷新测试超时，未生成安装包。第二轮全量测试、依赖审计和固定 0.6.0 历史对照通过，历史对照有 6 对有效样本。同源码包装对照缺少第 6 对的浏览报告，仅完成 5 对。第三轮历史对照同样缺少浏览报告，仅完成 1 对。两轮均因此跳过安装任务。
+
+独立验证使用第二轮的 Setup（artifact `14514547180`，Setup SHA-256 `17323B6354EA3FA1FDD81E148D661DED779A8982C97742CA190C8E287BD99BA0`）和样本（artifact `14513934743`）。[第一批 Windows 2025](https://github.com/Flysoft1337/ModernImageViewer/actions/runs/44496662299) 全新安装、同版本重装、卸载、清理及用户文件保留均通过。公开 0.4.0 和 0.6.1 两路升级被 GitHub 判定超过任务 10 分钟时限，均无生命周期报告。
+
+[首次独立包装复验](https://github.com/Flysoft1337/ModernImageViewer/actions/runs/44498309803) 对应同一份候选可执行文件及同源码平铺包。第 1 对平铺版缺少浏览报告，未得到完整样本。独立验收工作流均在临时分支，候选 PR 无工作流变更。
+
+[直接执行安装脚本的 Windows 2025 验证](https://github.com/Flysoft1337/ModernImageViewer/actions/runs/44499127174) 已通过公开 0.6.1 升级。生命周期按顺序记录 `BaselineInstall`、`CrossVersionUpgrade`、`SameVersionReinstall`，关联迁移、用户文件保留、卸载和清理均通过。目标 Setup 和已安装程序 SHA-256 分别与全新安装报告一致。同批 Windows 2025 的 0.4.0 升级被 GitHub 判定超时，API 日志缺失。使用原有超时包装器的 [Windows 2022 两路升级复验](https://github.com/Flysoft1337/ModernImageViewer/actions/runs/44498317229) 也均被判定超时。
+
+[有效的独立包装对照](https://github.com/Flysoft1337/ModernImageViewer/actions/runs/44499939533) 完成 6 对，双方应用版本标识均为 `0.6.2+c54399b4c157860b3336e6204426880f3c61f666`。单文件包 / 同源码平铺包的切图耗时配对比值中位数为 `1.15015854`，超过 `1.10` 门槛。其余五项配对中位比值在门槛内。`Disposition=Failed`、`PerformanceAccepted=false`，原因 `PerformanceReviewRequired:NeighborSwitchMeanMs`。该对照检验同源码的包装形式，无法单独归因于本次依赖升级。
+最后一次 [Windows 2022 直接执行 0.4.0 升级](https://github.com/Flysoft1337/ModernImageViewer/actions/runs/44500063395/job/135477170418) 同样被 GitHub 判定超过任务 10 分钟时限，未上传生命周期报告。0.4.0 的候选升级仍未验收，通过的是全新安装与 0.6.1 升级。#59 保留草稿，#53–#57 保持开放，0.4.0 升级与包装切图结果仍需处理。

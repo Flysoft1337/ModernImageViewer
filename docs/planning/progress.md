@@ -3,6 +3,14 @@
 ## 2026-11-19：依赖 PR 复验
 
 - 在独立工作树更新 #59，保留主线 ICO 文档和原依赖验收记录。
+- `bdb6dc4` 本机 Release 构建通过，两次全量测试（其中一次启用 CI 的覆盖率收集）均为 646 通过、1 项真实 RAW 跳过。NuGet 审计未报告直接或传递依赖漏洞。
+- [CI 44493809947 首轮](https://github.com/Flysoft1337/ModernImageViewer/actions/runs/44493809947/attempts/1) 的 F5 帧刷新测试在等待刷新任务完成时超时，安装包未生成。已重新运行失败任务，保留首轮记录。
+- 第二轮通过全量测试及依赖审计，安装包 SHA-256 与 CI 校验文件一致。固定 0.6.0 历史对照 6 对样本全部有效并通过门槛。同源码包装对照在第六对缺少候选浏览报告，仅 5 对完整，三路安装被跳过。已重新执行原 CI 并启用调试日志。
+- Git 默认凭据缺少 `workflow` 权限，改用本机已有该权限的 GitHub CLI 授权推送临时验证分支。[独立安装验证](https://github.com/Flysoft1337/ModernImageViewer/actions/runs/44496662299) 固定第二轮安装包和样本的 artifact ID，复用已有三路 Windows 2025 安装脚本。
+- 独立全新安装通过，确认用户文件保留、重装、卸载和清理。第三轮常规 CI 的历史对照再次缺少浏览报告，仅 1 对完整。独立[包装比较](https://github.com/Flysoft1337/ModernImageViewer/actions/runs/44498309803)沿用原门槛和同一候选产物，两条升级另用 [Windows 2022 验证任务](https://github.com/Flysoft1337/ModernImageViewer/actions/runs/44498317229) 复验。
+
+- Windows 2025 直接运行已有安装验收脚本，0.6.1 升级取得完整通过报告，候选 Setup 与全新安装一致。
+- Windows 2025 和 Windows 2022 直接执行的 0.4.0 升级均超时，未留生命周期报告。包装切图 6 对有效样本超门槛，保留 #59 草稿和五个原始 PR。
 
 ## 2026-11-19：M1 ICO 多尺寸浏览
 
