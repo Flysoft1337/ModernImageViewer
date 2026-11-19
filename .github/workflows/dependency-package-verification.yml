@@ -66,7 +66,17 @@ jobs:
               [IO.File]::WriteAllText("$ReportPath.diagnostic.txt", $message)
           }
           '@
-          [regex]::Replace($original, $marker, { $diagnostic }) | Set-Content -LiteralPath $path -NoNewline
+          $instrumented = [regex]::Replace($original, $marker, { $diagnostic })
+          $catch = '(?m)^    catch \{ \$failure = Get-StableFailure \$_ \}\r?$'
+          if ([regex]::Matches($instrumented, $catch).Count -ne 1) { throw 'Comparison observer revision mismatch.' }
+          $diagnosticCatch = @'
+              catch {
+                  $failure = Get-StableFailure $_
+                  $message = "Observer exception: $($_.Exception.GetType().FullName)`n$($_.Exception.Message)`n$($_.ScriptStackTrace)"
+                  [IO.File]::WriteAllText("$ReportPath.observer.txt", $message)
+              }
+          '@
+          [regex]::Replace($instrumented, $catch, { $diagnosticCatch }) | Set-Content -LiteralPath $path -NoNewline
       - name: Compare flat and single-file packaging performance
         timeout-minutes: 12
         shell: pwsh
