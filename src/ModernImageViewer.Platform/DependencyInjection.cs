@@ -18,6 +18,7 @@ public static class DependencyInjection
         services.AddSingleton<IClipboardFileService, WindowsClipboardFileService>();
         services.AddSingleton<IImageClipboardService, WindowsImageClipboardService>();
         services.AddSingleton<IFileRevealService, WindowsFileRevealService>();
+        services.AddSingleton<IImageFileOperations, WindowsImageFileOperations>();
         services.AddSingleton<Func<IFileRevealService>>(provider => provider.GetRequiredService<IFileRevealService>);
         services.AddSingleton<IFileAssociationService, WindowsFileAssociationService>();
         services.AddSingleton<Func<IFileAssociationService>>(provider => provider.GetRequiredService<IFileAssociationService>);

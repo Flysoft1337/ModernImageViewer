@@ -30,12 +30,12 @@ public sealed class TiffImageFrameSessionTests
     public async Task SinglePageAndDisguisedNonTiffReturnNullAndReleaseHandles()
     {
         using Fixture file = new(TiffFixtures.Single());
-        Assert.Null(await TiffImageFrameSession.TryOpenAsync(file.Path, Token));
-        Assert.Equal(0, TiffImageFrameSession.ActiveSessionCount);
-        Assert.Equal(0, TiffImageFrameSession.ActiveContextCount);
+        Assert.Null(await WicImageFrameSession.TryOpenAsync(file.Path, Token));
+        Assert.Equal(0, WicImageFrameSession.ActiveSessionCount);
+        Assert.Equal(0, WicImageFrameSession.ActiveContextCount);
         file.AssertUnlocked();
         File.WriteAllBytes(file.Path, "not a TIFF"u8.ToArray());
-        Assert.Null(await TiffImageFrameSession.TryOpenAsync(file.Path, Token));
+        Assert.Null(await WicImageFrameSession.TryOpenAsync(file.Path, Token));
         file.AssertUnlocked();
     }
 
@@ -43,15 +43,15 @@ public sealed class TiffImageFrameSessionTests
     public async Task RandomPagesHaveIndependentDimensionsPixelsAndFileStamp()
     {
         using Fixture file = new(TiffFixtures.Multiple());
-        TiffImageFrameSession session = await Open(file.Path);
+        WicImageFrameSession session = await Open(file.Path);
         try
         {
             Assert.Equal(ImageSequenceKind.Pages, session.Info.Kind);
             Assert.Equal(3, session.Info.Count);
             Assert.Equal(1, session.Info.TotalPlays);
             Assert.True(session.Info.CanRandomAccess);
-            Assert.Equal(1, TiffImageFrameSession.ActiveSessionCount);
-            Assert.Equal(1, TiffImageFrameSession.ActiveContextCount);
+            Assert.Equal(1, WicImageFrameSession.ActiveSessionCount);
+            Assert.Equal(1, WicImageFrameSession.ActiveContextCount);
             Assert.Equal(0, session.Info.DurationMilliseconds);
             byte[] original = SHA256.HashData(File.ReadAllBytes(file.Path));
             foreach (int i in new[] { 2, 0, 1, 2 })
@@ -85,7 +85,7 @@ public sealed class TiffImageFrameSessionTests
     public async Task DetailAbove4096UsesFullPageWhenBudgetAllowsIt()
     {
         using Fixture file = new(TiffFixtures.Create(new(8, 5), new(6000, 1000)));
-        TiffImageFrameSession session = await Open(file.Path);
+        WicImageFrameSession session = await Open(file.Path);
         try
         {
             using PixelBuffer image = await session.DecodeFrameAsync(1, new(6000, 1000), 92L * 1024 * 1024, Token);
@@ -100,23 +100,23 @@ public sealed class TiffImageFrameSessionTests
     public async Task InputSourceAndPageCountLimitsReleaseContextsOnFailure()
     {
         using Fixture file = new(TiffFixtures.Create(new(8, 5), new(32769, 1)));
-        await Assert.ThrowsAsync<ImageSizeLimitExceededException>(() => TiffImageFrameSession.TryOpenAsync(file.Path, Token));
-        Assert.Equal(0, TiffImageFrameSession.ActiveContextCount);
-        Assert.Equal(0, TiffImageFrameSession.ActiveSessionCount);
+        await Assert.ThrowsAsync<ImageSizeLimitExceededException>(() => WicImageFrameSession.TryOpenAsync(file.Path, Token));
+        Assert.Equal(0, WicImageFrameSession.ActiveContextCount);
+        Assert.Equal(0, WicImageFrameSession.ActiveSessionCount);
         file.AssertUnlocked();
         File.WriteAllBytes(file.Path, TiffFixtures.OversizedPage(11000, 10000));
-        await Assert.ThrowsAsync<ImageSizeLimitExceededException>(() => TiffImageFrameSession.TryOpenAsync(file.Path, Token));
-        Assert.Equal(0, TiffImageFrameSession.ActiveContextCount);
-        Assert.Equal(0, TiffImageFrameSession.ActiveSessionCount);
+        await Assert.ThrowsAsync<ImageSizeLimitExceededException>(() => WicImageFrameSession.TryOpenAsync(file.Path, Token));
+        Assert.Equal(0, WicImageFrameSession.ActiveContextCount);
+        Assert.Equal(0, WicImageFrameSession.ActiveSessionCount);
         file.AssertUnlocked();
         File.WriteAllBytes(file.Path, TiffFixtures.Create(Enumerable.Repeat(new TiffFixtures.Page(1, 1), ImageFrameLimits.MaximumFrames + 1).ToArray()));
-        await Assert.ThrowsAsync<ImageSizeLimitExceededException>(() => TiffImageFrameSession.TryOpenAsync(file.Path, Token));
+        await Assert.ThrowsAsync<ImageSizeLimitExceededException>(() => WicImageFrameSession.TryOpenAsync(file.Path, Token));
         file.AssertUnlocked();
         using (FileStream stream = new(file.Path, FileMode.Open, FileAccess.Write, FileShare.None))
         { stream.SetLength(ImageFrameLimits.MaximumInputBytes + 1); }
-        await Assert.ThrowsAsync<ImageSizeLimitExceededException>(() => TiffImageFrameSession.TryOpenAsync(file.Path, Token));
-        Assert.Equal(0, TiffImageFrameSession.ActiveContextCount);
-        Assert.Equal(0, TiffImageFrameSession.ActiveSessionCount);
+        await Assert.ThrowsAsync<ImageSizeLimitExceededException>(() => WicImageFrameSession.TryOpenAsync(file.Path, Token));
+        Assert.Equal(0, WicImageFrameSession.ActiveContextCount);
+        Assert.Equal(0, WicImageFrameSession.ActiveSessionCount);
         file.AssertUnlocked();
     }
 
@@ -124,7 +124,7 @@ public sealed class TiffImageFrameSessionTests
     public async Task ChangedFileStampIsRejectedBeforePixelsAreRetained()
     {
         using Fixture file = new(TiffFixtures.Multiple());
-        TiffImageFrameSession session = await Open(file.Path);
+        WicImageFrameSession session = await Open(file.Path);
         try
         {
             File.SetLastWriteTimeUtc(file.Path, session.FileStamp.ModifiedUtc.AddMinutes(1));
@@ -139,7 +139,7 @@ public sealed class TiffImageFrameSessionTests
     public async Task CancellationDuringStartedWorkWaitsForReturnAndDisposesLatePixelsBeforeCompletion()
     {
         using Fixture file = new(TiffFixtures.Multiple());
-        TiffImageFrameSession session = await Open(file.Path);
+        WicImageFrameSession session = await Open(file.Path);
         using CancellationTokenSource cancel = new();
         using ManualResetEventSlim release = new();
         TaskCompletionSource started = new(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -162,8 +162,8 @@ public sealed class TiffImageFrameSessionTests
             Assert.False(work.IsCompleted);
             Assert.False(queued.IsCompleted);
             Assert.False(session.Completion.IsCompleted);
-            Assert.Equal(1, TiffImageFrameSession.ActiveContextCount);
-            Assert.Equal(1, TiffImageFrameSession.ActiveSessionCount);
+            Assert.Equal(1, WicImageFrameSession.ActiveContextCount);
+            Assert.Equal(1, WicImageFrameSession.ActiveSessionCount);
             Assert.Throws<IOException>(() => file.AssertUnlocked());
             Task<IDisposable> foreground = WicImageDecoder.DecodeSlot.AcquireAsync(DecodePriority.Foreground, Token);
             Assert.False(foreground.IsCompleted);
@@ -173,23 +173,23 @@ public sealed class TiffImageFrameSessionTests
             await Assert.ThrowsAnyAsync<OperationCanceledException>(() => queued);
             using IDisposable slot = await foreground.WaitAsync(TimeSpan.FromSeconds(5), Token);
             await session.Completion.WaitAsync(TimeSpan.FromSeconds(5), Token);
-            Assert.Equal(0, TiffImageFrameSession.ActiveContextCount);
-            Assert.Equal(0, TiffImageFrameSession.ActiveSessionCount);
+            Assert.Equal(0, WicImageFrameSession.ActiveContextCount);
+            Assert.Equal(0, WicImageFrameSession.ActiveSessionCount);
             file.AssertUnlocked();
         }
         finally { release.Set(); await Close(session); latePixels.Dispose(); }
     }
 
-    private static Task<PixelBuffer> EnqueueBlocked(TiffImageFrameSession session,
+    private static Task<PixelBuffer> EnqueueBlocked(WicImageFrameSession session,
         Func<CancellationToken, PixelBuffer> work, CancellationToken token) =>
-        (Task<PixelBuffer>)typeof(TiffImageFrameSession).GetMethod("Enqueue", BindingFlags.Instance | BindingFlags.NonPublic)!
+        (Task<PixelBuffer>)typeof(WicImageFrameSession).GetMethod("Enqueue", BindingFlags.Instance | BindingFlags.NonPublic)!
             .MakeGenericMethod(typeof(PixelBuffer)).Invoke(session, [work, token, true])!;
 
     [Fact]
     public async Task EveryPageOrientationMatchesFixedPixelsAndAsymmetricRegions()
     {
         using Fixture file = new(TiffFixtures.Orientations());
-        TiffImageFrameSession session = await Open(file.Path);
+        WicImageFrameSession session = await Open(file.Path);
         try
         {
             for (int i = 0; i < 8; i++)
@@ -235,7 +235,7 @@ public sealed class TiffImageFrameSessionTests
     public async Task TargetsBudgetsBoundsAndPageIdentityAreEnforced()
     {
         using Fixture file = new(TiffFixtures.Multiple());
-        TiffImageFrameSession session = await Open(file.Path);
+        WicImageFrameSession session = await Open(file.Path);
         try
         {
             using PixelBuffer small = await session.DecodeFrameAsync(2, new(1024, 1024), 128, Token);
@@ -259,7 +259,7 @@ public sealed class TiffImageFrameSessionTests
     public async Task BrokenLaterStripFailsWithoutDamagingEarlierPageOrKeepingPixels()
     {
         using Fixture file = new(TiffFixtures.BrokenPage());
-        TiffImageFrameSession session = await Open(file.Path);
+        WicImageFrameSession session = await Open(file.Path);
         try
         {
             using PixelBuffer first = await session.DecodeFrameAsync(0, new(8, 5), 160, Token);
@@ -270,8 +270,8 @@ public sealed class TiffImageFrameSessionTests
             Assert.Equal(0, session.RetainedPixelBytes);
         }
         finally { await Close(session); }
-        Assert.Equal(0, TiffImageFrameSession.ActiveSessionCount);
-        Assert.Equal(0, TiffImageFrameSession.ActiveContextCount);
+        Assert.Equal(0, WicImageFrameSession.ActiveSessionCount);
+        Assert.Equal(0, WicImageFrameSession.ActiveContextCount);
         file.AssertUnlocked();
     }
 
@@ -281,7 +281,7 @@ public sealed class TiffImageFrameSessionTests
         using Fixture file = new(TiffFixtures.Multiple());
         for (int i = 0; i < 8; i++)
         {
-            TiffImageFrameSession session = await Open(file.Path);
+            WicImageFrameSession session = await Open(file.Path);
             using (IDisposable slot = await WicImageDecoder.DecodeSlot.AcquireAsync(DecodePriority.Foreground, Token))
             {
                 using CancellationTokenSource cancel = new();
@@ -298,8 +298,8 @@ public sealed class TiffImageFrameSessionTests
             await session.Completion.WaitAsync(TimeSpan.FromSeconds(5), Token);
             session.Dispose();
             Assert.Equal(0, session.RetainedPixelBytes);
-            Assert.Equal(0, TiffImageFrameSession.ActiveSessionCount);
-            Assert.Equal(0, TiffImageFrameSession.ActiveContextCount);
+            Assert.Equal(0, WicImageFrameSession.ActiveSessionCount);
+            Assert.Equal(0, WicImageFrameSession.ActiveContextCount);
             file.AssertUnlocked();
         }
     }
@@ -308,9 +308,9 @@ public sealed class TiffImageFrameSessionTests
         Assert.Equal(new byte[] { (byte)(rawX * 17), (byte)(rawY * 29), (byte)(page * 19 + rawX + rawY), 255 },
             image.Pixels.Slice(y * image.Stride + x * 4, 4).ToArray());
 
-    private static async Task<TiffImageFrameSession> Open(string path) =>
-        Assert.IsType<TiffImageFrameSession>(await TiffImageFrameSession.TryOpenAsync(path, Token));
-    private static async Task Close(TiffImageFrameSession session)
+    private static async Task<WicImageFrameSession> Open(string path) =>
+        Assert.IsType<WicImageFrameSession>(await WicImageFrameSession.TryOpenAsync(path, Token));
+    private static async Task Close(WicImageFrameSession session)
     {
         session.Dispose();
         Assert.Same(session.Completion, session.ReleaseCompletion);

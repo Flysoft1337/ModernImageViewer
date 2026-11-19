@@ -190,7 +190,10 @@ public sealed class MainWindowViewModelTests
                 }
                 app.Resources.Add("BooleanToVisibilityConverter", new System.Windows.Controls.BooleanToVisibilityConverter());
                 app.Resources.Add("InverseBooleanToVisibilityConverter", new Converters.InverseBooleanToVisibilityConverter());
-                PreviewDecoder decoder = new();
+                PreviewDecoder decoder = new()
+                {
+                    Metadata = new() { Camera = "Synthetic Camera With a Long Model Name" },
+                };
                 using ImageOpenCoordinator coordinator = new(new FixedFilePicker(null), decoder);
                 using Themes.ThemeService themes = new();
                 MemorySettings preferences = new();
@@ -198,7 +201,8 @@ public sealed class MainWindowViewModelTests
                 LocalizationService localization = new(preferences);
                 PreviewClipboard clipboard = new();
                 using MainWindowViewModel viewModel = new(localization, coordinator, new ImageBrowseSession(), settings: preferences,
-                    clipboardFiles: new Platform.Integration.WindowsClipboardFileService(() => null), imageClipboard: clipboard);
+                    clipboardFiles: new Platform.Integration.WindowsClipboardFileService(() => null), imageClipboard: clipboard,
+                    fileOperations: new Platform.Integration.WindowsImageFileOperations());
                 MainWindow window = new(viewModel, themes);
                 FileAssociationWindow associations = new(new NoopFileAssociations(), new TestLocalization());
                 associations.Measure(new System.Windows.Size(620, 650));
@@ -225,6 +229,7 @@ public sealed class MainWindowViewModelTests
                 DrainBindings(window);
                 Assert.Equal(new PixelSize(4000, 3000), viewModel.CurrentImage!.SourceSize);
                 Assert.True(viewModel.ShowPreviewStatus);
+                MenuUiRegression.VerifyInformationSelection(window, themes, localization);
                 PixelBuffer previewPixels = viewModel.CurrentImage;
                 viewport.RotateRight();
                 viewport.FlipHorizontal();
@@ -268,6 +273,8 @@ public sealed class MainWindowViewModelTests
                 CapturePreviewScreenshots(window, themes, localization, "orientation");
                 VerifyOrientationMenus(window, themes, localization);
                 MenuUiRegression.VerifyLoadedState(window, themes, localization);
+                TouchViewportRegression.Verify(window);
+                MenuUiRegression.VerifyFileOperationDialogs(window, themes, localization);
                 VerifyShortcutHelp(window, themes, localization);
                 VerifyEditor(window, viewModel, themes, localization);
                 VerifyMemoryClipboard(window, viewModel, clipboard, themes, localization);
@@ -281,6 +288,7 @@ public sealed class MainWindowViewModelTests
                 Assert.True(preferences.FlushCount > 0);
                 associations.Close();
                 FrameBrowsingUiTests.VerifyCompactWindowScreenshotsAndTimers();
+                IconSizeBrowsingTests.VerifySizeMenu(themes, localization);
             }
             catch (Exception exception)
             {
@@ -472,6 +480,7 @@ public sealed class MainWindowViewModelTests
         Assert.Empty(model.CurrentFilePath);
         Assert.Empty(model.BrowseItems);
         Assert.False(model.CanCopyPath);
+        Assert.False(model.CanChangeFile);
         Assert.False(model.CanReveal);
         Assert.False(model.CanSort);
         Assert.Equal("—", model.FileSizeText);
@@ -714,6 +723,7 @@ public sealed class MainWindowViewModelTests
     private sealed class PreviewDecoder : IPreviewImageDecoder, IRegionImageDecoder
     {
         public PixelSize SourceSize { get; set; } = new(4000, 3000);
+        public ImageMetadata? Metadata { get; init; }
         public Task<PixelBuffer> DecodeAsync(string path, CancellationToken cancellationToken) =>
             Task.FromResult(CreateImage(SourceSize));
 
@@ -737,7 +747,7 @@ public sealed class MainWindowViewModelTests
                     pixels[index + 3] = 255;
                 }
             }
-            return new PixelBuffer(size, size.Width * 4, pixels, sourceSize: SourceSize);
+            return new PixelBuffer(size, size.Width * 4, pixels, Metadata, sourceSize: SourceSize);
         }
     }
 

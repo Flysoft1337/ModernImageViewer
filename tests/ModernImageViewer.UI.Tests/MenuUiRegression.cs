@@ -10,6 +10,7 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 
+using ModernImageViewer.Application.Settings;
 using ModernImageViewer.UI.Commands;
 using ModernImageViewer.UI.Controls;
 using ModernImageViewer.UI.Localization;
@@ -49,6 +50,234 @@ internal static class MenuUiRegression
         VerifySimulatedDpiLayouts(window);
         VerifyTitleBarFocus(window);
         VerifyKeyboardRouting(window);
+        VerifyZoomInput(window, themes, localization);
+        VerifyCanvasBackgroundMenu(window, themes, localization);
+    }
+
+    private static void VerifyCanvasBackgroundMenu(MainWindow window, ThemeService themes, LocalizationService localization)
+    {
+        ContextMenu menu = ((Button)window.FindName("SettingsButton")).ContextMenu!;
+        ImageViewport viewport = (ImageViewport)window.FindName("Viewport");
+        MainWindowViewModel model = (MainWindowViewModel)window.DataContext;
+        AppTheme savedTheme = themes.CurrentTheme;
+        string savedLanguage = localization.CurrentCulture.Name;
+        CanvasBackgroundMode savedMode = model.CanvasBackground;
+        try
+        {
+            foreach ((AppTheme theme, string language, CanvasBackgroundMode mode) in new[]
+            {
+                (AppTheme.Dark, "zh-CN", CanvasBackgroundMode.White),
+                (AppTheme.Light, "en-US", CanvasBackgroundMode.Black),
+            })
+            {
+                themes.Apply(theme);
+                localization.SetCulture(language);
+                menu.IsOpen = true;
+                Drain(menu);
+                MenuItem background = Item(menu, model.CanvasBackgroundLabel);
+                background.IsSubmenuOpen = true;
+                Drain(menu);
+                Assert.Equal(model.CanvasBackground, Assert.Single(background.Items.OfType<MenuItem>(), item => item.IsChecked).Tag);
+
+                MenuItem choice = background.Items.OfType<MenuItem>().Single(item => Equals(item.Tag, mode));
+                choice.RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
+                Drain(window);
+                Assert.Equal(mode, model.CanvasBackground);
+                Assert.Equal(mode, viewport.TransparencyBackground);
+                Assert.Same(choice, Assert.Single(background.Items.OfType<MenuItem>(), item => item.IsChecked));
+                choice.IsChecked = false;
+                choice.RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
+                Assert.True(choice.IsChecked);
+                SaveScreenshot(Part<Border>(background, "SubmenuSurface"), $"canvas-background-menu-{theme}-{language}-rendertarget");
+                background.IsSubmenuOpen = false;
+                menu.IsOpen = false;
+            }
+        }
+        finally
+        {
+            menu.IsOpen = false;
+            model.CanvasBackground = savedMode;
+            themes.Apply(savedTheme);
+            localization.SetCulture(savedLanguage);
+            Drain(window);
+            viewport.Focus();
+        }
+    }
+
+    private static void VerifyZoomInput(MainWindow window, ThemeService themes, LocalizationService localization)
+    {
+        TextBox input = (TextBox)window.FindName("ZoomInput");
+        ImageViewport viewport = (ImageViewport)window.FindName("Viewport");
+        MainWindowViewModel model = (MainWindowViewModel)window.DataContext;
+        double savedWidth = window.Width;
+        double savedHeight = window.Height;
+        AppTheme savedTheme = themes.CurrentTheme;
+        string savedCulture = localization.CurrentCulture.Name;
+        try
+        {
+            window.Width = 720;
+            window.Height = 480;
+            Drain(window);
+            Assert.True(input.Focus());
+            Assert.Equal(input.Text, input.SelectedText);
+            input.SetCurrentValue(TextBox.TextProperty, "37.5 %");
+            KeyEventArgs enter = KeyEvent(window, Key.Enter, Keyboard.PreviewKeyDownEvent);
+            input.RaiseEvent(enter);
+            Drain(window);
+            Assert.True(enter.Handled);
+            Assert.Equal("37.5%", input.Text);
+            Assert.Same(viewport, Keyboard.FocusedElement);
+
+            Assert.True(input.Focus());
+            input.SetCurrentValue(TextBox.TextProperty, "0");
+            input.RaiseEvent(KeyEvent(window, Key.Enter, Keyboard.PreviewKeyDownEvent));
+            Assert.Equal("37.5%", model.ZoomText);
+            Assert.True(input.IsKeyboardFocused);
+            Assert.Equal("0", input.SelectedText);
+            input.RaiseEvent(KeyEvent(window, Key.Escape, Keyboard.PreviewKeyDownEvent));
+            Drain(window);
+            Assert.Equal("37.5%", input.Text);
+            Assert.Same(viewport, Keyboard.FocusedElement);
+
+            Assert.True(input.Focus());
+            input.SetCurrentValue(TextBox.TextProperty, "200");
+            model.UpdateScale(.375);
+            Assert.Equal("200", input.Text);
+            Assert.True(viewport.Focus());
+            Assert.Equal("37.5%", input.Text);
+
+            foreach ((AppTheme theme, string culture) in new[] { (AppTheme.Dark, "zh-CN"), (AppTheme.Light, "en-US") })
+            {
+                themes.Apply(theme);
+                localization.SetCulture(culture);
+                Drain(window);
+                Assert.Equal(model.ZoomInputLabel, AutomationProperties.GetName(input));
+                Assert.True(input.Focus());
+                Drain(window);
+                Assert.Equal(ResourceColor(input, "AccentBrush"), BrushColor(Part<Border>(input, "InputBorder").BorderBrush));
+                SaveScreenshot(window, $"zoom-input-{theme}-{culture}-rendertarget");
+                viewport.Focus();
+            }
+        }
+        finally
+        {
+            window.Width = savedWidth;
+            window.Height = savedHeight;
+            themes.Apply(savedTheme);
+            localization.SetCulture(savedCulture);
+            Drain(window);
+            viewport.Fit();
+        }
+    }
+
+    public static void VerifyFileOperationDialogs(MainWindow window, ThemeService themes, LocalizationService localization)
+    {
+        MainWindowViewModel model = (MainWindowViewModel)window.DataContext;
+        AppTheme savedTheme = themes.CurrentTheme;
+        string savedLanguage = localization.CurrentCulture.Name;
+        try
+        {
+            foreach ((AppTheme theme, string language) in new[] { (AppTheme.Dark, "zh-CN"), (AppTheme.Light, "en-US") })
+            {
+                themes.Apply(theme);
+                localization.SetCulture(language);
+                foreach (bool rename in new[] { true, false })
+                {
+                    FileOperationWindow dialog = new(model, model.CurrentFilePath, rename) { Owner = window };
+                    dialog.Show();
+                    try
+                    {
+                        Drain(dialog);
+                        Button confirm = (Button)dialog.FindName("ConfirmButton");
+                        Button cancel = (Button)dialog.FindName("CancelButton");
+                        TextBox input = (TextBox)dialog.FindName("NameInput");
+                        Assert.Equal(rename, confirm.IsDefault);
+                        Assert.True(cancel.IsCancel);
+                        Assert.Equal(rename, input.IsVisible);
+                        Assert.Same(rename ? (IInputElement)input : cancel, Keyboard.FocusedElement);
+                        if (rename)
+                        {
+                            Assert.Equal(input.Text, input.SelectedText);
+                            Assert.Equal(".png", ((TextBlock)dialog.FindName("Extension")).Text);
+                        }
+                        SaveScreenshot(dialog, $"file-{(rename ? "rename" : "recycle")}-{theme}-{language}-rendertarget");
+                        if (rename)
+                        {
+                            input.Text = @"..\outside";
+                            confirm.RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
+                            Drain(dialog);
+                            Assert.Equal(localization.GetString("File_InvalidName"), ((TextBlock)dialog.FindName("Feedback")).Text);
+                            Assert.True(input.IsKeyboardFocused);
+                        }
+                    }
+                    finally
+                    {
+                        dialog.Close();
+                    }
+                }
+            }
+        }
+        finally
+        {
+            themes.Apply(savedTheme);
+            localization.SetCulture(savedLanguage);
+            Drain(window);
+        }
+    }
+
+    public static void VerifyInformationSelection(MainWindow window, ThemeService themes, LocalizationService localization)
+    {
+        MainWindowViewModel model = (MainWindowViewModel)window.DataContext;
+        FrameworkElement panel = (FrameworkElement)window.FindName("InformationPanel");
+        AppTheme savedTheme = themes.CurrentTheme;
+        string savedLanguage = localization.CurrentCulture.Name;
+        bool wasVisible = model.ShowInformation;
+        double savedWidth = window.Width;
+        double savedHeight = window.Height;
+        try
+        {
+            window.Width = 720;
+            window.Height = 480;
+            model.ShowInformation = true;
+            foreach ((AppTheme theme, string language) in new[] { (AppTheme.Dark, "zh-CN"), (AppTheme.Light, "en-US") })
+            {
+                themes.Apply(theme);
+                localization.SetCulture(language);
+                Drain(window);
+                TextBox fileName = Descendants<TextBox>(panel).Single(box => AutomationProperties.GetName(box) == model.FileNameLabel);
+                Assert.True(fileName.IsReadOnly);
+                Assert.Equal(model.CurrentFileName, fileName.Text);
+                Assert.True(fileName.Focus());
+                TextBox camera = Descendants<TextBox>(panel).Single(box => AutomationProperties.GetName(box) == localization.GetString("Exif_Camera"));
+                Assert.True(camera.IsReadOnly);
+                Assert.True(camera.Focus());
+                Assert.False(ApplicationCommands.Copy.CanExecute(null, camera));
+                camera.Select(0, "Synthetic Camera".Length);
+                Assert.Equal("Synthetic Camera", camera.SelectedText);
+                Assert.True(ApplicationCommands.Copy.CanExecute(null, camera));
+                camera.BringIntoView();
+                Drain(window);
+                Assert.Equal(ResourceColor(camera, "AccentBrush"), BrushColor(Part<Border>(camera, "ValueBorder").BorderBrush));
+                SaveScreenshot(window, $"information-selection-{theme}-{language}-rendertarget");
+            }
+
+            TextBox activeField = Assert.IsType<TextBox>(Keyboard.FocusedElement);
+            KeyEventArgs escape = KeyEvent(window, Key.Escape, Keyboard.PreviewKeyDownEvent);
+            activeField.RaiseEvent(escape);
+            Drain(window);
+            Assert.True(escape.Handled);
+            Assert.False(model.ShowInformation);
+            Assert.Same(window.FindName("Viewport"), Keyboard.FocusedElement);
+        }
+        finally
+        {
+            model.ShowInformation = wasVisible;
+            window.Width = savedWidth;
+            window.Height = savedHeight;
+            themes.Apply(savedTheme);
+            localization.SetCulture(savedLanguage);
+            Drain(window);
+        }
     }
 
     private static void VerifyLiveMenu(MainWindow window, ThemeService themes, LocalizationService localization, bool hasImage)
@@ -84,6 +313,8 @@ internal static class MenuUiRegression
                     Assert.Equal(hasImage, Item(menu, model.RefreshLabel).IsEnabled);
                     Assert.Same(model.PasteFilesCommand, Item(menu, model.PasteFilesLabel).Command);
                     MenuItem fileActions = Item(menu, model.FileActionsLabel);
+                    Assert.Equal(model.CanChangeFile, Item(fileActions, model.RenameFileLabel).IsEnabled);
+                    Assert.Equal(model.CanChangeFile, Item(fileActions, model.RecycleFileLabel).IsEnabled);
                     Assert.Same(model.CopyPreviewCommand, Item(fileActions, model.CopyPreviewLabel).Command);
                     Assert.Same(model.CopyOriginalCommand, Item(fileActions, model.CopyOriginalLabel).Command);
                     foreach (MenuItem item in MenuItems(menu))

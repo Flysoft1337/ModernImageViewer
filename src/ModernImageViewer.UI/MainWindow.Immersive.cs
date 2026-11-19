@@ -31,6 +31,8 @@ public partial class MainWindow
         PreviewMouseDown += OnImmersiveMouseActivity;
         PreviewMouseWheel += OnImmersiveMouseActivity;
         PreviewMouseUp += OnImmersivePointerReleased;
+        PreviewTouchDown += OnImmersiveTouchActivity;
+        PreviewTouchMove += OnImmersiveTouchActivity;
         Activated += OnImmersiveActivated;
         Deactivated += OnImmersiveDeactivated;
         Loaded += OnImmersiveLoaded;
@@ -49,6 +51,8 @@ public partial class MainWindow
         PreviewMouseDown -= OnImmersiveMouseActivity;
         PreviewMouseWheel -= OnImmersiveMouseActivity;
         PreviewMouseUp -= OnImmersivePointerReleased;
+        PreviewTouchDown -= OnImmersiveTouchActivity;
+        PreviewTouchMove -= OnImmersiveTouchActivity;
         Activated -= OnImmersiveActivated;
         Deactivated -= OnImmersiveDeactivated;
         Loaded -= OnImmersiveLoaded;
@@ -64,6 +68,7 @@ public partial class MainWindow
     private void OnImmersiveActivated(object? sender, EventArgs e) => RevealImmersiveControls();
     private void OnImmersiveDeactivated(object? sender, EventArgs e)
     {
+        Viewport.StopTouchManipulation();
         _immersiveTimer.Stop();
         SetChromeVisible(true);
     }
@@ -92,6 +97,7 @@ public partial class MainWindow
     }
 
     private void OnImmersiveMouseActivity(object sender, MouseEventArgs e) => RevealImmersiveControls();
+    private void OnImmersiveTouchActivity(object? sender, TouchEventArgs e) => RevealImmersiveControls();
 
     private void OnImmersivePointerReleased(object sender, MouseButtonEventArgs e)
     {
@@ -102,7 +108,7 @@ public partial class MainWindow
             _ = Dispatcher.InvokeAsync(() =>
             {
                 if (ReferenceEquals(Keyboard.FocusedElement, button) && Mouse.Captured is null
-                    && SettingsButton.ContextMenu?.IsOpen != true)
+                    && SettingsButton.ContextMenu?.IsOpen != true && IconSizeButton.ContextMenu?.IsOpen != true)
                 {
                     Viewport.Focus();
                 }
@@ -130,8 +136,9 @@ public partial class MainWindow
             return;
         }
 
-        if (Mouse.Captured is not null || Mouse.LeftButton == MouseButtonState.Pressed
+        if (AreAnyTouchesCapturedWithin || Mouse.Captured is not null || Mouse.LeftButton == MouseButtonState.Pressed
             || Mouse.RightButton == MouseButtonState.Pressed || SettingsButton.ContextMenu?.IsOpen == true
+            || IconSizeButton.ContextMenu?.IsOpen == true
             || Toolbar.IsMouseOver || InformationPanel.IsMouseOver || Filmstrip.IsMouseOver
             || PreviewStatusOverlay.IsMouseOver || StatusBar.IsMouseOver
             || LoadingOverlay.IsMouseOver || MessageOverlay.IsMouseOver

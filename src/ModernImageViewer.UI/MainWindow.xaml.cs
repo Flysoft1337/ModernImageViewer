@@ -29,6 +29,7 @@ public partial class MainWindow : Window
     private readonly ThemeService _themes;
     private readonly Func<IFileAssociationService>? _fileAssociations;
     private readonly ILocalizationService? _localization;
+    private readonly FolderChangeMonitor? _folderMonitor;
     private readonly DispatcherTimer _messageTimer = new() { Interval = TimeSpan.FromSeconds(3) };
     private readonly DispatcherTimer _slideshowTimer = new();
     private Rect _savedBounds;
@@ -39,13 +40,14 @@ public partial class MainWindow : Window
     public MainWindow(MainWindowViewModel viewModel, ThemeService themes,
         Func<IFileAssociationService>? fileAssociations = null, ILocalizationService? localization = null,
         IThumbnailDecoder? thumbnailDecoder = null, IImageExportService? imageExporter = null,
-        Func<AnimationResourceSnapshot>? animationResources = null)
+        Func<AnimationResourceSnapshot>? animationResources = null, FolderChangeMonitor? folderMonitor = null)
     {
         _viewModel = viewModel;
         _themes = themes;
         _fileAssociations = fileAssociations;
         _localization = localization;
         _imageExporter = imageExporter;
+        _folderMonitor = folderMonitor;
         ThumbnailDecoder = thumbnailDecoder;
         _themes.Initialize();
         InitializeComponent();
@@ -76,6 +78,7 @@ public partial class MainWindow : Window
             Viewport.OrientationChanged -= OnOrientationChanged;
             _viewModel.IsSlideshowPlaying = false;
             _viewModel.PropertyChanged -= OnViewModelChanged;
+            _folderMonitor?.Dispose();
             _messageTimer.Stop();
             _slideshowTimer.Stop();
             DisposeFrameControls();
@@ -115,7 +118,15 @@ public partial class MainWindow : Window
     private void OnActualSizeClick(object sender, RoutedEventArgs e) => Viewport.ActualSize();
     private void OnZoomInClick(object sender, RoutedEventArgs e) => Viewport.ZoomIn();
     private void OnZoomOutClick(object sender, RoutedEventArgs e) => Viewport.ZoomOut();
-    private void OnInformationClick(object sender, RoutedEventArgs e) => _viewModel.ShowInformation = !_viewModel.ShowInformation;
+    private void OnInformationClick(object sender, RoutedEventArgs e)
+    {
+        bool restoreCanvasFocus = _viewModel.ShowInformation && InformationPanel.IsKeyboardFocusWithin;
+        _viewModel.ShowInformation = !_viewModel.ShowInformation;
+        if (restoreCanvasFocus)
+        {
+            Viewport.Focus();
+        }
+    }
     private void OnFilmstripClick(object sender, RoutedEventArgs e) => _viewModel.ShowFilmstrip = !_viewModel.ShowFilmstrip;
     private void OnMinimizeClick(object sender, RoutedEventArgs e) => WindowState = WindowState.Minimized;
     private void OnMaximizeClick(object sender, RoutedEventArgs e) => WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
@@ -181,6 +192,7 @@ public partial class MainWindow : Window
 
     private void OnViewModelChanged(object? sender, PropertyChangedEventArgs e)
     {
+        if (e.PropertyName is null or "") { _folderMonitor?.Update(_viewModel, Dispatcher); }
         if (e.PropertyName is null or "" or nameof(MainWindowViewModel.IsSlideshowPlaying)
             or nameof(MainWindowViewModel.SlideshowSeconds) or nameof(MainWindowViewModel.IsLoading)
             or nameof(MainWindowViewModel.CanPlaySlideshow)) { UpdateSlideshowTimer(); }
@@ -232,6 +244,7 @@ public partial class MainWindow : Window
     {
         ThumbnailImage.ClearCache();
         await _viewModel.RefreshFolderAsync();
+        if (IsLoaded) { _folderMonitor?.Update(_viewModel, Dispatcher, retry: true); }
     }
 
     private void OnCopyPathClick(object sender, RoutedEventArgs e)
@@ -358,6 +371,12 @@ public partial class MainWindow : Window
             await ((Commands.AsyncRelayCommand)_viewModel.OpenCommand).ExecuteAsync();
             return;
         }
+        if (ZoomInput.IsKeyboardFocused && e.Key is Key.Enter or Key.Escape)
+        {
+            e.Handled = true;
+            if (e.Key == Key.Escape || TryApplyZoomInput()) { Viewport.Focus(); }
+            return;
+        }
         if (e.Key == Key.Escape && (_viewModel.IsFullScreen || _viewModel.IsSlideshowPlaying))
         {
             _viewModel.IsSlideshowPlaying = false;
@@ -365,6 +384,13 @@ public partial class MainWindow : Window
             {
                 ToggleFullScreen();
             }
+            e.Handled = true;
+            return;
+        }
+        if (InformationPanel.IsKeyboardFocusWithin
+            && action is ViewerAction.ToggleInformation or ViewerAction.DismissOverlay)
+        {
+            OnInformationClick(this, e);
             e.Handled = true;
             return;
         }
@@ -392,6 +418,8 @@ public partial class MainWindow : Window
             case ViewerAction.ToggleFilmstrip: OnFilmstripClick(this, e); break;
             case ViewerAction.RefreshFolder: OnRefreshClick(this, e); break;
             case ViewerAction.RevealInExplorer: OnRevealClick(this, e); break;
+            case ViewerAction.RenameFile: OnRenameClick(this, e); break;
+            case ViewerAction.RecycleFile: OnRecycleClick(this, e); break;
             case ViewerAction.RotateRight: Viewport.RotateRight(); break;
             case ViewerAction.RotateLeft: Viewport.RotateLeft(); break;
             case ViewerAction.EditImage: OnEditClick(this, e); break;

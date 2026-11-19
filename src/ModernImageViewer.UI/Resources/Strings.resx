@@ -26,7 +26,7 @@
   <data name="Empty_Title" xml:space="preserve"><value>Open an image</value></data>
   <data name="Empty_Hint" xml:space="preserve"><value>Drop an image here, or press Ctrl+O</value></data>
   <data name="Status_DimensionsFormat" xml:space="preserve"><value>{0} × {1}</value></data>
-  <data name="Status_ZoomFormat" xml:space="preserve"><value>{0:P0}</value></data>
+  <data name="Status_ZoomFormat" xml:space="preserve"><value>{0:0.##%}</value></data>
   <data name="Status_PositionFormat" xml:space="preserve"><value>{0} / {1}</value></data>
   <data name="Welcome_Title" xml:space="preserve"><value>Every image deserves a closer look</value></data>
   <data name="Welcome_Hint" xml:space="preserve"><value>Drop an image here, or open one to explore its folder.</value></data>
@@ -304,6 +304,8 @@
   <data name="Frames_Next" xml:space="preserve"><value>Next frame or page (Ctrl+PageDown)</value></data>
   <data name="Frames_Frame" xml:space="preserve"><value>Frame</value></data>
   <data name="Frames_Page" xml:space="preserve"><value>Page</value></data>
+  <data name="Frames_IconSize" xml:space="preserve"><value>Icon size</value></data>
+  <data name="Frames_IconSizeAutomatic" xml:space="preserve"><value>Automatic</value></data>
   <data name="Frames_FramePosition" xml:space="preserve"><value>Frame {0} / {1}</value></data>
   <data name="Frames_PagePosition" xml:space="preserve"><value>Page {0} / {1}</value></data>
   <data name="Frames_Duration" xml:space="preserve"><value>Duration</value></data>
@@ -316,4 +318,33 @@
   <data name="Shortcut_Action_LastFrame" xml:space="preserve"><value>Last frame / page</value></data>
   <data name="Shortcut_Action_ToggleAnimation" xml:space="preserve"><value>Play / pause animation</value></data>
   <data name="Frames_IndexHint" xml:space="preserve"><value>Go to frame or page</value></data>
+  <data name="File_RenameMenu" xml:space="preserve"><value>Rename file…</value></data>
+  <data name="File_RecycleMenu" xml:space="preserve"><value>Move to Recycle Bin…</value></data>
+  <data name="File_RenameTitle" xml:space="preserve"><value>Rename file</value></data>
+  <data name="File_RecycleTitle" xml:space="preserve"><value>Move to Recycle Bin</value></data>
+  <data name="File_RenameDescription" xml:space="preserve"><value>Enter a new name. The file extension stays the same.</value></data>
+  <data name="File_RecycleDescription" xml:space="preserve"><value>You can restore this file from the Windows Recycle Bin.</value></data>
+  <data name="File_RenameConfirm" xml:space="preserve"><value>Rename</value></data>
+  <data name="File_OperationWorking" xml:space="preserve"><value>Working on the file…</value></data>
+  <data name="File_OperationUnavailable" xml:space="preserve"><value>The current file is unavailable. Close this dialog and try again.</value></data>
+  <data name="File_InvalidName" xml:space="preserve"><value>Enter a valid file name.</value></data>
+  <data name="File_NameConflict" xml:space="preserve"><value>That name is already in use in this folder.</value></data>
+  <data name="File_OperationMissing" xml:space="preserve"><value>The file no longer exists.</value></data>
+  <data name="File_OperationAccessDenied" xml:space="preserve"><value>Windows denied access to the file.</value></data>
+  <data name="File_OperationInUse" xml:space="preserve"><value>The file is in use. Try again in a moment.</value></data>
+  <data name="File_RenameFailed" xml:space="preserve"><value>The file could not be renamed.</value></data>
+  <data name="File_RecycleFailed" xml:space="preserve"><value>The file could not be moved to the Recycle Bin.</value></data>
+  <data name="File_RenameSucceeded" xml:space="preserve"><value>File renamed.</value></data>
+  <data name="File_RecycleSucceeded" xml:space="preserve"><value>File moved to the Recycle Bin.</value></data>
+  <data name="File_RecycleNoReadableNeighbor" xml:space="preserve"><value>File moved to the Recycle Bin. No other image could be opened.</value></data>
+  <data name="Shortcut_Action_RenameFile" xml:space="preserve"><value>Rename the current file</value></data>
+  <data name="Shortcut_Action_RecycleFile" xml:space="preserve"><value>Move the current file to the Recycle Bin</value></data>
+  <data name="FolderWatch_Unavailable" xml:space="preserve"><value>Automatic folder updates are unavailable. Press F5 to refresh.</value></data>
+  <data name="Zoom_InputLabel" xml:space="preserve"><value>Zoom percentage</value></data>
+  <data name="Zoom_InputHint" xml:space="preserve"><value>Enter a percentage. Press Enter to apply or Esc to cancel.</value></data>
+  <data name="Zoom_Invalid" xml:space="preserve"><value>Enter a zoom percentage greater than zero.</value></data>
+  <data name="Canvas_Background" xml:space="preserve"><value>Canvas background</value></data>
+  <data name="Canvas_Checkerboard" xml:space="preserve"><value>Checkerboard</value></data>
+  <data name="Canvas_White" xml:space="preserve"><value>Solid white</value></data>
+  <data name="Canvas_Black" xml:space="preserve"><value>Solid black</value></data>
 </root>

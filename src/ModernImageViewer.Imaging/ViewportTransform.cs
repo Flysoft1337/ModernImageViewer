@@ -47,13 +47,29 @@ public sealed class ViewportTransform
 
     public void ZoomAt(double factor, double anchorX, double anchorY)
     {
-        if (!double.IsFinite(factor) || factor <= 0 || !double.IsFinite(anchorX) || !double.IsFinite(anchorY))
+        if (double.IsFinite(factor) && factor > 0)
+        {
+            ApplyZoom(Scale * factor, anchorX, anchorY);
+        }
+    }
+
+    public void ZoomTo(double scale, double anchorX, double anchorY)
+    {
+        if (double.IsFinite(scale) && scale > 0)
+        {
+            ApplyZoom(scale, anchorX, anchorY);
+        }
+    }
+
+    private void ApplyZoom(double scale, double anchorX, double anchorY)
+    {
+        if (!double.IsFinite(anchorX) || !double.IsFinite(anchorY))
         {
             return;
         }
 
         double oldScale = Scale;
-        double newScale = Math.Clamp(oldScale * factor, MinimumScale, MaximumScale);
+        double newScale = Math.Clamp(scale, MinimumScale, MaximumScale);
         double imageX = (anchorX - OffsetX) / oldScale;
         double imageY = (anchorY - OffsetY) / oldScale;
 

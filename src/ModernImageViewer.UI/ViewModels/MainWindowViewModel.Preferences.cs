@@ -5,6 +5,7 @@ namespace ModernImageViewer.UI.ViewModels;
 public sealed partial class MainWindowViewModel
 {
     private readonly IUserSettingsService? _settings;
+    private CanvasBackgroundMode _canvasBackground;
     internal IUserSettingsService? Settings => _settings;
 
     public WindowPlacementData? WindowPlacement => _settings?.Current.WindowPlacement;
@@ -13,6 +14,23 @@ public sealed partial class MainWindowViewModel
 
     public void FlushPreferences() => _settings?.Flush();
 
+    public string CanvasBackgroundLabel => Text("Canvas_Background");
+    public string CheckerboardBackgroundLabel => Text("Canvas_Checkerboard");
+    public string WhiteBackgroundLabel => Text("Canvas_White");
+    public string BlackBackgroundLabel => Text("Canvas_Black");
+
+    public CanvasBackgroundMode CanvasBackground
+    {
+        get => _canvasBackground;
+        set
+        {
+            if (_canvasBackground == value) { return; }
+            _canvasBackground = value;
+            OnPropertyChanged();
+            SaveBrowsingPreferences();
+        }
+    }
+
     private void InitializePreferences()
     {
         if (_settings is null) { return; }
@@ -20,6 +38,7 @@ public sealed partial class MainWindowViewModel
         _showInformation = preferences.ShowInformation;
         _showFilmstrip = preferences.ShowFilmstrip;
         _slideshowSeconds = preferences.SlideshowSeconds;
+        _canvasBackground = preferences.CanvasBackground;
         _browseSession.InitializeSortPreference(preferences.SortMode, preferences.SortDescending);
     }
 
@@ -28,7 +47,7 @@ public sealed partial class MainWindowViewModel
         if (!_disposed)
         {
             _settings?.SaveBrowsingPreferences(new BrowsingPreferencesData(
-                _showInformation, _showFilmstrip, SortMode, SortDescending, _slideshowSeconds));
+                _showInformation, _showFilmstrip, SortMode, SortDescending, _slideshowSeconds, _canvasBackground));
         }
     }
 }

@@ -46,7 +46,38 @@ public sealed partial class ImageOpenCoordinator
         return ReadFrameAsync(index, target, budget, cancellationToken);
     }
 
-    private async Task<bool> ReadFrameAsync(int index, PixelSize target, long budget, CancellationToken cancellationToken)
+    public Task<bool> SelectIconSizeAsync(int? index, ViewOrientation orientation = default,
+        CancellationToken cancellationToken = default)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        PixelSize target = orientation.QuarterTurns % 2 == 0 ? _previewTarget : new(_previewTarget.Height, _previewTarget.Width);
+        return SelectIconSizeCoreAsync(index, target, cancellationToken);
+    }
+
+    private Task<bool> SelectIconSizeCoreAsync(int? index, PixelSize target, CancellationToken cancellationToken)
+    {
+        if (_frameSession?.Info is not { Kind: ImageSequenceKind.IconSizes } icons
+            || State.Status != ImageOpenStatus.Loaded || cancellationToken.IsCancellationRequested)
+        {
+            return Task.FromResult(false);
+        }
+        int frameIndex = index ?? icons.SelectIconFrame(target).Index;
+        if (frameIndex < 0 || frameIndex >= icons.Count) { return Task.FromResult(false); }
+        if (frameIndex == State.FrameIndex)
+        {
+            CancelPendingFrame();
+            if (State.IsIconSizeAutomatic != (index is null))
+            {
+                State = State with { IsIconSizeAutomatic = index is null, RefinementError = ImageOpenError.None };
+            }
+            return Task.FromResult(true);
+        }
+        return ReadFrameAsync(frameIndex, icons.Frames[frameIndex].CanvasSize, PreviewReservedBytes,
+            cancellationToken, iconSizeAutomatic: index is null);
+    }
+
+    private async Task<bool> ReadFrameAsync(int index, PixelSize target, long budget, CancellationToken cancellationToken,
+        bool? iconSizeAutomatic = null)
     {
         if (_frameSession is not { } session || State is not { Status: ImageOpenStatus.Loaded, Image: { } old } current
             || index < 0 || index >= session.Info.Count)
@@ -85,6 +116,7 @@ public sealed partial class ImageOpenCoordinator
             {
                 Image = pixels,
                 FrameIndex = index,
+                IsIconSizeAutomatic = iconSizeAutomatic ?? current.IsIconSizeAutomatic,
                 IsPreview = pixels.Size != pixels.SourceSize,
                 Region = null,
                 IsRefining = false,
@@ -115,6 +147,11 @@ public sealed partial class ImageOpenCoordinator
         if (_frameSession is null || _frameDetail || State.Image is not { } image || State.Status != ImageOpenStatus.Loaded)
         {
             return false;
+        }
+        if (State.Sequence?.Kind == ImageSequenceKind.IconSizes)
+        {
+            if (!State.IsIconSizeAutomatic || _frameCancellation is not null) { return false; }
+            return await SelectIconSizeCoreAsync(null, target, cancellationToken);
         }
         long budget = State.Sequence?.Kind == ImageSequenceKind.Animation ? ImageFrameLimits.MaximumFrameBytes : PreviewReservedBytes;
         PixelSize desired = ImageFrameLimits.Fit(image.SourceSize, target, budget);
