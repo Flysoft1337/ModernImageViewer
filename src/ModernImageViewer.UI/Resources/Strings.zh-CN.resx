@@ -304,6 +304,8 @@
   <data name="Frames_Next" xml:space="preserve"><value>下一帧或页（Ctrl+PageDown）</value></data>
   <data name="Frames_Frame" xml:space="preserve"><value>帧</value></data>
   <data name="Frames_Page" xml:space="preserve"><value>页</value></data>
+  <data name="Frames_IconSize" xml:space="preserve"><value>图标尺寸</value></data>
+  <data name="Frames_IconSizeAutomatic" xml:space="preserve"><value>自动</value></data>
   <data name="Frames_FramePosition" xml:space="preserve"><value>第 {0} / {1} 帧</value></data>
   <data name="Frames_PagePosition" xml:space="preserve"><value>第 {0} / {1} 页</value></data>
   <data name="Frames_Duration" xml:space="preserve"><value>时长</value></data>

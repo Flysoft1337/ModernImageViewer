@@ -304,6 +304,8 @@
   <data name="Frames_Next" xml:space="preserve"><value>Next frame or page (Ctrl+PageDown)</value></data>
   <data name="Frames_Frame" xml:space="preserve"><value>Frame</value></data>
   <data name="Frames_Page" xml:space="preserve"><value>Page</value></data>
+  <data name="Frames_IconSize" xml:space="preserve"><value>Icon size</value></data>
+  <data name="Frames_IconSizeAutomatic" xml:space="preserve"><value>Automatic</value></data>
   <data name="Frames_FramePosition" xml:space="preserve"><value>Frame {0} / {1}</value></data>
   <data name="Frames_PagePosition" xml:space="preserve"><value>Page {0} / {1}</value></data>
   <data name="Frames_Duration" xml:space="preserve"><value>Duration</value></data>

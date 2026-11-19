@@ -288,6 +288,7 @@ public sealed class MainWindowViewModelTests
                 Assert.True(preferences.FlushCount > 0);
                 associations.Close();
                 FrameBrowsingUiTests.VerifyCompactWindowScreenshotsAndTimers();
+                IconSizeBrowsingTests.VerifySizeMenu(themes, localization);
             }
             catch (Exception exception)
             {

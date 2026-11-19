@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using System.Windows.Threading;
 
+using ModernImageViewer.Application.Images;
 using ModernImageViewer.Imaging;
 using ModernImageViewer.UI.ViewModels;
 
@@ -31,11 +32,16 @@ public partial class MainWindow
     private void OnPreviewPresentationChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (e.PropertyName is not (null or "" or nameof(MainWindowViewModel.Presentation))) { return; }
-        Guid? identity = _viewModel.Presentation.Source?.Identity;
-        bool sameAnimation = identity is not null && identity == _previewSourceIdentity
-            && _viewModel.Presentation.Sequence?.Kind == ImageSequenceKind.Animation;
+        var presentation = _viewModel.Presentation;
+        Guid? identity = presentation.Source?.Identity;
+        bool sameSource = identity is not null && identity == _previewSourceIdentity;
         _previewSourceIdentity = identity;
-        if (!sameAnimation) { QueuePreviewUpgrade(); }
+        if (sameSource && (presentation.Sequence?.Kind == ImageSequenceKind.Animation
+            || (presentation.Sequence?.Kind == ImageSequenceKind.IconSizes && presentation.RefinementError != ImageOpenError.None)))
+        {
+            return;
+        }
+        QueuePreviewUpgrade();
     }
 
     private void QueuePreviewUpgrade()

@@ -1,9 +1,12 @@
 using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Threading;
 
+using ModernImageViewer.Application.Images;
+using ModernImageViewer.Imaging;
 using ModernImageViewer.UI.ViewModels;
 
 namespace ModernImageViewer.UI;
@@ -102,6 +105,42 @@ public partial class MainWindow
                 await _viewModel.SeekFrameAsync(page - 1);
             }
             box.GetBindingExpression(TextBox.TextProperty)?.UpdateTarget();
+        }
+    }
+
+    private void OnIconSizeClick(object sender, RoutedEventArgs e)
+    {
+        ImageOpenState state = _viewModel.Presentation;
+        if (state is not { Status: ImageOpenStatus.Loaded, Sequence.Kind: ImageSequenceKind.IconSizes }) { return; }
+        RevealImmersiveControls();
+        ContextMenu menu = new() { PlacementTarget = IconSizeButton, Placement = PlacementMode.Top };
+        menu.Items.Add(CreateOption(_viewModel.IconSizeAutomaticLabel, null, state.IsIconSizeAutomatic));
+        menu.Items.Add(new Separator());
+        foreach (var sizes in state.Sequence.Frames.GroupBy(frame => frame.CanvasSize).OrderBy(group => group.Key.PixelCount))
+        {
+            menu.Items.Add(CreateOption(_viewModel.FormatIconSize(sizes.Key), sizes.First().Index,
+                !state.IsIconSizeAutomatic && sizes.Any(frame => frame.Index == state.FrameIndex)));
+        }
+        menu.Closed += (_, _) =>
+        {
+            if (ReferenceEquals(IconSizeButton.ContextMenu, menu)) { IconSizeButton.ContextMenu = null; }
+            RevealImmersiveControls();
+        };
+        IconSizeButton.ContextMenu = menu;
+        UpdateMenuBounds(menu);
+        menu.IsOpen = true;
+
+        MenuItem CreateOption(string label, int? index, bool selected)
+        {
+            MenuItem item = new() { Header = label, IsCheckable = true, IsChecked = selected };
+            item.Click += async (_, _) =>
+            {
+                if (state.Source?.Identity == _viewModel.Presentation.Source?.Identity)
+                {
+                    await _viewModel.SelectIconSizeAsync(index, Viewport.Orientation);
+                }
+            };
+            return item;
         }
     }
 

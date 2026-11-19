@@ -12,21 +12,26 @@ public sealed partial class MainWindowViewModel
     private int? _frameNavigationTarget;
 
     public bool HasFrameSequence => Presentation.Sequence is { Count: > 1 };
+    public bool HasIconSizes => Presentation.Sequence?.Kind == ImageSequenceKind.IconSizes;
+    public bool HasNumberedFrames => HasFrameSequence && !HasIconSizes;
+    public string IconSizeLabel => Text("Frames_IconSize");
+    public string IconSizeAutomaticLabel => Text("Frames_IconSizeAutomatic");
+    public string IconSizeText => HasIconSizes ? FormatIconSize(Presentation.Sequence!.Frames[Presentation.FrameIndex].CanvasSize) : string.Empty;
     public bool IsAnimation => Presentation.Sequence?.Kind == ImageSequenceKind.Animation;
     public bool IsAnimationPlaying => _framePlayback?.IsPlaying == true;
     public bool IsAnimationEnded => _framePlayback?.IsEnded == true;
     public bool CanEditStatic => HasImage && !IsChangingFile && !HasFrameSequence && !Presentation.IsSequenceUnavailable;
-    public bool CanMovePreviousFrame => HasFrameSequence && (IsAnimation || FrameNavigationIndex > 0);
-    public bool CanMoveNextFrame => HasFrameSequence && (IsAnimation || FrameNavigationIndex < Presentation.Sequence!.Count - 1);
+    public bool CanMovePreviousFrame => HasNumberedFrames && (IsAnimation || FrameNavigationIndex > 0);
+    public bool CanMoveNextFrame => HasNumberedFrames && (IsAnimation || FrameNavigationIndex < Presentation.Sequence!.Count - 1);
     public string AnimationPlayLabel => Text(IsAnimationPlaying ? "Frames_Pause" : "Frames_Play");
     public string AnimationRestartLabel => Text("Frames_Restart");
     public string FramePreviousLabel => Text("Frames_Previous");
     public string FrameNextLabel => Text("Frames_Next");
-    public string FramePositionLabel => Text(IsAnimation ? "Frames_Frame" : "Frames_Page");
+    public string FramePositionLabel => HasIconSizes ? IconSizeLabel : Text(IsAnimation ? "Frames_Frame" : "Frames_Page");
     public string FrameIndexHint => Text("Frames_IndexHint");
     public string FrameIndexText => (Presentation.FrameIndex + 1).ToString(_localization.CurrentCulture);
     public string FrameCountText => $"/ {Presentation.Sequence?.Count.ToString(_localization.CurrentCulture)}";
-    public string FrameStatusText => HasFrameSequence ? string.Format(_localization.CurrentCulture,
+    public string FrameStatusText => HasIconSizes ? IconSizeText : HasNumberedFrames ? string.Format(_localization.CurrentCulture,
         Text(IsAnimation ? "Frames_FramePosition" : "Frames_PagePosition"), Presentation.FrameIndex + 1, Presentation.Sequence!.Count) : string.Empty;
     public string FrameDurationText => Presentation.Sequence is { Kind: ImageSequenceKind.Animation } info
         ? TimeSpan.FromMilliseconds(info.DurationMilliseconds).ToString(@"m\:ss\.ff", _localization.CurrentCulture) : string.Empty;
@@ -75,6 +80,7 @@ public sealed partial class MainWindowViewModel
     {
         OnPropertyChanged(nameof(FrameIndexText));
         OnPropertyChanged(nameof(FrameStatusText));
+        OnPropertyChanged(nameof(IconSizeText));
         OnPropertyChanged(nameof(CanMovePreviousFrame));
         OnPropertyChanged(nameof(CanMoveNextFrame));
     }
@@ -119,7 +125,7 @@ public sealed partial class MainWindowViewModel
 
     public Task<bool> MoveFrameAsync(int delta)
     {
-        if (!HasFrameSequence) { return Task.FromResult(false); }
+        if (!HasNumberedFrames) { return Task.FromResult(false); }
         int index = FrameNavigationIndex + delta;
         int count = Presentation.Sequence!.Count;
         if (IsAnimation) { index = (index % count + count) % count; }
@@ -129,7 +135,7 @@ public sealed partial class MainWindowViewModel
 
     public async Task<bool> SeekFrameAsync(int index)
     {
-        if (_disposed || IsChangingFile || !HasFrameSequence || !_coordinator.HasFrameSession || index < 0 || index >= Presentation.Sequence!.Count)
+        if (_disposed || IsChangingFile || !HasNumberedFrames || !_coordinator.HasFrameSession || index < 0 || index >= Presentation.Sequence!.Count)
         {
             return false;
         }
@@ -143,6 +149,11 @@ public sealed partial class MainWindowViewModel
             NotifyFrameProperties();
         }
     }
+
+    public string FormatIconSize(PixelSize size) => string.Format(_localization.CurrentCulture, "{0} × {1}", size.Width, size.Height);
+
+    public Task<bool> SelectIconSizeAsync(int? index, ViewOrientation orientation) => _disposed || IsChangingFile
+        ? Task.FromResult(false) : _coordinator.SelectIconSizeAsync(index, orientation);
 
     private void UpdateFramePlayback(ImageOpenState state)
     {
@@ -174,7 +185,8 @@ public sealed partial class MainWindowViewModel
     {
         if (_disposed) { return; }
         string[] properties = [nameof(HasFrameSequence), nameof(IsAnimation), nameof(IsAnimationPlaying),
-            nameof(IsAnimationEnded), nameof(AnimationPlayLabel), nameof(AnimationRestartLabel), nameof(FrameStatusText),
+            nameof(IsAnimationEnded), nameof(HasIconSizes), nameof(HasNumberedFrames), nameof(IconSizeLabel),
+            nameof(IconSizeAutomaticLabel), nameof(IconSizeText), nameof(AnimationPlayLabel), nameof(AnimationRestartLabel), nameof(FrameStatusText),
             nameof(FrameIndexText), nameof(FrameCountText), nameof(FramePositionLabel), nameof(FrameDurationText),
             nameof(FrameLoopText), nameof(FrameDurationLabel), nameof(FrameLoopLabel), nameof(FramePreviousLabel),
             nameof(FrameNextLabel), nameof(CanMovePreviousFrame), nameof(CanMoveNextFrame), nameof(CanEditStatic)];

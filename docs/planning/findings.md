@@ -1,5 +1,10 @@
 # 发现记录
 
+## 2026-11-19：M1 ICO 多尺寸浏览
+
+- 路线图的 N4 已覆盖 GIF、WebP 和 TIFF，待补 ICO 的视口尺寸选择和尺寸列表。Windows WIC 已接入 ICO 解码，复用现有帧读取契约。
+- Windows WIC 可能重排 ICO 目录中的条目。尺寸菜单从 WIC 报告的像素大小生成，解码用同一 WIC 索引。测试检查尺寸集合而非文件目录顺序。
+
 ## 2026-11-19：M1 触控与开放 PR 合并
 
 - WPF 触控增量提供当前接触中心和自上次以来的平移。先围绕上一帧中心缩放，再把中心平移到当前点。 [WPF ManipulationSequence](https://github.com/dotnet/wpf/blob/main/src/Microsoft.DotNet.Wpf/src/System.Windows.Input.Manipulations/System/Windows/Input/Manipulations/ManipulationSequence.cs)
