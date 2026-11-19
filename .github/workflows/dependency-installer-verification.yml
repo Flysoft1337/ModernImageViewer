@@ -18,18 +18,26 @@ jobs:
         with:
           ref: bdb6dc4aaeac33d0616d6b64280857866ecf8f3f
           persist-credentials: false
-      - uses: actions/download-artifact@v8
-        with:
-          github-token: ${{ github.token }}
-          run-id: 44493809947
-          artifact-ids: 14514547180
-          path: artifacts/installer
-      - uses: actions/download-artifact@v8
-        with:
-          github-token: ${{ github.token }}
-          run-id: 44493809947
-          artifact-ids: 14513934743
-          path: artifacts/format-fixtures
+      - name: Download pinned artifact 14514547180
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $archive = Join-Path $env:RUNNER_TEMP '14514547180.zip'
+          gh api 'repos/${{ github.repository }}/actions/artifacts/14514547180/zip' > $archive
+          if ($LASTEXITCODE -ne 0) { throw 'Pinned artifact download failed.' }
+          if ((Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash -ine '4b674d753e0db91405fc201bb582c6919091b9e7731cda2a702de1bb0f5d2d3d') { throw 'Pinned artifact digest mismatch.' }
+          Expand-Archive -LiteralPath $archive -DestinationPath 'artifacts/installer'
+      - name: Download pinned artifact 14513934743
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $archive = Join-Path $env:RUNNER_TEMP '14513934743.zip'
+          gh api 'repos/${{ github.repository }}/actions/artifacts/14513934743/zip' > $archive
+          if ($LASTEXITCODE -ne 0) { throw 'Pinned artifact download failed.' }
+          if ((Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash -ine 'b82e461bafca4a1f6f3db8b070d5f9bfdcaeadbfae0c25d414a2eae6bb23f4f4') { throw 'Pinned artifact digest mismatch.' }
+          Expand-Archive -LiteralPath $archive -DestinationPath 'artifacts/format-fixtures'
       - name: Download and verify public v0.4.0 upgrade baseline
         shell: pwsh
         run: |
@@ -91,18 +99,26 @@ jobs:
         with:
           ref: bdb6dc4aaeac33d0616d6b64280857866ecf8f3f
           persist-credentials: false
-      - uses: actions/download-artifact@v8
-        with:
-          github-token: ${{ github.token }}
-          run-id: 44493809947
-          artifact-ids: 14514547180
-          path: artifacts/installer
-      - uses: actions/download-artifact@v8
-        with:
-          github-token: ${{ github.token }}
-          run-id: 44493809947
-          artifact-ids: 14513934743
-          path: artifacts/format-fixtures
+      - name: Download pinned artifact 14514547180
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $archive = Join-Path $env:RUNNER_TEMP '14514547180.zip'
+          gh api 'repos/${{ github.repository }}/actions/artifacts/14514547180/zip' > $archive
+          if ($LASTEXITCODE -ne 0) { throw 'Pinned artifact download failed.' }
+          if ((Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash -ine '4b674d753e0db91405fc201bb582c6919091b9e7731cda2a702de1bb0f5d2d3d') { throw 'Pinned artifact digest mismatch.' }
+          Expand-Archive -LiteralPath $archive -DestinationPath 'artifacts/installer'
+      - name: Download pinned artifact 14513934743
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $archive = Join-Path $env:RUNNER_TEMP '14513934743.zip'
+          gh api 'repos/${{ github.repository }}/actions/artifacts/14513934743/zip' > $archive
+          if ($LASTEXITCODE -ne 0) { throw 'Pinned artifact download failed.' }
+          if ((Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash -ine 'b82e461bafca4a1f6f3db8b070d5f9bfdcaeadbfae0c25d414a2eae6bb23f4f4') { throw 'Pinned artifact digest mismatch.' }
+          Expand-Archive -LiteralPath $archive -DestinationPath 'artifacts/format-fixtures'
       - name: Download and verify public v0.6.1 upgrade baseline
         timeout-minutes: 5
         shell: pwsh
