@@ -1,0 +1,63 @@
+name: Dependency package verification
+on:
+  push:
+    branches: [test/dependency-package-validation]
+permissions:
+  actions: read
+  contents: read
+jobs:
+  package:
+    runs-on: windows-2022
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: c54399b4c157860b3336e6204426880f3c61f666
+          persist-credentials: false
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+          cache: true
+          cache-dependency-path: |
+            Directory.Packages.props
+            **/*.csproj
+      - uses: actions/download-artifact@v8
+        with:
+          github-token: ${{ github.token }}
+          run-id: 44493809947
+          artifact-ids: 14514547180
+          path: artifacts/ci-package
+      - name: Verify and extract the pinned CI candidate
+        shell: pwsh
+        run: |
+          $portable = Get-Item -LiteralPath artifacts/ci-package/ModernImageViewer-0.6.2-win-x64-Portable.zip
+          $expected = ((Get-Content -LiteralPath "$($portable.FullName).sha256" -Raw).Trim() -split '\s+')[0]
+          if ((Get-FileHash -LiteralPath $portable.FullName -Algorithm SHA256).Hash -ine $expected) { throw 'Candidate portable digest mismatch.' }
+          Expand-Archive -LiteralPath $portable.FullName -DestinationPath artifacts/ci-candidate
+          $candidate = 'artifacts/ci-candidate/app/ModernImageViewer.App.exe'
+          if ((Get-FileHash -LiteralPath $candidate -Algorithm SHA256).Hash -cne '8F76825A7571EB1F3DBCD48166B66AF0AC49D449152DB852C4763D92113D8387') { throw 'Candidate executable digest mismatch.' }
+      - name: Build bundled RAW preview bridge
+        shell: pwsh
+        run: .\scripts\build-raw-native.ps1
+      - name: Publish same-source flat comparison package
+        timeout-minutes: 5
+        shell: pwsh
+        run: |
+          dotnet publish .\src\ModernImageViewer.App\ModernImageViewer.App.csproj --configuration Release --runtime win-x64 --self-contained true --output .\artifacts\packaging-flat-comparison -p:PublishSingleFile=false -p:EnableCompressionInSingleFile=false
+          if ($LASTEXITCODE -ne 0) { throw 'Flat comparison publish failed.' }
+          $candidate = Get-Item -LiteralPath artifacts/ci-candidate/app/ModernImageViewer.App.exe
+          $flat = Get-Item -LiteralPath artifacts/packaging-flat-comparison/ModernImageViewer.App.exe
+          if ($flat.VersionInfo.ProductVersion -cne $candidate.VersionInfo.ProductVersion) { throw 'Packaging comparison source revision mismatch.' }
+      - name: Compare flat and single-file packaging performance
+        timeout-minutes: 12
+        shell: pwsh
+        run: |
+          .\scripts\invoke-static-comparison.ps1 -BaselineAppPath .\artifacts\packaging-flat-comparison\ModernImageViewer.App.exe -CandidateAppPath .\artifacts\ci-candidate\app\ModernImageViewer.App.exe -Pairs 6 -WarmupPairs 1 -OutputDirectory .\artifacts\packaging\static-comparison -RequireValid
+      - name: Upload packaging verification
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: dependency-packaging-verification
+          path: artifacts/packaging/**
+          if-no-files-found: warn
+          retention-days: 14
