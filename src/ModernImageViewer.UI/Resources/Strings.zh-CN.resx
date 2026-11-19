@@ -26,7 +26,7 @@
   <data name="Empty_Title" xml:space="preserve"><value>打开图片</value></data>
   <data name="Empty_Hint" xml:space="preserve"><value>将图片拖放到此处，或按 Ctrl+O</value></data>
   <data name="Status_DimensionsFormat" xml:space="preserve"><value>{0} × {1}</value></data>
-  <data name="Status_ZoomFormat" xml:space="preserve"><value>{0:P0}</value></data>
+  <data name="Status_ZoomFormat" xml:space="preserve"><value>{0:0.##%}</value></data>
   <data name="Status_PositionFormat" xml:space="preserve"><value>{0} / {1}</value></data>
   <data name="Welcome_Title" xml:space="preserve"><value>每一张图片，都值得细看</value></data>
   <data name="Welcome_Hint" xml:space="preserve"><value>拖入一张图片，或打开图片开始浏览整个文件夹</value></data>
@@ -316,4 +316,33 @@
   <data name="Shortcut_Action_LastFrame" xml:space="preserve"><value>最后一帧 / 页</value></data>
   <data name="Shortcut_Action_ToggleAnimation" xml:space="preserve"><value>播放 / 暂停动画</value></data>
   <data name="Frames_IndexHint" xml:space="preserve"><value>跳到指定帧或页</value></data>
+  <data name="File_RenameMenu" xml:space="preserve"><value>重命名文件…</value></data>
+  <data name="File_RecycleMenu" xml:space="preserve"><value>移到回收站…</value></data>
+  <data name="File_RenameTitle" xml:space="preserve"><value>重命名文件</value></data>
+  <data name="File_RecycleTitle" xml:space="preserve"><value>移到回收站</value></data>
+  <data name="File_RenameDescription" xml:space="preserve"><value>输入新文件名，扩展名会保留。</value></data>
+  <data name="File_RecycleDescription" xml:space="preserve"><value>可从 Windows 回收站恢复此文件。</value></data>
+  <data name="File_RenameConfirm" xml:space="preserve"><value>重命名</value></data>
+  <data name="File_OperationWorking" xml:space="preserve"><value>正在处理文件…</value></data>
+  <data name="File_OperationUnavailable" xml:space="preserve"><value>当前文件不可操作。请关闭此窗口后重试。</value></data>
+  <data name="File_InvalidName" xml:space="preserve"><value>请输入有效的文件名。</value></data>
+  <data name="File_NameConflict" xml:space="preserve"><value>此文件夹中已有同名项目。</value></data>
+  <data name="File_OperationMissing" xml:space="preserve"><value>文件已不存在。</value></data>
+  <data name="File_OperationAccessDenied" xml:space="preserve"><value>Windows 拒绝了对此文件的访问。</value></data>
+  <data name="File_OperationInUse" xml:space="preserve"><value>文件正被占用，请稍后重试。</value></data>
+  <data name="File_RenameFailed" xml:space="preserve"><value>无法重命名此文件。</value></data>
+  <data name="File_RecycleFailed" xml:space="preserve"><value>无法将此文件移到回收站。</value></data>
+  <data name="File_RenameSucceeded" xml:space="preserve"><value>文件已重命名。</value></data>
+  <data name="File_RecycleSucceeded" xml:space="preserve"><value>文件已移到回收站。</value></data>
+  <data name="File_RecycleNoReadableNeighbor" xml:space="preserve"><value>文件已移到回收站，其余图片均无法打开。</value></data>
+  <data name="Shortcut_Action_RenameFile" xml:space="preserve"><value>重命名当前文件</value></data>
+  <data name="Shortcut_Action_RecycleFile" xml:space="preserve"><value>将当前文件移到回收站</value></data>
+  <data name="FolderWatch_Unavailable" xml:space="preserve"><value>文件夹自动更新暂不可用。按 F5 手动刷新。</value></data>
+  <data name="Zoom_InputLabel" xml:space="preserve"><value>缩放百分比</value></data>
+  <data name="Zoom_InputHint" xml:space="preserve"><value>输入百分比，按 Enter 应用，按 Esc 取消。</value></data>
+  <data name="Zoom_Invalid" xml:space="preserve"><value>请输入大于 0 的缩放百分比。</value></data>
+  <data name="Canvas_Background" xml:space="preserve"><value>画布背景</value></data>
+  <data name="Canvas_Checkerboard" xml:space="preserve"><value>棋盘格</value></data>
+  <data name="Canvas_White" xml:space="preserve"><value>纯白</value></data>
+  <data name="Canvas_Black" xml:space="preserve"><value>纯黑</value></data>
 </root>

@@ -33,6 +33,8 @@ public sealed partial class MainWindowViewModel
     private async Task PasteFilesAsync()
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
+        await WaitForFileOperationAsync();
+        if (_disposed) { return; }
         ImageClipboardInput input;
         try
         {
@@ -68,10 +70,15 @@ public sealed partial class MainWindowViewModel
             _refreshCancellation?.Cancel();
             using CancellationTokenSource cancellation = new();
             _folderCancellation = cancellation;
+            OnPropertyChanged(nameof(CanChangeFile));
             try { await _coordinator.OpenMemoryAsync(image, _browseSession, cancellation.Token); }
             finally
             {
-                if (ReferenceEquals(_folderCancellation, cancellation)) { _folderCancellation = null; }
+                if (ReferenceEquals(_folderCancellation, cancellation))
+                {
+                    _folderCancellation = null;
+                    if (!_disposed) { OnPropertyChanged(nameof(CanChangeFile)); }
+                }
             }
         }
         else

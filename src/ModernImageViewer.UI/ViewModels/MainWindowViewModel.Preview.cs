@@ -28,6 +28,6 @@ public sealed partial class MainWindowViewModel
     public long CurrentRequestId => _coordinator.RequestVersion;
     internal long CachedNeighborBytes => _coordinator.CachedNeighborBytes;
     public void SetPreviewTarget(PixelSize target) => _coordinator.SetPreviewTarget(target);
-    public Task<bool> UpgradePreviewAsync(PixelSize target, ViewOrientation orientation) => _disposed
+    public Task<bool> UpgradePreviewAsync(PixelSize target, ViewOrientation orientation) => _disposed || IsChangingFile
         ? Task.FromResult(false) : _coordinator.UpgradePreviewAsync(target, orientation);
 }

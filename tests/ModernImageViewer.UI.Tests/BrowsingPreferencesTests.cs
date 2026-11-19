@@ -15,7 +15,7 @@ public sealed class BrowsingPreferencesTests
     [Fact]
     public void InitializationRestoresPreferencesWithoutDecodingOrStartingPlayback()
     {
-        MemorySettings settings = new(new UserSettingsSnapshot(Browsing: new(true, false, BrowseSortMode.Size, true, 10)));
+        MemorySettings settings = new(new UserSettingsSnapshot(Browsing: new(true, false, BrowseSortMode.Size, true, 10, CanvasBackgroundMode.White)));
         CountingDecoder decoder = new();
         using ImageOpenCoordinator coordinator = new(new NullPicker(), decoder);
         ImageBrowseSession session = new();
@@ -24,6 +24,7 @@ public sealed class BrowsingPreferencesTests
         Assert.True(viewModel.ShowInformation);
         Assert.False(viewModel.ShowFilmstrip);
         Assert.Equal(10, viewModel.SlideshowSeconds);
+        Assert.Equal(CanvasBackgroundMode.White, viewModel.CanvasBackground);
         Assert.Equal(BrowseSortMode.Size, viewModel.SortMode);
         Assert.True(viewModel.SortDescending);
         Assert.False(viewModel.IsSlideshowPlaying);
@@ -54,6 +55,7 @@ public sealed class BrowsingPreferencesTests
                 Assert.True(await viewModel.ChangeSortAsync(BrowseSortMode.Name, true));
                 viewModel.ShowInformation = true;
                 viewModel.ShowFilmstrip = false;
+                viewModel.CanvasBackground = CanvasBackgroundMode.Black;
                 viewModel.SlideshowSeconds = 10;
                 settings.SaveLanguage("zh-CN");
                 settings.SaveTheme("Light");
@@ -63,7 +65,8 @@ public sealed class BrowsingPreferencesTests
             using ImageOpenCoordinator reopenedCoordinator = new(new NullPicker(), new CountingDecoder());
             ImageBrowseSession reopenedSession = new();
             using MainWindowViewModel restored = new(new LocalizationService(reopened), reopenedCoordinator, reopenedSession, settings: reopened);
-            Assert.Equal(new BrowsingPreferencesData(true, false, BrowseSortMode.Name, true, 10), reopened.Current.Browsing);
+            Assert.Equal(new BrowsingPreferencesData(true, false, BrowseSortMode.Name, true, 10, CanvasBackgroundMode.Black), reopened.Current.Browsing);
+            Assert.Equal(CanvasBackgroundMode.Black, restored.CanvasBackground);
             Assert.Equal("zh-CN", reopened.Language);
             Assert.Equal("Light", reopened.Theme);
             Assert.True(await restored.OpenFolderAsync(directory));

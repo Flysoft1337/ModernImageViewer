@@ -31,6 +31,23 @@ public partial class MainWindow
         _messageTimer.Start();
     }
 
+    private void OnRenameClick(object sender, RoutedEventArgs e) => ShowFileOperation(rename: true);
+
+    private void OnRecycleClick(object sender, RoutedEventArgs e) => ShowFileOperation(rename: false);
+
+    private void ShowFileOperation(bool rename)
+    {
+        if (!_viewModel.CanChangeFile) { return; }
+        _viewModel.IsSlideshowPlaying = false;
+        FileOperationWindow dialog = new(_viewModel, _viewModel.CurrentFilePath, rename) { Owner = this };
+        if (dialog.ShowDialog() == true)
+        {
+            _messageTimer.Stop();
+            _messageTimer.Start();
+        }
+        Viewport.Focus();
+    }
+
     private void OnShortcutHelpClick(object sender, RoutedEventArgs e) => ShowShortcutHelp();
 
     private void ShowShortcutHelp()

@@ -14,17 +14,26 @@ public sealed record WindowPlacementData(
         && double.IsFinite(DpiScale) && DpiScale is >= 0.5 and <= 8;
 }
 
+public enum CanvasBackgroundMode
+{
+    Checkerboard,
+    White,
+    Black,
+}
+
 public sealed record BrowsingPreferencesData(
     bool ShowInformation = false,
     bool ShowFilmstrip = true,
     BrowseSortMode SortMode = BrowseSortMode.Name,
     bool SortDescending = false,
-    int SlideshowSeconds = 5)
+    int SlideshowSeconds = 5,
+    CanvasBackgroundMode CanvasBackground = CanvasBackgroundMode.Checkerboard)
 {
     public BrowsingPreferencesData Normalize() => this with
     {
         SortMode = Enum.IsDefined(SortMode) ? SortMode : BrowseSortMode.Name,
         SlideshowSeconds = SlideshowSeconds is >= 2 and <= 30 ? SlideshowSeconds : 5,
+        CanvasBackground = Enum.IsDefined(CanvasBackground) ? CanvasBackground : CanvasBackgroundMode.Checkerboard,
     };
 }
 

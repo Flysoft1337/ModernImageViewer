@@ -15,7 +15,7 @@ public sealed partial class MainWindowViewModel
     public bool IsAnimation => Presentation.Sequence?.Kind == ImageSequenceKind.Animation;
     public bool IsAnimationPlaying => _framePlayback?.IsPlaying == true;
     public bool IsAnimationEnded => _framePlayback?.IsEnded == true;
-    public bool CanEditStatic => HasImage && !HasFrameSequence && !Presentation.IsSequenceUnavailable;
+    public bool CanEditStatic => HasImage && !IsChangingFile && !HasFrameSequence && !Presentation.IsSequenceUnavailable;
     public bool CanMovePreviousFrame => HasFrameSequence && (IsAnimation || FrameNavigationIndex > 0);
     public bool CanMoveNextFrame => HasFrameSequence && (IsAnimation || FrameNavigationIndex < Presentation.Sequence!.Count - 1);
     public string AnimationPlayLabel => Text(IsAnimationPlaying ? "Frames_Pause" : "Frames_Play");
@@ -43,7 +43,7 @@ public sealed partial class MainWindowViewModel
 
     public async Task ToggleAnimationAsync()
     {
-        if (_disposed || _framePlayback is not { } playback || !_coordinator.HasFrameSession) { return; }
+        if (_disposed || IsChangingFile || _framePlayback is not { } playback || !_coordinator.HasFrameSession) { return; }
         if (playback.IsPlaying)
         {
             playback.Pause();
@@ -59,7 +59,7 @@ public sealed partial class MainWindowViewModel
 
     public async Task RestartAnimationAsync()
     {
-        if (_disposed || _framePlayback is not { } playback || !_coordinator.HasFrameSession) { return; }
+        if (_disposed || IsChangingFile || _framePlayback is not { } playback || !_coordinator.HasFrameSession) { return; }
         playback.Restart();
         NotifyFrameProperties();
         await _coordinator.PresentFrameAsync(0);
@@ -129,7 +129,7 @@ public sealed partial class MainWindowViewModel
 
     public async Task<bool> SeekFrameAsync(int index)
     {
-        if (_disposed || !HasFrameSequence || !_coordinator.HasFrameSession || index < 0 || index >= Presentation.Sequence!.Count)
+        if (_disposed || IsChangingFile || !HasFrameSequence || !_coordinator.HasFrameSession || index < 0 || index >= Presentation.Sequence!.Count)
         {
             return false;
         }
