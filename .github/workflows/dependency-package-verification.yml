@@ -52,6 +52,21 @@ jobs:
           $candidate = Get-Item -LiteralPath artifacts/ci-candidate/app/ModernImageViewer.App.exe
           $flat = Get-Item -LiteralPath artifacts/packaging-flat-comparison/ModernImageViewer.App.exe
           if ($flat.VersionInfo.ProductVersion -cne $candidate.VersionInfo.ProductVersion) { throw 'Packaging comparison source revision mismatch.' }
+      - name: Preserve child diagnostics when the comparison report is missing
+        shell: pwsh
+        run: |
+          $path = 'scripts/measure-static-comparison.ps1'
+          $original = Get-Content -LiteralPath $path -Raw
+          $marker = '(?m)^        \[void\]\$stderr\.GetAwaiter\(\)\.GetResult\(\)\r?$'
+          if ([regex]::Matches($original, $marker).Count -ne 1) { throw 'Comparison harness revision mismatch.' }
+          $diagnostic = @'
+          $childError = $stderr.GetAwaiter().GetResult()
+          if (-not [IO.File]::Exists($ReportPath)) {
+              $message = "Driver exited with code $($process.ExitCode).`n$childError"
+              [IO.File]::WriteAllText("$ReportPath.diagnostic.txt", $message)
+          }
+          '@
+          [regex]::Replace($original, $marker, { $diagnostic }) | Set-Content -LiteralPath $path -NoNewline
       - name: Compare flat and single-file packaging performance
         timeout-minutes: 12
         shell: pwsh
