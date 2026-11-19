@@ -21,12 +21,16 @@ jobs:
           cache-dependency-path: |
             Directory.Packages.props
             **/*.csproj
-      - uses: actions/download-artifact@v8
-        with:
-          github-token: ${{ github.token }}
-          run-id: 44493809947
-          artifact-ids: 14514547180
-          path: artifacts/ci-package
+      - name: Download pinned artifact 14514547180
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $archive = Join-Path $env:RUNNER_TEMP '14514547180.zip'
+          gh api 'repos/${{ github.repository }}/actions/artifacts/14514547180/zip' > $archive
+          if ($LASTEXITCODE -ne 0) { throw 'Pinned artifact download failed.' }
+          if ((Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash -ine '4b674d753e0db91405fc201bb582c6919091b9e7731cda2a702de1bb0f5d2d3d') { throw 'Pinned artifact digest mismatch.' }
+          Expand-Archive -LiteralPath $archive -DestinationPath 'artifacts/ci-package'
       - name: Verify and extract the pinned CI candidate
         shell: pwsh
         run: |
