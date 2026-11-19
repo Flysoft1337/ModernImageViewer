@@ -57,3 +57,13 @@ PR #59转为草稿，原#53–#57仍保留，待实际升级验收完成后再�
 
 [有效的独立包装对照](https://github.com/Flysoft1337/ModernImageViewer/actions/runs/44499939533) 完成 6 对，双方应用版本标识均为 `0.6.2+c54399b4c157860b3336e6204426880f3c61f666`。单文件包 / 同源码平铺包的切图耗时配对比值中位数为 `1.15015854`，超过 `1.10` 门槛。其余五项配对中位比值在门槛内。`Disposition=Failed`、`PerformanceAccepted=false`，原因 `PerformanceReviewRequired:NeighborSwitchMeanMs`。该对照检验同源码的包装形式，无法单独归因于本次依赖升级。
 最后一次 [Windows 2022 直接执行 0.4.0 升级](https://github.com/Flysoft1337/ModernImageViewer/actions/runs/44500063395/job/135477170418) 同样被 GitHub 判定超过任务 10 分钟时限，未上传生命周期报告。0.4.0 的候选升级仍未验收，通过的是全新安装与 0.6.1 升级。#59 保留草稿，#53–#57 保持开放，0.4.0 升级与包装切图结果仍需处理。
+
+## 2026-11-19 公开 0.4.0 升级验收
+
+[阶段快照复验](https://github.com/Flysoft1337/ModernImageViewer/actions/runs/44503608783/job/135489393272) 校验并下载了公开 0.4.0 基线，独立产物记录已进入 `InitialInstall`。暂停前及发出启动信号 12 秒后的快照均停在该检查点，未记录旧 Setup 的启动。此前取消的任务缺少运行日志，现有证据无法定位那些超时的具体原因。
+
+[完整升级验收](https://github.com/Flysoft1337/ModernImageViewer/actions/runs/44503972694/job/135490623058) 在 `windows-2025-vs2026` 托管镜像中以后台步骤执行 `bdb6dc4` 的原版安装验收脚本，并独立记录进程。快照记录旧 Setup 和候选 Setup 依次执行，验收以成功状态结束，生命周期报告为 artifact `14518781902`。公开基线 Setup SHA-256 为 `BC645E8CD2A4EBADEB10B4A8A3698BE6045F2643F7311A9BBF673476D9AE55B6`。候选 Setup 与已安装程序的 SHA-256 均和全新安装、公开 0.6.1 升级两份报告一致。
+
+完整报告依次记录 `BaselineInstall`、`CrossVersionUpgrade`、`SameVersionReinstall`。关联在升级时未勾选对应任务的情况下完成迁移，快捷方式、旧文件保护、冗余 OpenGL 文件清理、用户文件保留、安装后文件激活、卸载和清理均通过。临时诊断工作流独立于 #59。
+
+按用户确认，本次暂缓处理包装性能结果，以三路安装验收作为 #59 的安装交付依据。包装切图耗时仍保留原测量和门槛判定。
