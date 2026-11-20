@@ -12,8 +12,10 @@
   #error InstallerOutputDirectory must be supplied by the build script
 #endif
 
+#define AppGuid "A2E8F5A0-6526-4C87-ADE1-04DE4A7F41C0"
+
 [Setup]
-AppId={{A2E8F5A0-6526-4C87-ADE1-04DE4A7F41C0}
+AppId={{{#AppGuid}}
 AppName=Modern Image Viewer
 AppVersion={#AppVersion}
 AppPublisher=Flysoft1337
@@ -21,6 +23,8 @@ AppPublisherURL=https://github.com/Flysoft1337/ModernImageViewer
 AppSupportURL=https://github.com/Flysoft1337/ModernImageViewer/issues
 AppUpdatesURL=https://github.com/Flysoft1337/ModernImageViewer
 DefaultDirName={localappdata}\Programs\ModernImageViewer
+DisableDirPage=no
+AppendDefaultDirName=no
 DefaultGroupName=Modern Image Viewer
 DisableProgramGroupPage=yes
 PrivilegesRequired=lowest
@@ -36,6 +40,7 @@ OutputBaseFilename=ModernImageViewer-{#AppVersion}-win-x64-Setup
 Compression=lzma2/max
 LZMADictionarySize=32768
 SolidCompression=yes
+SetupIconFile=..\..\src\ModernImageViewer.App\Assets\ModernImageViewer.ico
 UninstallDisplayIcon={app}\app\ModernImageViewer.App.exe
 CloseApplications=yes
 RestartApplications=no
@@ -55,12 +60,14 @@ english.PsdPreview=Show PSD thumbnails and previews in File Explorer
 english.DesktopShortcut=Create a desktop shortcut
 english.OpenViewer=Open Modern Image Viewer
 english.UninstallViewer=Uninstall Modern Image Viewer
+english.InstalledDirectory=To upgrade or reinstall, use the existing folder: %1. To change the folder, uninstall the existing version first.
 english.AssociationCollision=The Open with registration belongs to another application. Clear the Open with option to continue installing without changing that registration.
 chinesesimplified.Associations=加入支持的图片格式的“打开方式”候选
 chinesesimplified.PsdPreview=在资源管理器中显示 PSD 缩略图和预览
 chinesesimplified.DesktopShortcut=创建桌面快捷方式
 chinesesimplified.OpenViewer=打开 Modern Image Viewer
 chinesesimplified.UninstallViewer=卸载 Modern Image Viewer
+chinesesimplified.InstalledDirectory=升级或重装请使用现有安装目录：%1。如需更换位置，请先卸载现有版本。
 chinesesimplified.AssociationCollision=此“打开方式”注册项已被其他应用占用。请取消打开方式选项，再继续安装；现有注册将被保留。
 
 [Tasks]
@@ -92,6 +99,7 @@ var
   RemovePreviousGlfw: Boolean;
 
 const
+  UninstallKey = 'Software\Microsoft\Windows\CurrentVersion\Uninstall\{{#AppGuid}}_is1';
   AppKey = 'Software\ModernImageViewer\Installed';
   CapabilitiesKey = 'Software\ModernImageViewer\Installed\Capabilities';
   ProgId = 'ModernImageViewer.Installed.Image';
@@ -187,6 +195,23 @@ begin
   if RegValueExists(HKCU, RegisteredApplicationsKey, ApplicationId) then
     Result := Result and RegQueryStringValue(HKCU, RegisteredApplicationsKey, ApplicationId, Value)
       and (Value = CapabilitiesKey);
+end;
+
+function NextButtonClick(CurPageID: Integer): Boolean;
+var
+  PreviousDir, MessageText: String;
+begin
+  Result := True;
+  if CurPageID <> wpSelectDir then exit;
+  if RegQueryStringValue(HKCU, UninstallKey, 'Inno Setup: App Path', PreviousDir)
+    and (PreviousDir <> '')
+    and (CompareText(RemoveBackslashUnlessRoot(PreviousDir),
+      RemoveBackslashUnlessRoot(WizardDirValue())) <> 0) then begin
+    MessageText := FmtMessage(CustomMessage('InstalledDirectory'), [PreviousDir]);
+    Log(MessageText);
+    SuppressibleMsgBox(MessageText, mbError, MB_OK, IDOK);
+    Result := False;
+  end;
 end;
 
 function PrepareToInstall(var NeedsRestart: Boolean): String;
