@@ -4,7 +4,7 @@
 
 当前重点为 **0.6 动画与多页浏览**：GIF/WebP 动画播放、暂停、重播、逐帧定位及 TIFF 多页浏览已通过固定像素样本和 Windows CI 验证，实际边界见[本批验收](docs/animation-multipage-validation.md)。已有常见静态格式、文件夹/多选浏览、缩放/平移/全屏、幻灯片、缩略图、排序和文件关联；支持中英文、深浅/系统主题、常见 EXIF 和方向纠正。RAW 仍仅内嵌预览，AVIF/HEIF 仍仅静态首图；本批不扩编辑或完整 RAW 显影。显示器/高位深色彩管理仍待完成。0.5 历史验证见[浏览收口记录](docs/browsing-core-closeout.md)，本批方案见[动画与多页方案](docs/animation-multipage-plan.md)。
 
-**当前开发格式：12 类、25 个扩展名。** 常见静态格式、JPEG XR、受限 SVG、AVIF、HEIF，以及 RAW 内嵌预览（DNG/CR2/CR3/NEF/ARW/RAF/RW2/ORF/PEF）。AVIF/HEIF 使用随包 Magick.NET，静态首图、最大32MP/128MiB输入；RAW使用固定LibRaw0.22.2桥接，最大256MiB输入/32MiB预览，尺寸代表内嵌预览，不是传感器；没有可读预览时反馈，不进行完整显影。GIF/WebP 动画与 TIFF 分页已实现；开发版的多尺寸 ICO 可自动或手动选择尺寸，受限SVG不支持文字、外部资源、复杂合成和动画。缩略图与邻图缓存继续只保存代表帧/首页，不持有播放会话。详细边界见[格式支持](docs/decoder-support.md)；[格式与编辑记录](docs/raw-modern-editing.md)是此前批次的验收记录。公开v0.4.0仍只有原9扩展名。
+**当前开发格式：13 类、26 个扩展名。** 常见静态格式、JPEG XR、受限 SVG、AVIF、HEIF、PSD 合成图，以及 RAW 内嵌预览（DNG/CR2/CR3/NEF/ARW/RAF/RW2/ORF/PEF）。AVIF/HEIF 使用随包 Magick.NET，静态首图、最大32MP/128MiB输入；RAW使用固定LibRaw0.22.2桥接，最大256MiB输入/32MiB预览，尺寸代表内嵌预览，不是传感器；没有可读预览时反馈，不进行完整显影。GIF/WebP 动画与 TIFF 分页已实现；开发版的多尺寸 ICO 可自动或手动选择尺寸，受限SVG不支持文字、外部资源、复杂合成和动画。缩略图与邻图缓存继续只保存代表帧/首页，不持有播放会话。PSD 读取已保存的合成图，支持合成透明度。安装版的“在资源管理器中显示 PSD 缩略图和预览”选项在全新安装时默认选中，图标视图显示缩略图，按 `Alt+P` 可展开预览窗格。详细边界见[格式支持](docs/decoder-support.md)；[格式与编辑记录](docs/raw-modern-editing.md)是此前批次的验收记录。公开v0.4.0仍只有原9扩展名。
 
 **下载与公开状态**见[GitHub Releases](https://github.com/Flysoft1337/ModernImageViewer/releases)。此前[v0.6.0](https://github.com/Flysoft1337/ModernImageViewer/releases/tag/v0.6.0)作为公开测试版分发；其[发布说明](docs/release-notes/0.6.0.md)包含v0.4.0以来的编辑调整/标注、格式与浏览累计更新，历史验证见[收口验收](docs/release-closeout-0.6.0.md)。0.6.2发布流程见下文；真实人工交互、混合DPI与跨设备低内存长测尚未完成，不宣称完整人工验收、所有格式零退化或P95。
 

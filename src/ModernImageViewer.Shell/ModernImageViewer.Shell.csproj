@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <PublishAot Condition="'$(RuntimeIdentifier)' == 'win-x64'">true</PublishAot>
+    <NativeLib>Shared</NativeLib>
+    <RuntimeFrameworkVersion Condition="'$(PublishAot)' == 'true'">10.0.15</RuntimeFrameworkVersion>
+  </PropertyGroup>
+  <ItemGroup>
+    <KnownILCompilerPack Update="Microsoft.DotNet.ILCompiler" ILCompilerPackVersion="$(RuntimeFrameworkVersion)" Condition="'$(PublishAot)' == 'true'" />
+    <ProjectReference Include="../ModernImageViewer.Application/ModernImageViewer.Application.csproj" />
+    <ProjectReference Include="../ModernImageViewer.Imaging/ModernImageViewer.Imaging.csproj" />
+    <PackageReference Include="Magick.NET-Q8-x64" />
+    <Compile Include="../ModernImageViewer.Codecs/Modern/PsdComposite.cs" Link="PsdComposite.cs" />
+    <None Update="policy.xml" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

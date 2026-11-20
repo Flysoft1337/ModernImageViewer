@@ -163,6 +163,7 @@ jobs:
           .\scripts\check-file-activation.ps1
           -AppPath .\artifacts\publish\win-x64\ModernImageViewer.App.exe
           -FixtureDirectory .\artifacts\format-fixtures
+          -IncludePsd
 
       - name: Observe browsing phases and continuity smoke
         shell: pwsh

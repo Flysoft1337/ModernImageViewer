@@ -1,7 +1,8 @@
 #Requires -Version 7.0
 param(
     [Parameter(Mandatory)][string]$AppPath,
-    [string]$FixtureDirectory
+    [string]$FixtureDirectory,
+    [switch]$IncludePsd
 )
 
 $ErrorActionPreference = "Stop"
@@ -58,6 +59,7 @@ try {
     if ($FixtureDirectory) {
         $fixturePath = (Resolve-Path $FixtureDirectory).Path
         $formatGroups = @(".jpg;.jpeg", ".png", ".bmp", ".gif", ".tif;.tiff", ".ico", ".webp", ".jxr;.wdp;.hdp", ".svg", ".avif", ".heif;.heic", ".dng;.cr2;.cr3;.nef;.arw;.raf;.rw2;.orf;.pef")
+        if ($IncludePsd) { $formatGroups += '.psd' }
         $imageExtensions = @($formatGroups | ForEach-Object { $_.Split(';') })
         $fixtures = @(Get-ChildItem -LiteralPath $fixturePath -File |
             Where-Object { $_.Extension.ToLowerInvariant() -in $imageExtensions } | Sort-Object Name)
@@ -73,7 +75,7 @@ try {
             Wait-ForImage $primary $fixture.Name
             $currentName = $fixture.Name
         }
-        Write-Output "Published application opened real JPEG, PNG, BMP, GIF, TIFF, ICO, WebP, JPEG XR, restricted SVG, AVIF, HEIF and RAW embedded-preview fixtures."
+        Write-Output "Published application opened fixtures for $($formatGroups -join ', ')."
     }
     $activation = Start-Viewer @()
     Assert-Forwarded $activation

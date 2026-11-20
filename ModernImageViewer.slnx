@@ -11,6 +11,7 @@
     <Project Path="src/ModernImageViewer.Metadata/ModernImageViewer.Metadata.csproj" />
     <Project Path="src/ModernImageViewer.Platform/ModernImageViewer.Platform.csproj" />
     <Project Path="src/ModernImageViewer.Rendering/ModernImageViewer.Rendering.csproj" />
+    <Project Path="src/ModernImageViewer.Shell/ModernImageViewer.Shell.csproj" />
     <Project Path="src/ModernImageViewer.UI/ModernImageViewer.UI.csproj" />
   </Folder>
   <Folder Name="/tests/">
