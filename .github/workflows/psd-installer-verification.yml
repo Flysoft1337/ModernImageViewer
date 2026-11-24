@@ -65,12 +65,34 @@ jobs:
           } | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $logs 'baseline-package.json') -Encoding utf8
 
       - name: Check public 0.4 to 0.6.2 upgrade, reinstall and uninstall
+        id: installer
+        background: true
         timeout-minutes: 5
         shell: pwsh
         run: |
           $installers = @(Get-ChildItem .\artifacts\installer\*-Setup.exe)
           if ($installers.Count -ne 1) { throw 'Expected exactly one installer.' }
           .\scripts\invoke-installer-check.ps1 -InstallerPath $installers[0].FullName -BaselineInstallerPath .\artifacts\baseline-0.4\ModernImageViewer-0.4.0-win-x64-Setup.exe -BaselineVersion 0.4.0 -FixtureDirectory .\artifacts\format-fixtures
+
+      - name: Record installer checkpoints while verification runs
+        shell: pwsh
+        run: |
+          $logs = Join-Path $env:GITHUB_WORKSPACE 'artifacts/installer-smoke'
+          for ($sample = 0; $sample -lt 10; $sample++) {
+              $checkpoint = Join-Path $logs 'checkpoint.json'
+              if (Test-Path -LiteralPath $checkpoint) { Get-Content -LiteralPath $checkpoint -Raw | Write-Host }
+              if (Test-Path -LiteralPath (Join-Path $logs 'lifecycle.json')) { break }
+              Start-Sleep -Seconds 3
+          }
+
+      - name: Wait for installer verification
+        wait: installer
+
+      - name: Verify the lifecycle result
+        shell: pwsh
+        run: |
+          $report = Get-Content -LiteralPath 'artifacts/installer-smoke/lifecycle.json' -Raw | ConvertFrom-Json
+          if (-not ($report.Success -and $report.CrossVersionUpgradeVerified -and $report.CleanupSucceeded)) { throw 'Installer lifecycle is incomplete.' }
 
       - name: Upload installer verification logs
         if: always()
