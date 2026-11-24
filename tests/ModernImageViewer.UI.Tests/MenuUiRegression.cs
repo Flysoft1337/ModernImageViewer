@@ -609,7 +609,7 @@ internal static class MenuUiRegression
         }
     }
 
-    private static void SaveScreenshot(FrameworkElement element, string name, double scale = 1)
+    internal static void SaveScreenshot(FrameworkElement element, string name, double scale = 1)
     {
         string? directory = Environment.GetEnvironmentVariable("MIV_UI_SCREENSHOT_DIRECTORY");
         if (string.IsNullOrEmpty(directory)) { return; }

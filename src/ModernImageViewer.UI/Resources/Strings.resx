@@ -58,6 +58,8 @@
   <data name="Command_PauseSlideshow" xml:space="preserve"><value>Pause slideshow · F6</value></data>
   <data name="Menu_Slideshow" xml:space="preserve"><value>Start slideshow</value></data>
   <data name="Menu_PauseSlideshow" xml:space="preserve"><value>Pause slideshow</value></data>
+  <data name="Slideshow_PlayingFormat" xml:space="preserve"><value>Slideshow playing · {0} s</value></data>
+  <data name="Slideshow_PausedFormat" xml:space="preserve"><value>Slideshow paused · {0} s</value></data>
   <data name="Slideshow_Speed" xml:space="preserve"><value>Slideshow interval</value></data>
   <data name="Slideshow_2Seconds" xml:space="preserve"><value>2 seconds</value></data>
   <data name="Slideshow_5Seconds" xml:space="preserve"><value>5 seconds</value></data>
