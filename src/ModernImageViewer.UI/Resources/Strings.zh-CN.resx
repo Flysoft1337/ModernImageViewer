@@ -4,6 +4,9 @@
   <resheader name="version"><value>2.0</value></resheader>
   <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms</value></resheader>
   <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms</value></resheader>
+  <data name="Accessibility_Canvas" xml:space="preserve"><value>图片画布</value></data>
+  <data name="Accessibility_CurrentThumbnail" xml:space="preserve"><value>当前图片</value></data>
+  <data name="Accessibility_ImageOpened" xml:space="preserve"><value>{0}，宽 {1} 像素，高 {2} 像素</value></data>
   <data name="MainWindow_Title" xml:space="preserve"><value>现代图片查看器</value></data>
   <data name="MainWindow_StatusSkeletonRunning" xml:space="preserve"><value>打开图片以开始</value></data>
   <data name="Language_Label" xml:space="preserve"><value>语言</value></data>
@@ -139,6 +142,7 @@
   <data name="Shortcut_Action_RefreshFolder" xml:space="preserve"><value>刷新文件夹与当前图片</value></data>
   <data name="Shortcut_Action_ToggleSlideshow" xml:space="preserve"><value>播放或暂停幻灯片</value></data>
   <data name="Shortcut_Action_ToggleInformation" xml:space="preserve"><value>显示或隐藏文件信息</value></data>
+  <data name="Shortcut_Action_CycleBrowsingFocus" xml:space="preserve"><value>在浏览区域间切换焦点</value></data>
   <data name="Shortcut_Action_ToggleFilmstrip" xml:space="preserve"><value>显示或隐藏缩略图条</value></data>
   <data name="Shortcut_Action_ToggleFullScreen" xml:space="preserve"><value>进入或退出全屏</value></data>
   <data name="Shortcut_Action_DismissOverlay" xml:space="preserve"><value>停止播放 / 退出全屏 / 隐藏信息</value></data>

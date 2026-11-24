@@ -89,6 +89,16 @@ public sealed partial class MainWindowViewModel : INotifyPropertyChanged, IDispo
             _ => string.Empty,
         };
 
+    internal string BrowsingStatusAnnouncement => IsLoading ? string.Empty
+        : _messageKey is not null ? Text(_messageKey)
+        : Presentation.Status == ImageOpenStatus.Error ? Text($"Error_{Presentation.Error}") : string.Empty;
+
+    internal string ImageAnnouncement => string.Format(_localization.CurrentCulture,
+        Text("Accessibility_ImageOpened"), CurrentFileName, CurrentImage?.SourceSize.Width, CurrentImage?.SourceSize.Height);
+
+    public string CanvasLabel => Text("Accessibility_Canvas");
+    public string CurrentThumbnailLabel => Text("Accessibility_CurrentThumbnail");
+
     public string CurrentFileName => Presentation.IsMemorySource ? Text("Clipboard_Image") : _coordinator.State.FilePath is null
         ? string.Empty
         : Path.GetFileName(_coordinator.State.FilePath);

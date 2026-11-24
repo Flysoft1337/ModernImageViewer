@@ -195,6 +195,7 @@
     <Setter Property="Margin" Value="3,0" />
     <Style.Triggers>
       <DataTrigger Binding="{Binding IsCurrent}" Value="True">
+        <Setter Property="AutomationProperties.ItemStatus" Value="{Binding DataContext.CurrentThumbnailLabel, RelativeSource={RelativeSource AncestorType=Window}}" />
         <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
         <Setter Property="Background" Value="{DynamicResource AccentSurfaceBrush}" />
       </DataTrigger>

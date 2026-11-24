@@ -4,6 +4,7 @@ using System.Reflection;
 using System.Resources;
 using System.Windows;
 using System.Windows.Automation;
+using System.Windows.Automation.Peers;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
@@ -330,6 +331,7 @@ public sealed class FrameBrowsingUiTests
             Assert.Null(FrameViewportTests.Field<DispatcherTimer>(window, "_frameTimer"));
             Assert.Equal(0, model.ActiveFrameControllers);
             VerifySlideshowStatus(window, model, themes, localization);
+            VerifyBrowsingAccessibility(window, model, localization);
             OpenSelection(coordinator, browse, "frames.gif");
             Drain(window);
             Assert.True(window.IsActive);
@@ -391,6 +393,90 @@ public sealed class FrameBrowsingUiTests
             Assert.Equal(0, model.ActiveFrameControllers);
         }
         finally { window?.Close(); }
+    }
+
+    private static void VerifyBrowsingAccessibility(MainWindow window, MainWindowViewModel model, LocalizationService localization)
+    {
+        ImageViewport viewport = (ImageViewport)window.FindName("Viewport");
+        TextBox fileName = (TextBox)window.FindName("InformationFileName");
+        FrameworkElement filmstrip = (FrameworkElement)window.FindName("Filmstrip");
+        bool savedFilmstrip = model.ShowFilmstrip;
+        bool savedInformation = model.ShowInformation;
+        string savedCulture = localization.CurrentCulture.Name;
+        try
+        {
+            localization.SetCulture("en-US");
+            model.ShowFilmstrip = true;
+            model.ShowInformation = true;
+            Drain(window);
+
+            AutomationPeer peer = UIElementAutomationPeer.CreatePeerForElement(viewport)!;
+            Assert.Equal(AutomationControlType.Image, peer.GetAutomationControlType());
+            Assert.Equal("Image canvas", peer.GetName());
+            Assert.Equal("static.png", peer.GetItemStatus());
+            Assert.StartsWith("static.png, ", model.ImageAnnouncement, StringComparison.Ordinal);
+            model.ShowMessage("Error_CorruptFile");
+            Assert.Equal(localization.GetString("Error_CorruptFile"), model.BrowsingStatusAnnouncement);
+            model.ShowMessage(null);
+            Assert.Empty(model.BrowsingStatusAnnouncement);
+            Assert.Equal("Move focus between browsing areas", ShortcutCatalog.CreateHelpGroups(localization)
+                .SelectMany(group => group.Rows).Single(row => row.Action == ViewerAction.CycleBrowsingFocus).Description);
+
+            Assert.True(viewport.Focus());
+            PressFocusShortcut(window);
+            Assert.True(filmstrip.IsKeyboardFocusWithin);
+            Button currentThumbnail = Assert.IsType<Button>(Keyboard.FocusedElement);
+            Assert.Equal("static.png", AutomationProperties.GetName(currentThumbnail));
+            Assert.Equal("Current image", AutomationProperties.GetItemStatus(currentThumbnail));
+            KeyEventArgs right = new(Keyboard.PrimaryDevice, PresentationSource.FromVisual(window), 0, Key.Right);
+            Invoke(window, "OnPreviewKeyDown", window, right);
+            Assert.False(right.Handled);
+            Assert.True(currentThumbnail.MoveFocus(new TraversalRequest(FocusNavigationDirection.Right)));
+            Assert.Equal("next.png", AutomationProperties.GetName(Assert.IsType<Button>(Keyboard.FocusedElement)));
+            PressFocusShortcut(window);
+            Assert.True(fileName.IsKeyboardFocused);
+            Assert.True(fileName.IsReadOnly);
+            PressFocusShortcut(window);
+            Assert.True(viewport.IsKeyboardFocused);
+
+            model.ShowFilmstrip = false;
+            Drain(window);
+            PressFocusShortcut(window);
+            Assert.True(fileName.IsKeyboardFocused);
+            Invoke(window, "OnInformationClick", window, new RoutedEventArgs());
+            Assert.True(viewport.IsKeyboardFocused);
+            PressFocusShortcut(window);
+            Assert.True(viewport.IsKeyboardFocused);
+
+            model.ShowInformation = true;
+            Invoke(window, "ToggleFullScreen");
+            Drain(window);
+            Invoke(window, "SetChromeVisible", false);
+            Drain(window);
+            Assert.False(fileName.IsVisible);
+            PressFocusShortcut(window);
+            Assert.True(fileName.IsKeyboardFocused);
+        }
+        finally
+        {
+            if (model.IsFullScreen) { Invoke(window, "ToggleFullScreen"); }
+            model.ShowFilmstrip = savedFilmstrip;
+            model.ShowInformation = savedInformation;
+            localization.SetCulture(savedCulture);
+            Drain(window);
+            viewport.Focus();
+        }
+    }
+
+    private static void PressFocusShortcut(MainWindow window)
+    {
+        KeyEventArgs args = new(Keyboard.PrimaryDevice, PresentationSource.FromVisual(window), 0, Key.F8)
+        {
+            RoutedEvent = Keyboard.PreviewKeyDownEvent,
+        };
+        Invoke(window, "OnPreviewKeyDown", window, args);
+        Drain(window);
+        Assert.True(args.Handled);
     }
 
     private static void VerifySlideshowStatus(MainWindow window, MainWindowViewModel model, ThemeService themes,
