@@ -392,15 +392,12 @@ begin
   NotifyAssociations($08000000, 0, 0, 0);
 end;
 
-function LegacyAssociationsOwned(): Boolean;
-var
-  LegacyPath: String;
+function AssociationsOwnedAt(Path: String): Boolean;
 begin
-  LegacyPath := ExpandConstant('{app}\ModernImageViewer.App.exe');
   Result := ReadMatching(AppKey, 'Owner', Owner)
     and ReadMatching(ProgIdKey, 'Owner', Owner)
-    and ReadMatching(AppKey, 'ExecutablePath', LegacyPath)
-    and ReadMatching(ProgIdKey + '\shell\open\command', '', '"' + LegacyPath + '" "%1"')
+    and ReadMatching(AppKey, 'ExecutablePath', Path)
+    and ReadMatching(ProgIdKey + '\shell\open\command', '', '"' + Path + '" "%1"')
     and AssociationIdentityAvailable();
 end;
 
@@ -525,7 +522,8 @@ begin
     end;
   end;
   if CurStep = ssPostInstall then begin
-    if WizardIsTaskSelected('fileassoc') or LegacyAssociationsOwned() then RegisterAssociations();
+    if WizardIsTaskSelected('fileassoc') or AssociationsOwnedAt(ExecutablePath())
+      or AssociationsOwnedAt(ExpandConstant('{app}\ModernImageViewer.App.exe')) then RegisterAssociations();
     if WizardIsTaskSelected('psdpreview') then begin
       RegisterPsdHandler(ThumbnailInterface, ThumbnailClass, ThumbnailName, False);
       RegisterPsdHandler(PreviewInterface, PreviewClass, PreviewName, True);
