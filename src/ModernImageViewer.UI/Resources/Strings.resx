@@ -4,6 +4,9 @@
   <resheader name="version"><value>2.0</value></resheader>
   <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms</value></resheader>
   <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms</value></resheader>
+  <data name="Accessibility_Canvas" xml:space="preserve"><value>Image canvas</value></data>
+  <data name="Accessibility_CurrentThumbnail" xml:space="preserve"><value>Current image</value></data>
+  <data name="Accessibility_ImageOpened" xml:space="preserve"><value>{0}, {1} by {2} pixels</value></data>
   <data name="MainWindow_Title" xml:space="preserve"><value>Modern Image Viewer</value></data>
   <data name="MainWindow_StatusSkeletonRunning" xml:space="preserve"><value>Open an image to begin</value></data>
   <data name="Language_Label" xml:space="preserve"><value>Language</value></data>
@@ -139,6 +142,7 @@
   <data name="Shortcut_Action_RefreshFolder" xml:space="preserve"><value>Refresh folder and current image</value></data>
   <data name="Shortcut_Action_ToggleSlideshow" xml:space="preserve"><value>Start or pause slideshow</value></data>
   <data name="Shortcut_Action_ToggleInformation" xml:space="preserve"><value>Show or hide file information</value></data>
+  <data name="Shortcut_Action_CycleBrowsingFocus" xml:space="preserve"><value>Move focus between browsing areas</value></data>
   <data name="Shortcut_Action_ToggleFilmstrip" xml:space="preserve"><value>Show or hide thumbnail strip</value></data>
   <data name="Shortcut_Action_ToggleFullScreen" xml:space="preserve"><value>Enter or leave full screen</value></data>
   <data name="Shortcut_Action_DismissOverlay" xml:space="preserve"><value>Stop playback / exit full screen / hide information</value></data>

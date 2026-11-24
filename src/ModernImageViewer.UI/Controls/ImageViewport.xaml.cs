@@ -1,4 +1,5 @@
 using System.Windows;
+using System.Windows.Automation.Peers;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
@@ -17,6 +18,13 @@ namespace ModernImageViewer.UI.Controls;
 
 public partial class ImageViewport : UserControl, IDisposable
 {
+    protected override AutomationPeer OnCreateAutomationPeer() => new ViewportAutomationPeer(this);
+
+    private sealed class ViewportAutomationPeer(ImageViewport owner) : UserControlAutomationPeer(owner)
+    {
+        protected override AutomationControlType GetAutomationControlTypeCore() => AutomationControlType.Image;
+    }
+
     public event EventHandler<double>? ScaleChanged;
     public event EventHandler? DetailRequested;
     public event EventHandler<PixelRect>? RegionDetailRequested;

@@ -127,7 +127,11 @@ public partial class MainWindow : Window
             Viewport.Focus();
         }
     }
-    private void OnFilmstripClick(object sender, RoutedEventArgs e) => _viewModel.ShowFilmstrip = !_viewModel.ShowFilmstrip;
+    private void OnFilmstripClick(object sender, RoutedEventArgs e)
+    {
+        if (Filmstrip.IsKeyboardFocusWithin) { Viewport.Focus(); }
+        _viewModel.ShowFilmstrip = !_viewModel.ShowFilmstrip;
+    }
     private void OnMinimizeClick(object sender, RoutedEventArgs e) => WindowState = WindowState.Minimized;
     private void OnMaximizeClick(object sender, RoutedEventArgs e) => WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
     private void OnCloseClick(object sender, RoutedEventArgs e) => Close();
@@ -196,6 +200,10 @@ public partial class MainWindow : Window
         if (e.PropertyName is null or "" or nameof(MainWindowViewModel.IsSlideshowPlaying)
             or nameof(MainWindowViewModel.SlideshowSeconds) or nameof(MainWindowViewModel.IsLoading)
             or nameof(MainWindowViewModel.CanPlaySlideshow)) { UpdateSlideshowTimer(); }
+        if (e.PropertyName is null or "" or nameof(MainWindowViewModel.StatusText))
+        {
+            AnnounceBrowsingChange();
+        }
         if (e.PropertyName == nameof(MainWindowViewModel.IsFullScreen))
         {
             UpdateImmersiveMode();
@@ -224,8 +232,9 @@ public partial class MainWindow : Window
 
     private async void OnThumbnailClick(object sender, RoutedEventArgs e)
     {
-        if (sender is Button { DataContext: BrowseItem item })
+        if (sender is Button { DataContext: BrowseItem item } button)
         {
+            if (button.IsKeyboardFocused) { Viewport.Focus(); }
             _viewModel.IsSlideshowPlaying = false;
             await _viewModel.OpenPathAsync(item.FilePath);
         }
@@ -393,6 +402,16 @@ public partial class MainWindow : Window
             OnInformationClick(this, e);
             e.Handled = true;
             return;
+        }
+        if (action == ViewerAction.CycleBrowsingFocus && Keyboard.FocusedElement is not MenuItem)
+        {
+            CycleBrowsingFocus();
+            e.Handled = true;
+            return;
+        }
+        if (Filmstrip.IsKeyboardFocusWithin && action is ViewerAction.PreviousImage or ViewerAction.NextImage)
+        {
+            return; // Keep the arrow keys inside the strip while its buttons have focus.
         }
         if (Keyboard.FocusedElement is TextBoxBase or ComboBox or MenuItem || action is null
             || (e.Key == Key.Space && Keyboard.FocusedElement is ButtonBase))

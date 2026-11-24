@@ -11,6 +11,15 @@
         AllowDrop="True" DragOver="OnDragOver" Drop="OnDrop" PreviewKeyDown="OnPreviewKeyDown"
         WindowStartupLocation="CenterScreen">
   <Window.Resources>
+    <Style x:Key="CanvasFocusVisualStyle">
+      <Setter Property="Control.Template">
+        <Setter.Value>
+          <ControlTemplate>
+            <Border Margin="2" BorderBrush="{DynamicResource AccentBrush}" BorderThickness="2" CornerRadius="4" />
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
     <Style x:Key="ToolbarInputStyle" TargetType="TextBox">
       <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
       <Setter Property="Background" Value="{DynamicResource SurfaceHoverBrush}" />
@@ -148,7 +157,10 @@
     <Grid x:Name="CanvasLayout" Grid.Row="1" Background="{DynamicResource CanvasBrush}">
       <Grid.Style><Style TargetType="Grid"><Style.Triggers><DataTrigger Binding="{Binding IsFullScreen}" Value="True"><Setter Property="Grid.RowSpan" Value="3" /></DataTrigger></Style.Triggers></Style></Grid.Style>
         <controls:ImageViewport x:Name="Viewport" IsManipulationEnabled="True" Presentation="{Binding Presentation}" CanvasBackground="{DynamicResource CanvasBrush}"
-                                TransparencyBackground="{Binding CanvasBackground}">
+                                TransparencyBackground="{Binding CanvasBackground}"
+                                FocusVisualStyle="{StaticResource CanvasFocusVisualStyle}"
+                                AutomationProperties.Name="{Binding CanvasLabel}"
+                                AutomationProperties.ItemStatus="{Binding CurrentFileName}">
           <controls:ImageViewport.Style><Style TargetType="controls:ImageViewport"><Setter Property="Margin" Value="28,28,28,92" /><Style.Triggers><DataTrigger Binding="{Binding IsCompactLayout, RelativeSource={RelativeSource AncestorType=Window}}" Value="True"><Setter Property="Margin" Value="12,12,12,76" /></DataTrigger><DataTrigger Binding="{Binding IsFullScreen}" Value="True"><Setter Property="Margin" Value="0" /></DataTrigger></Style.Triggers></Style></controls:ImageViewport.Style>
         </controls:ImageViewport>
         <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="{Binding HasImage, Converter={StaticResource InverseBooleanToVisibilityConverter}}">
@@ -182,7 +194,7 @@
           </StackPanel>
         </Border>
         <Border x:Name="LoadingOverlay" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="20" Padding="16,10" CornerRadius="10" Background="{DynamicResource SurfaceBrush}" ><Border.Style><Style TargetType="Border"><Setter Property="Visibility" Value="Collapsed" /><Style.Triggers><MultiDataTrigger><MultiDataTrigger.Conditions><Condition Binding="{Binding IsLoading}" Value="True" /><Condition Binding="{Binding IsChromeVisible, RelativeSource={RelativeSource AncestorType=Window}}" Value="True" /></MultiDataTrigger.Conditions><Setter Property="Visibility" Value="Visible" /></MultiDataTrigger></Style.Triggers></Style></Border.Style><StackPanel Orientation="Horizontal"><ProgressBar Width="56" Height="3" IsIndeterminate="True" VerticalAlignment="Center" /><TextBlock Text="{Binding StatusText}" Margin="12,0,0,0" Foreground="{DynamicResource PrimaryTextBrush}" /></StackPanel></Border>
-        <Border x:Name="MessageOverlay" HorizontalAlignment="Left" VerticalAlignment="Top" Padding="14,9" CornerRadius="10" Background="{DynamicResource SurfaceBrush}" ><Border.Style><Style TargetType="Border"><Setter Property="Margin" Value="20" /><Setter Property="Visibility" Value="Collapsed" /><Style.Triggers><DataTrigger Binding="{Binding ShowPreviewStatus}" Value="True"><Setter Property="Margin" Value="20,90,20,20" /></DataTrigger><MultiDataTrigger><MultiDataTrigger.Conditions><Condition Binding="{Binding HasStatusMessage}" Value="True" /><Condition Binding="{Binding IsChromeVisible, RelativeSource={RelativeSource AncestorType=Window}}" Value="True" /></MultiDataTrigger.Conditions><Setter Property="Visibility" Value="Visible" /></MultiDataTrigger></Style.Triggers></Style></Border.Style><TextBlock Text="{Binding StatusText}" TextWrapping="Wrap" MaxWidth="300" Foreground="{DynamicResource PrimaryTextBrush}" AutomationProperties.LiveSetting="Polite" /></Border>
+        <Border x:Name="MessageOverlay" HorizontalAlignment="Left" VerticalAlignment="Top" Padding="14,9" CornerRadius="10" Background="{DynamicResource SurfaceBrush}" ><Border.Style><Style TargetType="Border"><Setter Property="Margin" Value="20" /><Setter Property="Visibility" Value="Collapsed" /><Style.Triggers><DataTrigger Binding="{Binding ShowPreviewStatus}" Value="True"><Setter Property="Margin" Value="20,90,20,20" /></DataTrigger><MultiDataTrigger><MultiDataTrigger.Conditions><Condition Binding="{Binding HasStatusMessage}" Value="True" /><Condition Binding="{Binding IsChromeVisible, RelativeSource={RelativeSource AncestorType=Window}}" Value="True" /></MultiDataTrigger.Conditions><Setter Property="Visibility" Value="Visible" /></MultiDataTrigger></Style.Triggers></Style></Border.Style><TextBlock Text="{Binding StatusText}" TextWrapping="Wrap" MaxWidth="300" Foreground="{DynamicResource PrimaryTextBrush}" /></Border>
         <Border x:Name="Toolbar" HorizontalAlignment="Center" VerticalAlignment="Bottom" Padding="8,5" CornerRadius="14" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1">
           <Border.Style><Style TargetType="Border"><Setter Property="Margin" Value="12,0,12,20" /><Setter Property="Visibility" Value="Collapsed" /><Style.Triggers>
             <MultiDataTrigger><MultiDataTrigger.Conditions><Condition Binding="{Binding HasImage}" Value="True" /><Condition Binding="{Binding IsChromeVisible, RelativeSource={RelativeSource AncestorType=Window}}" Value="True" /></MultiDataTrigger.Conditions><Setter Property="Visibility" Value="Visible" /></MultiDataTrigger>
@@ -241,7 +253,7 @@
           <StackPanel Margin="22,18">
             <Grid><TextBlock Text="{Binding InformationLabel}" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center" /><Button HorizontalAlignment="Right" Style="{StaticResource ToolbarButtonStyle}" Click="OnInformationClick" ToolTip="{Binding CloseLabel}" AutomationProperties.Name="{Binding CloseLabel}"><Path Style="{StaticResource IconStyle}" Width="14" Height="14" Data="{StaticResource Icon.Close}" /></Button></Grid>
             <TextBlock Style="{StaticResource PanelLabelStyle}" Text="{Binding FileNameLabel}" />
-            <TextBox Style="{StaticResource SelectableInformationValueStyle}" Text="{Binding CurrentFileName, Mode=OneWay}" AutomationProperties.Name="{Binding FileNameLabel}" FontWeight="SemiBold" />
+            <TextBox x:Name="InformationFileName" Style="{StaticResource SelectableInformationValueStyle}" Text="{Binding CurrentFileName, Mode=OneWay}" AutomationProperties.Name="{Binding FileNameLabel}" FontWeight="SemiBold" />
             <TextBlock Style="{StaticResource PanelLabelStyle}" Text="{Binding InformationLocationLabel}" />
             <TextBox Style="{StaticResource SelectableInformationValueStyle}" Text="{Binding InformationLocation, Mode=OneWay}" AutomationProperties.Name="{Binding InformationLocationLabel}" Foreground="{DynamicResource SecondaryTextBrush}" />
             <TextBlock Style="{StaticResource PanelLabelStyle}" Text="{Binding DimensionsLabel}" />
@@ -289,9 +301,10 @@
       <StackPanel>
         <Grid Margin="4,0,4,8"><TextBlock Text="{Binding DirectoryName}" Foreground="{DynamicResource SecondaryTextBrush}" FontSize="11" TextTrimming="CharacterEllipsis" Margin="0,0,150,0" /><TextBlock Text="{Binding FolderImagesText}" Foreground="{DynamicResource SecondaryTextBrush}" FontSize="11" HorizontalAlignment="Right" /></Grid>
         <ScrollViewer HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Disabled">
-          <ItemsControl ItemsSource="{Binding BrowseItems}" HorizontalAlignment="Center">
+          <ItemsControl x:Name="FilmstripItems" ItemsSource="{Binding BrowseItems}" HorizontalAlignment="Center"
+                        AutomationProperties.Name="{Binding FilmstripLabel}" KeyboardNavigation.DirectionalNavigation="Contained">
             <ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
-            <ItemsControl.ItemTemplate><DataTemplate><Button Style="{StaticResource ThumbnailButtonStyle}" Click="OnThumbnailClick" Loaded="OnThumbnailLoaded" ToolTip="{Binding FileName}" AutomationProperties.Name="{Binding FileName}"><StackPanel><Grid Width="84" Height="56" Background="{DynamicResource CanvasBrush}"><Path Stroke="{DynamicResource SecondaryTextBrush}" Data="{StaticResource Icon.Image}" Opacity="0.4"><Path.Style><Style TargetType="Path" BasedOn="{StaticResource IconStyle}"><Setter Property="Visibility" Value="Collapsed" /><Style.Triggers><DataTrigger Binding="{Binding Source, ElementName=Thumbnail}" Value="{x:Null}"><Setter Property="Visibility" Value="Visible" /></DataTrigger></Style.Triggers></Style></Path.Style></Path><controls:ThumbnailImage x:Name="Thumbnail" FilePath="{Binding FilePath}" Decoder="{Binding ThumbnailDecoder, RelativeSource={RelativeSource AncestorType=Window}}" Stretch="Uniform" /></Grid><TextBlock Text="{Binding FileName}" Margin="2,6,2,0" FontSize="10" TextTrimming="CharacterEllipsis" TextAlignment="Center" /></StackPanel></Button></DataTemplate></ItemsControl.ItemTemplate>
+            <ItemsControl.ItemTemplate><DataTemplate><Button x:Name="FilmstripThumbnail" Style="{StaticResource ThumbnailButtonStyle}" Click="OnThumbnailClick" Loaded="OnThumbnailLoaded" ToolTip="{Binding FileName}" AutomationProperties.Name="{Binding FileName}"><StackPanel><Grid Width="84" Height="56" Background="{DynamicResource CanvasBrush}"><Path Stroke="{DynamicResource SecondaryTextBrush}" Data="{StaticResource Icon.Image}" Opacity="0.4"><Path.Style><Style TargetType="Path" BasedOn="{StaticResource IconStyle}"><Setter Property="Visibility" Value="Collapsed" /><Style.Triggers><DataTrigger Binding="{Binding Source, ElementName=Thumbnail}" Value="{x:Null}"><Setter Property="Visibility" Value="Visible" /></DataTrigger></Style.Triggers></Style></Path.Style></Path><controls:ThumbnailImage x:Name="Thumbnail" FilePath="{Binding FilePath}" Decoder="{Binding ThumbnailDecoder, RelativeSource={RelativeSource AncestorType=Window}}" Stretch="Uniform" /></Grid><TextBlock Text="{Binding FileName}" Margin="2,6,2,0" FontSize="10" TextTrimming="CharacterEllipsis" TextAlignment="Center" /></StackPanel></Button></DataTemplate></ItemsControl.ItemTemplate>
           </ItemsControl>
         </ScrollViewer>
       </StackPanel>
