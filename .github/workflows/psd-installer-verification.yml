@@ -15,18 +15,20 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: c0fbff72ed4d126a823971c02acfabb96fa9b26b
       - uses: actions/download-artifact@v8
         with:
           name: ModernImageViewer-Setup-win-x64
           path: artifacts/installer
           github-token: ${{ github.token }}
-          run-id: 44776213290
+          run-id: 45321324652
       - uses: actions/download-artifact@v8
         with:
           name: format-fixtures
           path: artifacts/format-fixtures
           github-token: ${{ github.token }}
-          run-id: 44776213290
+          run-id: 45321324652
       - name: Download and verify public v0.4.0 upgrade baseline
         shell: pwsh
         run: |
@@ -85,18 +87,20 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: c0fbff72ed4d126a823971c02acfabb96fa9b26b
       - uses: actions/download-artifact@v8
         with:
           name: ModernImageViewer-Setup-win-x64
           path: artifacts/installer
           github-token: ${{ github.token }}
-          run-id: 44776213290
+          run-id: 45321324652
       - uses: actions/download-artifact@v8
         with:
           name: format-fixtures
           path: artifacts/format-fixtures
           github-token: ${{ github.token }}
-          run-id: 44776213290
+          run-id: 45321324652
       - name: Check clean install, same-version reinstall and uninstall
         timeout-minutes: 5
         shell: pwsh
@@ -119,18 +123,20 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: c0fbff72ed4d126a823971c02acfabb96fa9b26b
       - uses: actions/download-artifact@v8
         with:
           name: ModernImageViewer-Setup-win-x64
           path: artifacts/installer
           github-token: ${{ github.token }}
-          run-id: 44776213290
+          run-id: 45321324652
       - uses: actions/download-artifact@v8
         with:
           name: format-fixtures
           path: artifacts/format-fixtures
           github-token: ${{ github.token }}
-          run-id: 44776213290
+          run-id: 45321324652
       - name: Download and verify public v0.6.1 upgrade baseline
         timeout-minutes: 5
         shell: pwsh
