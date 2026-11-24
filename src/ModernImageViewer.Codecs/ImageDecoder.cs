@@ -48,9 +48,9 @@ public sealed partial class ImageDecoder : IPreviewImageDecoder, IThumbnailDecod
                     // until a region path can guarantee consistent compositing at those boundaries.
                     throw new ImageDecodeException(ImageOpenError.UnsupportedFormat);
                 }
-                if (IsWebP(stream))
+                if (PsdComposite.TryDetect(stream) || IsWebP(stream))
                 {
-                    // Skia's WebP path cannot guarantee bounded region output without a full decode.
+                    // These codecs cannot decode a bounded region independently of the source image.
                     throw new ImageDecodeException(ImageOpenError.UnsupportedFormat);
                 }
                 if (HeifContainer.TryDetect(stream, out _))
@@ -108,9 +108,13 @@ public sealed partial class ImageDecoder : IPreviewImageDecoder, IThumbnailDecod
         {
             return RestrictedSvgImageDecoder.Decode(stream, maximumSize, maximumDecodedBytes, cancellationToken);
         }
+        if (PsdComposite.TryDetect(stream) || string.Equals(Path.GetExtension(path), ".psd", StringComparison.OrdinalIgnoreCase))
+        {
+            return MagickPreviewDecoder.DecodePsd(stream, maximumSize, maximumDecodedBytes, priority, cancellationToken);
+        }
         if (HeifContainer.TryDetect(stream, out bool avif))
         {
-            return HeifImageDecoder.Decode(stream, avif, maximumSize, maximumDecodedBytes, priority, cancellationToken);
+            return MagickPreviewDecoder.Decode(stream, avif, maximumSize, maximumDecodedBytes, priority, cancellationToken);
         }
         Span<byte> signature = stackalloc byte[6];
         int signatureLength = stream.ReadAtLeast(signature, signature.Length, throwOnEndOfStream: false);

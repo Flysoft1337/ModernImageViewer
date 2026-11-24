@@ -56,6 +56,92 @@ public sealed class ModernFormatDecoderTests
         finally { File.Delete(path); }
     }
 
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    public async Task PsdUsesSavedCompositeForBrowsingAndThumbnails(bool layered, bool rle)
+    {
+        byte[] composite = CreatePsd(layered, rle);
+        string path = WriteFixture(Convert.ToBase64String(composite), ".psd");
+        try
+        {
+            CancellationToken token = TestContext.Current.CancellationToken;
+            ImageDecoder decoder = new();
+            using PixelBuffer full = await decoder.DecodeAsync(path, token);
+            Assert.Equal(new PixelSize(16, 8), full.SourceSize);
+            Assert.Equal(layered ? new byte[] { 128, 128, 128, 128 } : [0x11, 0x33, 0xCC, 0xFF],
+                full.Pixels.Span[..4].ToArray());
+            using PixelBuffer thumbnail = await decoder.DecodeThumbnailAsync(path, new PixelSize(6, 6), token);
+            Assert.Equal(new PixelSize(6, 3), thumbnail.Size);
+            Assert.Equal(full.SourceSize, thumbnail.SourceSize);
+            Assert.Equal(composite, File.ReadAllBytes(path));
+            if (rle) { ExportFixture(composite, ".psd"); }
+        }
+        finally { File.Delete(path); }
+    }
+
+    [Fact]
+    public async Task PsdReportsMissingAndCorruptComposites()
+    {
+        byte[] bytes = CreatePsd(layered: false);
+        byte[] resources = Convert.FromHexString("000000123842494D0421000000000005000000010000");
+        byte[] noComposite = [.. bytes[..30], .. resources, .. bytes[34..]];
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await AssertPsdError(noComposite, ImageOpenError.UnsupportedFormat, token);
+        await AssertPsdError(bytes[..45], ImageOpenError.CorruptFile, token);
+        bytes[5] = 2;
+        await AssertPsdError(bytes, ImageOpenError.UnsupportedFormat, token);
+    }
+
+    private static async Task AssertPsdError(byte[] bytes, ImageOpenError expected, CancellationToken token)
+    {
+        string path = WriteFixture(Convert.ToBase64String(bytes), ".psd");
+        try
+        {
+            ImageDecodeException error = await Assert.ThrowsAsync<ImageDecodeException>(() => new ImageDecoder().DecodeAsync(path, token));
+            Assert.Equal(expected, error.Error);
+        }
+        finally { File.Delete(path); }
+    }
+
+    private static byte[] CreatePsd(bool layered, bool rle = false)
+    {
+        byte[] header = Convert.FromHexString("38425053000100000000000000030000000800000010000800030000000000000000");
+        // Deliberately unusable layer records. The saved composite remains valid and carries alpha.
+        byte[] layers = layered ? Convert.FromHexString("0000000E00000006FFDFDEADBEEF00000000") : new byte[4];
+        int channelCount = layered ? 4 : 3;
+        int rowCount = channelCount * 8;
+        byte[] psd = new byte[header.Length + layers.Length + 2 + (rle ? rowCount * 4 : channelCount * 128)];
+        header.CopyTo(psd, 0);
+        psd[13] = (byte)channelCount;
+        layers.CopyTo(psd, header.Length);
+        Span<byte> pixels = psd.AsSpan(header.Length + layers.Length + 2);
+        if (rle)
+        {
+            psd[header.Length + layers.Length + 1] = 1;
+            byte[] channels = [0xCC, 0x33, 0x11];
+            for (int row = 0; row < rowCount; row++)
+            {
+                pixels[2 * row + 1] = 2;
+                pixels[2 * (rowCount + row)] = 0xF1; // PackBits run of 16 pixels.
+                pixels[2 * (rowCount + row) + 1] = channels[row / 8];
+            }
+        }
+        else if (layered)
+        {
+            pixels[..384].Fill(255);
+            pixels[384..].Fill(128);
+        }
+        else
+        {
+            pixels[..128].Fill(0xCC);
+            pixels[128..256].Fill(0x33);
+            pixels[256..].Fill(0x11);
+        }
+        return psd;
+    }
+
     [Fact]
     public async Task EmbeddedRgbIccConvertsGrayToSrgb()
     {
@@ -95,24 +181,24 @@ public sealed class ModernFormatDecoderTests
         using CancellationTokenSource cancelled = new();
         cancelled.Cancel();
         using MemoryStream valid = new(Convert.FromBase64String(Avif));
-        Assert.Throws<OperationCanceledException>(() => HeifImageDecoder.Decode(valid, true, null, null, cancelled.Token));
+        Assert.Throws<OperationCanceledException>(() => MagickPreviewDecoder.Decode(valid, true, null, null, cancelled.Token));
         byte[] sequence = Convert.FromBase64String(Avif);
         "avis"u8.CopyTo(sequence.AsSpan(8));
         using MemoryStream animated = new(sequence);
-        ImageDecodeException sequenceError = Assert.Throws<ImageDecodeException>(() => HeifImageDecoder.Decode(animated, true, null, null, TestContext.Current.CancellationToken));
+        ImageDecodeException sequenceError = Assert.Throws<ImageDecodeException>(() => MagickPreviewDecoder.Decode(animated, true, null, null, TestContext.Current.CancellationToken));
         Assert.Equal(ImageOpenError.UnsupportedFormat, sequenceError.Error);
         using MemoryStream broken = new(Convert.FromBase64String(Avif)[..28]);
-        ImageDecodeException brokenError = Assert.Throws<ImageDecodeException>(() => HeifImageDecoder.Decode(broken, true, null, null, TestContext.Current.CancellationToken));
+        ImageDecodeException brokenError = Assert.Throws<ImageDecodeException>(() => MagickPreviewDecoder.Decode(broken, true, null, null, TestContext.Current.CancellationToken));
         Assert.Equal(ImageOpenError.CorruptFile, brokenError.Error);
-        Assert.Throws<ImageSizeLimitExceededException>(() => HeifImageDecoder.ValidateSourceSize(new PixelSize(8000, 6000)));
-        HeifImageDecoder.ValidateSourceSize(new PixelSize(8000, 4000));
+        Assert.Throws<ImageSizeLimitExceededException>(() => MagickPreviewDecoder.ValidateSourceSize(new PixelSize(8000, 6000)));
+        MagickPreviewDecoder.ValidateSourceSize(new PixelSize(8000, 4000));
         byte[] oversized = Convert.FromBase64String(Heic);
         int sizeProperty = oversized.AsSpan().IndexOf("ispe"u8);
         Assert.True(sizeProperty > 0);
         BinaryPrimitives.WriteUInt32BigEndian(oversized.AsSpan(sizeProperty + 8), 8000);
         BinaryPrimitives.WriteUInt32BigEndian(oversized.AsSpan(sizeProperty + 12), 6000);
         using MemoryStream oversizedInput = new(oversized);
-        Assert.Throws<ImageSizeLimitExceededException>(() => HeifImageDecoder.Decode(oversizedInput, false, new PixelSize(2, 2), null, TestContext.Current.CancellationToken));
+        Assert.Throws<ImageSizeLimitExceededException>(() => MagickPreviewDecoder.Decode(oversizedInput, false, new PixelSize(2, 2), null, TestContext.Current.CancellationToken));
     }
 
     private static string WriteFixture(string base64, string extension)

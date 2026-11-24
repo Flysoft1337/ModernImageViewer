@@ -213,6 +213,18 @@ $nativeInventory = @(Get-ChildItem -LiteralPath $PublishDirectory -Recurse -File
     NativeSources = @($rawManifest)
 } | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $PublishDirectory 'dependencies.json') -Encoding utf8
 
+$shellProject = Join-Path $repository 'src/ModernImageViewer.Shell/ModernImageViewer.Shell.csproj'
+$shellPublish = "${PublishDirectory}-shell"
+& dotnet publish $shellProject --configuration Release --runtime win-x64 --output $shellPublish
+if ($LASTEXITCODE -ne 0) { throw "PSD shell publish failed: $LASTEXITCODE" }
+$shellAssets = Get-Content (Join-Path (Split-Path $shellProject) 'obj/project.assets.json') -Raw | ConvertFrom-Json -AsHashtable
+$compilerPack = $shellAssets.libraries.Keys | Where-Object { $_ -like 'runtime.win-x64.Microsoft.DotNet.ILCompiler/*' } | Select-Object -First 1
+$compilerPackDirectory = $shellAssets.packageFolders.Keys | ForEach-Object {
+    Join-Path $_ $shellAssets.libraries[$compilerPack].path
+} | Where-Object { Test-Path $_ -PathType Container } | Select-Object -First 1
+if (-not $compilerPackDirectory) { throw 'NativeAOT runtime notices were not restored.' }
+Copy-Item -LiteralPath (Join-Path $compilerPackDirectory 'THIRD-PARTY-NOTICES.TXT') -Destination $shellPublish -Force
+
 # Pin both the official compiler release and its GitHub asset checksum.
 $compilerVersion = "7.1.0"
 $compilerSha256 = "0362a383ed217d4c4239b5933866dd96d3eb2102737da92f80f6057a4b40df2f"
@@ -273,7 +285,7 @@ else {
 [IO.Directory]::CreateDirectory($OutputDirectory) | Out-Null
 $expectedInstaller = Join-Path $OutputDirectory "ModernImageViewer-$version-win-x64-Setup.exe"
 if (Test-Path $expectedInstaller) { Remove-Item $expectedInstaller }
-& $CompilerPath "/DAppVersion=$version" "/DPublishDirectory=$PublishDirectory" "/DInstallerOutputDirectory=$OutputDirectory" `
+& $CompilerPath "/DAppVersion=$version" "/DPublishDirectory=$PublishDirectory" "/DShellPublishDirectory=$shellPublish" "/DInstallerOutputDirectory=$OutputDirectory" `
     (Join-Path $repository "packaging/windows/ModernImageViewer.iss")
 if ($LASTEXITCODE -ne 0 -or -not (Test-Path $expectedInstaller -PathType Leaf)) {
     throw "Installer compilation failed: $LASTEXITCODE"

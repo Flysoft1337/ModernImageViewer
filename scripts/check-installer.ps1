@@ -45,10 +45,10 @@ $applicationKey = "Software\ModernImageViewer\Installed"
 $progId = "ModernImageViewer.Installed.Image"
 $progIdKey = "Software\Classes\$progId"
 $registeredApplicationsKey = "Software\RegisteredApplications"
-$extensions = @(".jpg", ".jpeg", ".png", ".bmp", ".gif", ".tif", ".tiff", ".ico", ".webp", ".jxr", ".wdp", ".hdp", ".svg", ".avif", ".heif", ".heic", ".dng", ".cr2", ".cr3", ".nef", ".arw", ".raf", ".rw2", ".orf", ".pef")
+$extensions = @(".jpg", ".jpeg", ".png", ".bmp", ".gif", ".tif", ".tiff", ".ico", ".webp", ".jxr", ".wdp", ".hdp", ".svg", ".avif", ".heif", ".heic", ".dng", ".cr2", ".cr3", ".nef", ".arw", ".raf", ".rw2", ".orf", ".pef", ".psd")
 $baselineExtensions = if ($BaselineVersion -eq '0.4.0') {
     @('.jpg', '.jpeg', '.png', '.bmp', '.gif', '.tif', '.tiff', '.ico', '.webp')
-} else { $extensions }
+} else { $extensions | Where-Object { $_ -ne '.psd' } }
 $portableProgId = 'ModernImageViewer.Portable.Image'
 $foreignCandidate = "ModernImageViewer.InstallerSmoke." + [Guid]::NewGuid().ToString("N")
 $currentUser = [Microsoft.Win32.Registry]::CurrentUser
@@ -298,7 +298,7 @@ function Assert-ProtectedState {
         finally { $key.Dispose() }
     }
     foreach ($path in $protected.Keys) {
-        $actual = if ($path -match '^Software\\Classes\\\.(jpg|jpeg|png|bmp|gif|tif|tiff|ico|webp|jxr|wdp|hdp|svg|avif|heif|heic|dng|cr2|cr3|nef|arw|raf|rw2|orf|pef)$') { Read-RegistryValue $path "" } else { Read-RegistrySnapshot $path }
+        $actual = if ($path -match '^Software\\Classes\\\.(jpg|jpeg|png|bmp|gif|tif|tiff|ico|webp|jxr|wdp|hdp|svg|avif|heif|heic|dng|cr2|cr3|nef|arw|raf|rw2|orf|pef|psd)$') { Read-RegistryValue $path "" } else { Read-RegistrySnapshot $path }
         Assert-Equal $actual $protected[$path] 'Installation changed an existing default choice or portable identity.'
     }
     Assert-Equal (Read-RegistryValue $registeredApplicationsKey 'ModernImageViewer.Portable') $portableRegistration 'Installation changed the portable RegisteredApplications value.'
@@ -426,6 +426,7 @@ try {
     # Recreate the owned desktop entry during migration so a legacy flat-layout
     # shortcut cannot keep pointing at the removed root executable.
     $migrationTasks = '/TASKS=desktopicon'
+    if (-not $baselineInstaller) { $registrationTasks += ',psdpreview' }
     $firstInstaller = if ($baselineInstaller) { $baselineInstaller } else { $installer }
     $firstLog = if ($baselineInstaller) { 'baseline-install.log' } else { 'install.log' }
     Write-InstallerCheckpoint 'InitialInstall'
@@ -443,8 +444,14 @@ try {
     $initialFixtures = if ($baselineInstaller -and $BaselineVersion -eq '0.4.0') { $null } else { $FixtureDirectory }
     Write-Host "Checking $initialStage file activation."
     Write-InstallerCheckpoint 'InitialActivation'
-    & (Join-Path $PSScriptRoot "check-file-activation.ps1") -AppPath $executable -FixtureDirectory $initialFixtures
+    & (Join-Path $PSScriptRoot "check-file-activation.ps1") -AppPath $executable -FixtureDirectory $initialFixtures -IncludePsd:(-not $baselineInstaller)
     Write-Host "$initialStage file activation completed."
+    if (-not $baselineInstaller) {
+        Write-InstallerCheckpoint 'PsdShellValidation'
+        $shell = Join-Path $directory 'app/shell/ModernImageViewer.Shell.dll'
+        & (Join-Path $PSHOME 'pwsh.exe') -NoProfile -NonInteractive -File (Join-Path $PSScriptRoot 'check-psd-shell.ps1') -ShellPath $shell -CheckRegistration
+        if ($LASTEXITCODE -ne 0) { throw 'Installed PSD Shell handlers failed verification.' }
+    }
 
     # Public 0.6.1 already uses app/ and omits the unused GLFW runtime.
     # Keep the strict legacy fixtures for older public flat-layout installers.
@@ -495,7 +502,7 @@ try {
         $legacyPayloadProtectionVerified = $legacyBaseline
         Write-Host 'Checking upgraded file activation.'
         Write-InstallerCheckpoint 'UpgradeActivation'
-        & (Join-Path $PSScriptRoot 'check-file-activation.ps1') -AppPath $executable -FixtureDirectory $FixtureDirectory
+        & (Join-Path $PSScriptRoot 'check-file-activation.ps1') -AppPath $executable -FixtureDirectory $FixtureDirectory -IncludePsd
         Write-Host 'Upgraded file activation completed.'
     }
     else { $upgradedVersion = $initialVersion }
@@ -546,7 +553,7 @@ try {
     Assert-ProtectedFiles -IncludeModifiedLegacy
     Write-Host 'Checking reinstalled file activation.'
     Write-InstallerCheckpoint 'ReinstallActivation'
-    & (Join-Path $PSScriptRoot 'check-file-activation.ps1') -AppPath $executable -FixtureDirectory $FixtureDirectory
+    & (Join-Path $PSScriptRoot 'check-file-activation.ps1') -AppPath $executable -FixtureDirectory $FixtureDirectory -IncludePsd
     Write-Host 'Reinstalled file activation completed.'
 
     # An older description must also be removed; unrelated custom values remain protected.
@@ -560,6 +567,13 @@ try {
     $uninstallCompleted = $true
     if ([IO.File]::Exists($executable)) { throw "Uninstall left the application executable behind." }
     if ([IO.File]::Exists((Join-Path $directory 'app/ModernImageViewer.install.json'))) { throw "Uninstall left the installed distribution marker behind." }
+    if ([IO.File]::Exists((Join-Path $directory 'app/shell/ModernImageViewer.Shell.dll'))) { throw 'Uninstall left the PSD Shell DLL behind.' }
+    foreach ($classId in @('{8ECCFC5B-9E25-4DF5-8E2C-E6C9FF60F9E4}', '{CBD0D211-0458-404C-AACF-DB57871FCEFF}')) {
+        Assert-Equal (Read-RegistrySnapshot "Software\Classes\CLSID\$classId") '<missing>' 'Uninstall left a PSD Shell COM class behind.'
+    }
+    foreach ($interfaceId in @('{E357FCCD-A995-4576-B01F-234630154E96}', '{8895B1C6-B41F-4C1C-A562-0D564250836F}')) {
+        Assert-Equal (Read-RegistryValue "Software\Classes\SystemFileAssociations\.psd\ShellEx\$interfaceId" '') $null 'Uninstall left an owned PSD Shell handler behind.'
+    }
     Assert-ProtectedFiles -IncludeModifiedLegacy
     foreach ($path in $shortcuts.Values) {
         if ([IO.File]::Exists($path)) { throw "Uninstall left an owned shortcut behind: $path" }

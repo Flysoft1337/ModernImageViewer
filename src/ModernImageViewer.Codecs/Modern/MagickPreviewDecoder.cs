@@ -9,7 +9,7 @@ using ModernImageViewer.Imaging;
 
 namespace ModernImageViewer.Codecs.Modern;
 
-internal static class HeifImageDecoder
+internal static class MagickPreviewDecoder
 {
     internal const long MaximumInputBytes = 128L * 1024 * 1024;
     internal const long MaximumSourcePixels = 32_000_000;
@@ -22,17 +22,32 @@ internal static class HeifImageDecoder
 
     internal static PixelBuffer Decode(Stream stream, bool avif, PixelSize? maximumSize,
         long? maximumDecodedBytes, DecodePriority priority, CancellationToken cancellationToken)
+        => Decode(stream, avif ? MagickFormat.Avif : MagickFormat.Heic, maximumSize, maximumDecodedBytes, priority, cancellationToken);
+
+    internal static PixelBuffer DecodePsd(Stream stream, PixelSize? maximumSize, long? maximumDecodedBytes,
+        DecodePriority priority, CancellationToken cancellationToken) =>
+        Decode(stream, MagickFormat.Psd, maximumSize, maximumDecodedBytes, priority, cancellationToken);
+
+    private static PixelBuffer Decode(Stream stream, MagickFormat format, PixelSize? maximumSize,
+        long? maximumDecodedBytes, DecodePriority priority, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         if (stream.Length > MaximumInputBytes) { throw new ImageSizeLimitExceededException(); }
-        if (!HeifContainer.TryDetect(stream, out bool actualAvif) || actualAvif != avif)
+        using Stream? composite = format == MagickFormat.Psd
+            ? PsdComposite.Open(stream, MaximumSourcePixels, cancellationToken, out _)
+            : null;
+        if (composite is null)
         {
-            throw new ImageDecodeException(ImageOpenError.CorruptFile);
+            if (!HeifContainer.TryDetect(stream, out bool actualAvif) || actualAvif != (format == MagickFormat.Avif))
+            {
+                throw new ImageDecodeException(ImageOpenError.CorruptFile);
+            }
+            if (HeifContainer.HasSequenceBrand(stream))
+            {
+                throw new ImageDecodeException(ImageOpenError.UnsupportedFormat);
+            }
         }
-        if (HeifContainer.HasSequenceBrand(stream))
-        {
-            throw new ImageDecodeException(ImageOpenError.UnsupportedFormat);
-        }
+        Stream input = composite ?? stream;
         using IDisposable lease = DecodeSlot.AcquireAsync(priority, cancellationToken).GetAwaiter().GetResult();
         try
         {
@@ -40,7 +55,7 @@ internal static class HeifImageDecoder
             catch (IOException) { throw new ImageDecodeException(ImageOpenError.UnsupportedFormat); }
             catch (UnauthorizedAccessException) { throw new ImageDecodeException(ImageOpenError.UnsupportedFormat); }
             cancellationToken.ThrowIfCancellationRequested();
-            MagickReadSettings settings = new(new HeicReadDefines
+            MagickReadSettings settings = format == MagickFormat.Psd ? PsdComposite.CreateReadSettings() : new(new HeicReadDefines
             {
                 PreserveOrientation = false,
                 MaxItems = 512,
@@ -49,14 +64,14 @@ internal static class HeifImageDecoder
                 MaxNumberOfTiles = 4096,
             })
             {
-                Format = avif ? MagickFormat.Avif : MagickFormat.Heic,
+                Format = format,
                 FrameIndex = 0,
                 FrameCount = 1,
                 SyncImageWithExifProfile = false,
             };
             using MagickImage image = new();
             image.Progress += (_, args) => args.Cancel = cancellationToken.IsCancellationRequested;
-            image.Ping(stream, settings);
+            image.Ping(input, settings);
             cancellationToken.ThrowIfCancellationRequested();
             PixelSize sourceSize = GetSize(image);
             ValidateSourceSize(sourceSize);
@@ -67,11 +82,10 @@ internal static class HeifImageDecoder
                 throw new ImageSizeLimitExceededException();
             }
 
-            stream.Position = 0;
-            // libheif applies container irot/imir. EXIF must not rotate the resulting pixels again.
+            input.Position = 0;
             // The native codec reads the full source before resizing; target output is bounded,
             // but resource limits below are NOT a hard cap on delegate/process memory.
-            image.Read(stream, settings);
+            image.Read(input, settings);
             cancellationToken.ThrowIfCancellationRequested();
             if (GetSize(image) != sourceSize) { throw new ImageDecodeException(ImageOpenError.CorruptFile); }
             if (size != sourceSize) { image.Resize((uint)size.Width, (uint)size.Height); }
@@ -83,8 +97,7 @@ internal static class HeifImageDecoder
             {
                 throw new ImageSizeLimitExceededException();
             }
-            if (image.GetColorProfile() is not null) { image.TransformColorSpace(ColorProfiles.SRGB); }
-            else if (image.ColorSpace != ColorSpace.sRGB) { image.ColorSpace = ColorSpace.sRGB; }
+            PsdComposite.ConvertToSrgb(image);
             cancellationToken.ThrowIfCancellationRequested();
             using IPixelCollection<byte> collection = image.GetPixels();
             byte[] pixels = GC.AllocateUninitializedArray<byte>(checked(stride * size.Height), pinned: true);
@@ -96,7 +109,7 @@ internal static class HeifImageDecoder
                 byte[] rowPixels = collection.ToByteArray(0, row, (uint)size.Width, 1, PixelMapping.BGRA)
                     ?? throw new ImageDecodeException(ImageOpenError.CorruptFile);
                 if (rowPixels.Length != stride) { throw new ImageDecodeException(ImageOpenError.CorruptFile); }
-                Premultiply(rowPixels, stride, cancellationToken);
+                PsdComposite.PremultiplyRow(rowPixels);
                 rowPixels.CopyTo(pixels, row * stride);
             }
             cancellationToken.ThrowIfCancellationRequested();
@@ -124,7 +137,7 @@ internal static class HeifImageDecoder
               <policy domain="delegate" rights="none" pattern="*"/>
               <policy domain="filter" rights="none" pattern="*"/>
               <policy domain="coder" rights="none" pattern="*"/>
-              <policy domain="coder" rights="read" pattern="{AVIF,HEIC}"/>
+              <policy domain="coder" rights="read" pattern="{AVIF,HEIC,PSD}"/>
               <policy domain="path" rights="none" pattern="@*"/>
               <policy domain="resource" name="map" value="0"/>
             </policymap>
@@ -162,25 +175,4 @@ internal static class HeifImageDecoder
         double scale = Math.Min(1, Math.Min((double)bound.Width / source.Width, (double)bound.Height / source.Height));
         return new PixelSize(Math.Max(1, (int)Math.Floor(source.Width * scale)), Math.Max(1, (int)Math.Floor(source.Height * scale)));
     }
-
-    internal static void Premultiply(byte[] pixels, int stride, CancellationToken cancellationToken)
-    {
-        for (int row = 0; row < pixels.Length; row += stride)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            for (int offset = row; offset < row + stride; offset += 4)
-            {
-                int alpha = pixels[offset + 3];
-                if (alpha == 255) { continue; }
-                pixels[offset] = (byte)((pixels[offset] * alpha + 127) / 255);
-                pixels[offset + 1] = (byte)((pixels[offset + 1] * alpha + 127) / 255);
-                pixels[offset + 2] = (byte)((pixels[offset + 2] * alpha + 127) / 255);
-            }
-        }
-    }
 }
-
-
-
-
-
