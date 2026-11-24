@@ -58,6 +58,8 @@
   <data name="Command_PauseSlideshow" xml:space="preserve"><value>暂停幻灯片 · F6</value></data>
   <data name="Menu_Slideshow" xml:space="preserve"><value>开始幻灯片</value></data>
   <data name="Menu_PauseSlideshow" xml:space="preserve"><value>暂停幻灯片</value></data>
+  <data name="Slideshow_PlayingFormat" xml:space="preserve"><value>幻灯片播放中 · {0} 秒</value></data>
+  <data name="Slideshow_PausedFormat" xml:space="preserve"><value>幻灯片已暂停 · {0} 秒</value></data>
   <data name="Slideshow_Speed" xml:space="preserve"><value>幻灯片间隔</value></data>
   <data name="Slideshow_2Seconds" xml:space="preserve"><value>2 秒</value></data>
   <data name="Slideshow_5Seconds" xml:space="preserve"><value>5 秒</value></data>

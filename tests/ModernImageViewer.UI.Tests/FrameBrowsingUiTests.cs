@@ -3,6 +3,7 @@ using System.IO;
 using System.Reflection;
 using System.Resources;
 using System.Windows;
+using System.Windows.Automation;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
@@ -322,10 +323,13 @@ public sealed class FrameBrowsingUiTests
             window.Show();
             window.Activate();
             Drain(window);
+            Button slideshowButton = (Button)window.FindName("SlideshowStatusButton");
+            Assert.Equal(Visibility.Collapsed, slideshowButton.Visibility);
             OpenSelection(coordinator, browse, "static.png");
             Drain(window);
             Assert.Null(FrameViewportTests.Field<DispatcherTimer>(window, "_frameTimer"));
             Assert.Equal(0, model.ActiveFrameControllers);
+            VerifySlideshowStatus(window, model, themes, localization);
             OpenSelection(coordinator, browse, "frames.gif");
             Drain(window);
             Assert.True(window.IsActive);
@@ -387,6 +391,85 @@ public sealed class FrameBrowsingUiTests
             Assert.Equal(0, model.ActiveFrameControllers);
         }
         finally { window?.Close(); }
+    }
+
+    private static void VerifySlideshowStatus(MainWindow window, MainWindowViewModel model, ThemeService themes,
+        LocalizationService localization)
+    {
+        Button button = (Button)window.FindName("SlideshowStatusButton");
+        TextBlock label = (TextBlock)window.FindName("SlideshowStatusLabel");
+        System.Windows.Shapes.Path icon = (System.Windows.Shapes.Path)window.FindName("SlideshowStatusIcon");
+        ImageViewport viewport = (ImageViewport)window.FindName("Viewport");
+        DispatcherTimer timer = FrameViewportTests.Field<DispatcherTimer>(window, "_slideshowTimer")!;
+        int savedInterval = model.SlideshowSeconds;
+        AppTheme savedTheme = themes.CurrentTheme;
+        string savedCulture = localization.CurrentCulture.Name;
+        try
+        {
+            Assert.True(window.IsCompactLayout);
+            Assert.True(button.IsVisible);
+            themes.Apply(AppTheme.Dark);
+            localization.SetCulture("zh-CN");
+            model.SlideshowSeconds = 10;
+            Drain(window);
+            Assert.Equal("幻灯片已暂停 · 10 秒", label.Text);
+            Assert.Equal("开始幻灯片", AutomationProperties.GetName(button));
+            Assert.Same(window.FindResource("Icon.Play"), icon.Data);
+            Assert.False(timer.IsEnabled);
+            MenuUiRegression.SaveScreenshot(window, "slideshow-paused-dark-zh-CN-720x480");
+
+            button.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            Drain(window);
+            Assert.True(timer.IsEnabled);
+            Assert.Equal(TimeSpan.FromSeconds(10), timer.Interval);
+            Assert.Equal("幻灯片播放中 · 10 秒", label.Text);
+            Assert.Same(window.FindResource("Icon.Pause"), icon.Data);
+
+            themes.Apply(AppTheme.Light);
+            localization.SetCulture("en-US");
+            model.SlideshowSeconds = 2;
+            Drain(window);
+            Assert.Equal("Slideshow playing · 2 s", label.Text);
+            Assert.Equal(label.Text, AutomationProperties.GetItemStatus(button));
+            Assert.Equal("Pause slideshow", AutomationProperties.GetName(button));
+            Assert.Equal(TimeSpan.FromSeconds(2), timer.Interval);
+            Rect bounds = button.TransformToAncestor(window).TransformBounds(new Rect(button.RenderSize));
+            Assert.InRange(bounds.Right, bounds.Width, window.ActualWidth);
+            Assert.Equal(label.DesiredSize.Width, label.ActualWidth);
+            MenuUiRegression.SaveScreenshot(window, "slideshow-playing-light-en-US-720x480");
+
+            Invoke(window, "ToggleFullScreen");
+            Drain(window);
+            Assert.True(button.Focus());
+            Invoke(window, "OnImmersiveIdle", null, EventArgs.Empty);
+            Assert.True(button.IsVisible);
+            viewport.Focus();
+            Invoke(window, "SetChromeVisible", false);
+            Drain(window);
+            Assert.False(button.IsVisible);
+            Assert.True(timer.IsEnabled);
+
+            KeyEventArgs f6 = new(Keyboard.PrimaryDevice, PresentationSource.FromVisual(window), 0, Key.F6)
+            {
+                RoutedEvent = Keyboard.PreviewKeyDownEvent,
+            };
+            Invoke(window, "OnPreviewKeyDown", window, f6);
+            Drain(window);
+            Assert.True(f6.Handled);
+            Assert.True(button.IsVisible);
+            Assert.False(timer.IsEnabled);
+            Assert.Equal("Slideshow paused · 2 s", label.Text);
+        }
+        finally
+        {
+            if (model.IsFullScreen) { Invoke(window, "ToggleFullScreen"); }
+            model.IsSlideshowPlaying = false;
+            model.SlideshowSeconds = savedInterval;
+            themes.Apply(savedTheme);
+            localization.SetCulture(savedCulture);
+            Drain(window);
+            viewport.Focus();
+        }
     }
 
     private static void VerifyContinuousFramesKeepPreviewTimer(MainWindow window, MainWindowViewModel model, Session frames)

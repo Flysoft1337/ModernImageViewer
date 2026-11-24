@@ -143,7 +143,7 @@ public partial class MainWindow
             || PreviewStatusOverlay.IsMouseOver || StatusBar.IsMouseOver
             || LoadingOverlay.IsMouseOver || MessageOverlay.IsMouseOver
             || Toolbar.IsKeyboardFocusWithin || InformationPanel.IsKeyboardFocusWithin
-            || Filmstrip.IsKeyboardFocusWithin || PreviewStatusOverlay.IsKeyboardFocusWithin)
+            || Filmstrip.IsKeyboardFocusWithin || PreviewStatusOverlay.IsKeyboardFocusWithin || StatusBar.IsKeyboardFocusWithin)
         {
             return;
         }

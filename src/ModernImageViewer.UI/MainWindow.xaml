@@ -301,7 +301,41 @@
       <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
         <StackPanel Orientation="Horizontal" VerticalAlignment="Center" ClipToBounds="True" Visibility="{Binding HasImage, Converter={StaticResource BooleanToVisibilityConverter}}"><TextBlock Text="{Binding DimensionsText}" FontSize="11" Foreground="{DynamicResource SecondaryTextBrush}" /><TextBlock Text="{Binding FormatText}" Margin="16,0" FontSize="11" Foreground="{DynamicResource SecondaryTextBrush}" /><TextBlock Text="{Binding FileSizeText}" FontSize="11" Foreground="{DynamicResource SecondaryTextBrush}"><TextBlock.Style><Style TargetType="TextBlock"><Style.Triggers><DataTrigger Binding="{Binding IsCompactLayout, RelativeSource={RelativeSource AncestorType=Window}}" Value="True"><Setter Property="Visibility" Value="Collapsed" /></DataTrigger></Style.Triggers></Style></TextBlock.Style></TextBlock></StackPanel>
         <TextBlock Grid.Column="1" Text="{Binding PositionText}" VerticalAlignment="Center" FontSize="11" Foreground="{DynamicResource SecondaryTextBrush}" />
-        <TextBlock Grid.Column="2" Text="{Binding KeyboardHint}" TextTrimming="CharacterEllipsis" HorizontalAlignment="Right" VerticalAlignment="Center" FontSize="11" Foreground="{DynamicResource SecondaryTextBrush}"><TextBlock.Style><Style TargetType="TextBlock"><Style.Triggers><DataTrigger Binding="{Binding IsCompactLayout, RelativeSource={RelativeSource AncestorType=Window}}" Value="True"><Setter Property="Visibility" Value="Collapsed" /></DataTrigger></Style.Triggers></Style></TextBlock.Style></TextBlock>
+        <Grid Grid.Column="2">
+          <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+          <TextBlock Text="{Binding KeyboardHint}" TextTrimming="CharacterEllipsis" HorizontalAlignment="Right" VerticalAlignment="Center" FontSize="11" Foreground="{DynamicResource SecondaryTextBrush}">
+            <TextBlock.Style><Style TargetType="TextBlock"><Style.Triggers><DataTrigger Binding="{Binding IsCompactLayout, RelativeSource={RelativeSource AncestorType=Window}}" Value="True"><Setter Property="Visibility" Value="Collapsed" /></DataTrigger></Style.Triggers></Style></TextBlock.Style>
+          </TextBlock>
+          <Button x:Name="SlideshowStatusButton" Grid.Column="1" MinHeight="26" Margin="10,2,0,2" Padding="8,2"
+                  Visibility="{Binding CanPlaySlideshow, Converter={StaticResource BooleanToVisibilityConverter}}"
+                  Click="OnSlideshowClick" ToolTip="{Binding SlideshowLabel}"
+                  AutomationProperties.Name="{Binding SlideshowMenuLabel}" AutomationProperties.ItemStatus="{Binding SlideshowStatusText}"
+                  AutomationProperties.AcceleratorKey="F6">
+            <Button.Style>
+              <Style TargetType="Button" BasedOn="{StaticResource ToolbarButtonStyle}">
+                <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
+                <Style.Triggers>
+                  <DataTrigger Binding="{Binding IsSlideshowPlaying}" Value="True">
+                    <Setter Property="Background" Value="{DynamicResource AccentSurfaceBrush}" />
+                  </DataTrigger>
+                </Style.Triggers>
+              </Style>
+            </Button.Style>
+            <StackPanel Orientation="Horizontal">
+              <Path x:Name="SlideshowStatusIcon" Width="13" Height="13" Margin="0,0,6,0">
+                <Path.Style>
+                  <Style TargetType="Path" BasedOn="{StaticResource IconStyle}">
+                    <Setter Property="Data" Value="{StaticResource Icon.Play}" />
+                    <Style.Triggers>
+                      <DataTrigger Binding="{Binding IsSlideshowPlaying}" Value="True"><Setter Property="Data" Value="{StaticResource Icon.Pause}" /></DataTrigger>
+                    </Style.Triggers>
+                  </Style>
+                </Path.Style>
+              </Path>
+              <TextBlock x:Name="SlideshowStatusLabel" Text="{Binding SlideshowStatusText}" VerticalAlignment="Center" FontSize="11" />
+            </StackPanel>
+          </Button>
+        </Grid>
       </Grid>
     </Border>
   </Grid>

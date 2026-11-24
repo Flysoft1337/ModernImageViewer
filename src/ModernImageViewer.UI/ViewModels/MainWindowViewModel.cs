@@ -135,6 +135,8 @@ public sealed partial class MainWindowViewModel : INotifyPropertyChanged, IDispo
     public string OpenFolderLabel => Text("Command_OpenFolder");
     public string SlideshowLabel => Text(IsSlideshowPlaying ? "Command_PauseSlideshow" : "Command_Slideshow");
     public string SlideshowMenuLabel => Text(IsSlideshowPlaying ? "Menu_PauseSlideshow" : "Menu_Slideshow");
+    public string SlideshowStatusText => string.Format(_localization.CurrentCulture,
+        Text(IsSlideshowPlaying ? "Slideshow_PlayingFormat" : "Slideshow_PausedFormat"), SlideshowSeconds);
     public string ExifLabel => Text("Information_Exif");
     public string Slideshow2Label => Text("Slideshow_2Seconds");
     public string Slideshow5Label => Text("Slideshow_5Seconds");
@@ -152,6 +154,7 @@ public sealed partial class MainWindowViewModel : INotifyPropertyChanged, IDispo
             OnPropertyChanged();
             OnPropertyChanged(nameof(SlideshowLabel));
             OnPropertyChanged(nameof(SlideshowMenuLabel));
+            OnPropertyChanged(nameof(SlideshowStatusText));
         }
     }
     public int SlideshowSeconds
@@ -163,6 +166,7 @@ public sealed partial class MainWindowViewModel : INotifyPropertyChanged, IDispo
             if (_slideshowSeconds == seconds) { return; }
             _slideshowSeconds = seconds;
             OnPropertyChanged();
+            OnPropertyChanged(nameof(SlideshowStatusText));
             SaveBrowsingPreferences();
         }
     }
