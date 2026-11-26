@@ -373,6 +373,31 @@ internal static class MenuUiRegression
         }
     }
 
+    internal static void VerifyHighContrastMenu(MainWindow window)
+    {
+        ContextMenu menu = CreateStateMenu(window);
+        menu.PlacementTarget = (Button)window.FindName("SettingsButton");
+        menu.IsOpen = true;
+        try
+        {
+            Drain(menu);
+            Assert.Equal(SystemColors.WindowColor, BrushColor(Part<Border>(menu, "MenuSurface").Background));
+            MenuItem checkedItem = (MenuItem)menu.Items[3];
+            Assert.True(checkedItem.Focus());
+            Drain(menu);
+            Assert.Equal(SystemColors.HighlightColor, BrushColor(Part<Border>(checkedItem, "MenuBorder").Background));
+            Assert.Equal(SystemColors.HighlightTextColor, BrushColor(Part<ShapePath>(checkedItem, "CheckMark").Stroke));
+            MenuItem disabled = (MenuItem)menu.Items[4];
+            Assert.Equal(SystemColors.GrayTextColor, BrushColor(disabled.Foreground));
+            SaveScreenshot(menu, "windows-high-contrast-menu");
+        }
+        finally
+        {
+            menu.IsOpen = false;
+            Drain(window);
+        }
+    }
+
     private static void VerifyCombinedStatesAndScrolling(MainWindow window, ThemeService themes)
     {
         ContextMenu menu = CreateStateMenu(window);

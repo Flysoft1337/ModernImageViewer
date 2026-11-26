@@ -20,7 +20,9 @@
           <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
           <TextBox x:Name="NameInput" MinWidth="100" FontSize="14"
                    Foreground="{DynamicResource PrimaryTextBrush}" CaretBrush="{DynamicResource PrimaryTextBrush}"
-                   SelectionBrush="{DynamicResource AccentBrush}" SelectionOpacity="0.3"
+                   SelectionBrush="{DynamicResource TextSelectionBrush}"
+                   SelectionTextBrush="{DynamicResource SelectionForegroundBrush}"
+                   SelectionOpacity="{DynamicResource TextSelectionOpacity}"
                    Background="{DynamicResource WindowBackgroundBrush}" Padding="10,8">
             <TextBox.Template>
               <ControlTemplate TargetType="TextBox">

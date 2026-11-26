@@ -25,14 +25,19 @@
       <Setter Property="Background" Value="{DynamicResource SurfaceHoverBrush}" />
       <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
       <Setter Property="CaretBrush" Value="{DynamicResource PrimaryTextBrush}" />
-      <Setter Property="SelectionBrush" Value="{DynamicResource AccentBrush}" />
+      <Setter Property="SelectionBrush" Value="{DynamicResource TextSelectionBrush}" />
+      <Setter Property="SelectionTextBrush" Value="{DynamicResource SelectionForegroundBrush}" />
+      <Setter Property="SelectionOpacity" Value="{DynamicResource TextSelectionOpacity}" />
       <Setter Property="FontSize" Value="12" />
       <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="TextBox">
         <Border x:Name="InputBorder" CornerRadius="4" BorderThickness="1" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" Padding="{TemplateBinding Padding}">
           <ScrollViewer x:Name="PART_ContentHost" VerticalAlignment="Center" />
         </Border>
         <ControlTemplate.Triggers>
-          <Trigger Property="IsKeyboardFocusWithin" Value="True"><Setter TargetName="InputBorder" Property="BorderBrush" Value="{DynamicResource AccentBrush}" /></Trigger>
+          <Trigger Property="IsKeyboardFocusWithin" Value="True">
+            <Setter TargetName="InputBorder" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+            <Setter TargetName="InputBorder" Property="BorderThickness" Value="{DynamicResource ControlFocusThickness}" />
+          </Trigger>
           <Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.45" /></Trigger>
         </ControlTemplate.Triggers>
       </ControlTemplate></Setter.Value></Setter>
@@ -41,9 +46,9 @@
       <Setter Property="IsReadOnly" Value="True" />
       <Setter Property="TextWrapping" Value="Wrap" />
       <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
-      <Setter Property="SelectionBrush" Value="{DynamicResource AccentBrush}" />
-      <Setter Property="SelectionTextBrush" Value="{DynamicResource PrimaryTextBrush}" />
-      <Setter Property="SelectionOpacity" Value="0.3" />
+      <Setter Property="SelectionBrush" Value="{DynamicResource TextSelectionBrush}" />
+      <Setter Property="SelectionTextBrush" Value="{DynamicResource SelectionForegroundBrush}" />
+      <Setter Property="SelectionOpacity" Value="{DynamicResource TextSelectionOpacity}" />
       <Setter Property="FontSize" Value="13" />
       <Setter Property="Template">
         <Setter.Value>
@@ -148,8 +153,8 @@
             </Button.ContextMenu>
           </Button>
           <Border Style="{StaticResource ToolDividerStyle}" />
-          <Button Style="{StaticResource WindowButtonStyle}" Click="OnMinimizeClick" ToolTip="{Binding MinimizeLabel}" AutomationProperties.Name="{Binding MinimizeLabel}"><Path Width="12" Height="1" Stroke="{DynamicResource PrimaryTextBrush}" Data="M0,0 L12,0" /></Button>
-          <Button Style="{StaticResource WindowButtonStyle}" Click="OnMaximizeClick" ToolTip="{Binding MaximizeLabel}" AutomationProperties.Name="{Binding MaximizeLabel}"><Path Width="11" Height="11" Stroke="{DynamicResource PrimaryTextBrush}" Data="M0,0 L10,0 10,10 0,10 Z" /></Button>
+          <Button Style="{StaticResource WindowButtonStyle}" Click="OnMinimizeClick" ToolTip="{Binding MinimizeLabel}" AutomationProperties.Name="{Binding MinimizeLabel}"><Path Width="12" Height="1" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" Data="M0,0 L12,0" /></Button>
+          <Button Style="{StaticResource WindowButtonStyle}" Click="OnMaximizeClick" ToolTip="{Binding MaximizeLabel}" AutomationProperties.Name="{Binding MaximizeLabel}"><Path Width="11" Height="11" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" Data="M0,0 L10,0 10,10 0,10 Z" /></Button>
           <Button Style="{StaticResource CloseWindowButtonStyle}" Click="OnCloseClick" ToolTip="{Binding CloseLabel}" AutomationProperties.Name="{Binding CloseLabel}"><Path Style="{StaticResource IconStyle}" Width="13" Height="13" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" Data="{StaticResource Icon.Close}" /></Button>
         </StackPanel>
       </Grid>
@@ -173,9 +178,9 @@
           </Grid>
           <TextBlock Text="{Binding WelcomeTitle}" FontSize="30" FontWeight="SemiBold" HorizontalAlignment="Center" />
           <TextBlock Text="{Binding WelcomeHint}" Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,12,0,28" HorizontalAlignment="Center" />
-          <Button Style="{StaticResource PrimaryButtonStyle}" Command="{Binding OpenCommand}" HorizontalAlignment="Center"><StackPanel Orientation="Horizontal"><Path Style="{StaticResource IconStyle}" Stroke="{DynamicResource AccentTextBrush}" Data="{StaticResource Icon.Open}" /><TextBlock Text="{Binding OpenLabel}" Margin="10,0,16,0" VerticalAlignment="Center" /><TextBlock Text="Ctrl + O" Opacity="0.7" FontSize="12" VerticalAlignment="Center" /></StackPanel></Button>
-          <Button Style="{StaticResource ToolbarButtonStyle}" Click="OnOpenFolderClick" HorizontalAlignment="Center" Margin="0,12,0,0" Foreground="{DynamicResource AccentBrush}" Content="{Binding OpenFolderLabel}" ToolTip="Ctrl+Shift+O" />
-          <TextBlock Text="{Binding SupportedFormatsOverview}" TextWrapping="WrapWithOverflow" TextAlignment="Center" MaxWidth="360" Foreground="{DynamicResource SecondaryTextBrush}" Opacity="0.7" Margin="0,18,0,0" FontSize="11" HorizontalAlignment="Center" />
+          <Button Style="{StaticResource PrimaryButtonStyle}" Command="{Binding OpenCommand}" HorizontalAlignment="Center"><StackPanel Orientation="Horizontal"><Path Style="{StaticResource IconStyle}" Data="{StaticResource Icon.Open}" /><TextBlock Text="{Binding OpenLabel}" Margin="10,0,16,0" VerticalAlignment="Center" /><TextBlock Text="Ctrl + O" FontSize="12" VerticalAlignment="Center" /></StackPanel></Button>
+          <Button Style="{StaticResource ToolbarButtonStyle}" Click="OnOpenFolderClick" HorizontalAlignment="Center" Margin="0,12,0,0" Content="{Binding OpenFolderLabel}" ToolTip="Ctrl+Shift+O" />
+          <TextBlock Text="{Binding SupportedFormatsOverview}" TextWrapping="WrapWithOverflow" TextAlignment="Center" MaxWidth="360" Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,18,0,0" FontSize="11" HorizontalAlignment="Center" />
         </StackPanel>
         <Border x:Name="PreviewStatusOverlay" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="16" Padding="12,8"
                 CornerRadius="10" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}"
@@ -235,8 +240,7 @@
             <Button Style="{StaticResource ToolbarButtonStyle}" Click="OnZoomOutClick" ToolTip="{Binding ZoomOutLabel}" AutomationProperties.Name="{Binding ZoomOutLabel}"><Path Style="{StaticResource IconStyle}" Data="{StaticResource Icon.ZoomOut}" /></Button>
             <TextBox x:Name="ZoomInput" Style="{StaticResource ToolbarInputStyle}" Text="{Binding ZoomText, Mode=OneWay}"
                      Width="80" Height="28" Padding="4,2" VerticalAlignment="Center" TextAlignment="Center"
-                     MaxLength="16" IsEnabled="{Binding HasImage}" SelectionOpacity="0.3"
-                     SelectionTextBrush="{DynamicResource PrimaryTextBrush}"
+                     MaxLength="16" IsEnabled="{Binding HasImage}"
                      PreviewMouseLeftButtonDown="OnZoomInputMouseDown"
                      GotKeyboardFocus="OnZoomInputFocus" LostKeyboardFocus="OnZoomInputLostFocus"
                      ToolTip="{Binding ZoomInputHint}" AutomationProperties.Name="{Binding ZoomInputLabel}"
@@ -331,7 +335,8 @@
                 <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
                 <Style.Triggers>
                   <DataTrigger Binding="{Binding IsSlideshowPlaying}" Value="True">
-                    <Setter Property="Background" Value="{DynamicResource AccentSurfaceBrush}" />
+                    <Setter Property="Background" Value="{DynamicResource SelectionBackgroundBrush}" />
+                    <Setter Property="Foreground" Value="{DynamicResource SelectionForegroundBrush}" />
                   </DataTrigger>
                 </Style.Triggers>
               </Style>

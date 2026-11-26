@@ -1,0 +1,31 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:sys="clr-namespace:System;assembly=mscorlib">
+  <SolidColorBrush x:Key="WindowBackgroundBrush" Color="{x:Static SystemColors.WindowColor}" />
+  <SolidColorBrush x:Key="SurfaceBrush" Color="{x:Static SystemColors.WindowColor}" />
+  <SolidColorBrush x:Key="SurfaceHoverBrush" Color="{x:Static SystemColors.WindowColor}" />
+  <SolidColorBrush x:Key="CanvasBrush" Color="{x:Static SystemColors.WindowColor}" />
+  <SolidColorBrush x:Key="BorderBrush" Color="{x:Static SystemColors.WindowTextColor}" />
+  <SolidColorBrush x:Key="PrimaryTextBrush" Color="{x:Static SystemColors.WindowTextColor}" />
+  <SolidColorBrush x:Key="SecondaryTextBrush" Color="{x:Static SystemColors.WindowTextColor}" />
+  <SolidColorBrush x:Key="DisabledTextBrush" Color="{x:Static SystemColors.GrayTextColor}" />
+  <SolidColorBrush x:Key="AccentBrush" Color="{x:Static SystemColors.WindowTextColor}" />
+  <SolidColorBrush x:Key="AccentTextBrush" Color="{x:Static SystemColors.WindowColor}" />
+  <SolidColorBrush x:Key="AccentSurfaceBrush" Color="{x:Static SystemColors.WindowColor}" />
+  <SolidColorBrush x:Key="CheckerLightBrush" Color="{x:Static SystemColors.WindowTextColor}" />
+  <SolidColorBrush x:Key="CheckerDarkBrush" Color="{x:Static SystemColors.WindowColor}" />
+  <SolidColorBrush x:Key="OverlayBrush" Color="{x:Static SystemColors.WindowColor}" />
+  <SolidColorBrush x:Key="DangerBrush" Color="{x:Static SystemColors.HighlightColor}" />
+  <SolidColorBrush x:Key="DangerPressedBrush" Color="{x:Static SystemColors.HighlightColor}" />
+  <SolidColorBrush x:Key="DangerTextBrush" Color="{x:Static SystemColors.HighlightTextColor}" />
+  <SolidColorBrush x:Key="ControlOutlineBrush" Color="{x:Static SystemColors.WindowTextColor}" />
+  <SolidColorBrush x:Key="HoverBackgroundBrush" Color="{x:Static SystemColors.HighlightColor}" />
+  <SolidColorBrush x:Key="SelectionBackgroundBrush" Color="{x:Static SystemColors.HighlightColor}" />
+  <SolidColorBrush x:Key="SelectionForegroundBrush" Color="{x:Static SystemColors.HighlightTextColor}" />
+  <SolidColorBrush x:Key="TextSelectionBrush" Color="{x:Static SystemColors.HighlightColor}" />
+  <sys:Double x:Key="TextSelectionOpacity">1</sys:Double>
+  <sys:Double x:Key="DisabledControlOpacity">1</sys:Double>
+  <sys:Double x:Key="DisabledMenuIconOpacity">1</sys:Double>
+  <sys:Double x:Key="ScrollThumbOpacity">1</sys:Double>
+  <Thickness x:Key="ControlFocusThickness">2</Thickness>
+</ResourceDictionary>

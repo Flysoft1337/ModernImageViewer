@@ -319,7 +319,8 @@ public sealed class FrameBrowsingUiTests
             using ImageOpenCoordinator coordinator = new(new Picker(), new Decoder(null, animation, pages, null, closing));
             ImageBrowseSession browse = new();
             using MainWindowViewModel model = new(localization, coordinator, browse, imageClipboard: new Clipboard());
-            using ThemeService themes = new();
+            bool highContrast = true;
+            using ThemeService themes = new(settings, () => highContrast);
             window = new(model, themes) { Width = 720, Height = 480 };
             window.Show();
             window.Activate();
@@ -331,6 +332,7 @@ public sealed class FrameBrowsingUiTests
             Drain(window);
             Assert.Null(FrameViewportTests.Field<DispatcherTimer>(window, "_frameTimer"));
             Assert.Equal(0, model.ActiveFrameControllers);
+            VerifyHighContrast(window, model, themes, settings, () => highContrast = false);
             VerifySlideshowStatus(window, model, themes, localization);
             VerifyBrowsingTabOrder(window, model, themes, localization);
             VerifyBrowsingAccessibility(window, model, localization);
@@ -395,6 +397,66 @@ public sealed class FrameBrowsingUiTests
             Assert.Equal(0, model.ActiveFrameControllers);
         }
         finally { window?.Close(); }
+    }
+
+    private static void VerifyHighContrast(MainWindow window, MainWindowViewModel model, ThemeService themes,
+        Settings settings, Action disableHighContrast)
+    {
+        var viewport = (ImageViewport)window.FindName("Viewport");
+        var zoom = (TextBox)window.FindName("ZoomInput");
+        var settingsButton = (Button)window.FindName("SettingsButton");
+        var items = (ItemsControl)window.FindName("FilmstripItems");
+        var slideshow = (Button)window.FindName("SlideshowStatusButton");
+        var slideshowIcon = (System.Windows.Shapes.Path)window.FindName("SlideshowStatusIcon");
+        bool showFilmstrip = model.ShowFilmstrip;
+        try
+        {
+            Assert.Null(settings.Theme);
+            Assert.Equal(SystemColors.WindowColor, Assert.IsType<SolidColorBrush>(window.Background).Color);
+            themes.Apply(AppTheme.Light);
+            model.ShowFilmstrip = true;
+            Drain(window);
+
+            Assert.Equal(SystemColors.WindowColor, Assert.IsType<SolidColorBrush>(viewport.CanvasBackground).Color);
+            Assert.Equal(SystemColors.WindowTextColor, Assert.IsType<SolidColorBrush>(window.Foreground).Color);
+            Assert.Equal(SystemColors.HighlightColor, Assert.IsType<SolidColorBrush>(zoom.SelectionBrush).Color);
+            Assert.Equal(SystemColors.HighlightTextColor, Assert.IsType<SolidColorBrush>(zoom.SelectionTextBrush).Color);
+            Assert.Equal(1, zoom.SelectionOpacity);
+
+            var presenter = Assert.IsType<ContentPresenter>(items.ItemContainerGenerator.ContainerFromIndex(0));
+            var thumbnail = Assert.IsType<Button>(presenter.ContentTemplate.FindName("FilmstripThumbnail", presenter));
+            Assert.Equal(SystemColors.HighlightColor, Assert.IsType<SolidColorBrush>(thumbnail.Background).Color);
+            Assert.Equal(SystemColors.HighlightTextColor, Assert.IsType<SolidColorBrush>(thumbnail.Foreground).Color);
+
+            model.IsSlideshowPlaying = true;
+            Drain(window);
+            Assert.Equal(SystemColors.HighlightColor, Assert.IsType<SolidColorBrush>(slideshow.Background).Color);
+            Assert.Equal(SystemColors.HighlightTextColor, Assert.IsType<SolidColorBrush>(slideshowIcon.Stroke).Color);
+            model.IsSlideshowPlaying = false;
+
+            Assert.True(settingsButton.Focus());
+            Drain(window);
+            var focusBorder = Assert.IsType<Border>(settingsButton.Template.FindName("ButtonBorder", settingsButton));
+            Assert.Equal(new Thickness(2), focusBorder.BorderThickness);
+            Assert.Equal(SystemColors.WindowTextColor, Assert.IsType<SolidColorBrush>(focusBorder.BorderBrush).Color);
+            MenuUiRegression.VerifyHighContrastMenu(window);
+            MenuUiRegression.SaveScreenshot(window, "windows-high-contrast-720x480");
+        }
+        finally
+        {
+            model.IsSlideshowPlaying = false;
+            model.ShowFilmstrip = showFilmstrip;
+            disableHighContrast();
+            themes.RefreshPalette();
+            Drain(window);
+        }
+
+        Assert.Equal(AppTheme.Light, themes.CurrentTheme);
+        Assert.Equal("Light", settings.Theme);
+        Assert.Equal((Color)window.FindResource("Color.Window"), Assert.IsType<SolidColorBrush>(window.Background).Color);
+        Assert.Equal(0.3, zoom.SelectionOpacity);
+        themes.Apply(AppTheme.Dark);
+        Drain(window);
     }
 
     private static void VerifyBrowsingTabOrder(MainWindow window, MainWindowViewModel model, ThemeService themes, LocalizationService localization)

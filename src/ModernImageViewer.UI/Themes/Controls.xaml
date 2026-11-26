@@ -97,8 +97,17 @@
             </Popup>
           </Grid>
           <ControlTemplate.Triggers>
-            <Trigger Property="IsHighlighted" Value="True"><Setter TargetName="MenuBorder" Property="Background" Value="{DynamicResource SurfaceHoverBrush}" /></Trigger>
-            <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="MenuBorder" Property="BorderBrush" Value="{DynamicResource AccentBrush}" /></Trigger>
+            <Trigger Property="IsHighlighted" Value="True">
+              <Setter TargetName="MenuBorder" Property="Background" Value="{DynamicResource HoverBackgroundBrush}" />
+              <Setter Property="Foreground" Value="{DynamicResource SelectionForegroundBrush}" />
+              <Setter TargetName="GestureText" Property="Foreground" Value="{DynamicResource SelectionForegroundBrush}" />
+              <Setter TargetName="CheckMark" Property="Stroke" Value="{DynamicResource SelectionForegroundBrush}" />
+              <Setter TargetName="SubmenuArrow" Property="Stroke" Value="{DynamicResource SelectionForegroundBrush}" />
+            </Trigger>
+            <Trigger Property="IsKeyboardFocused" Value="True">
+              <Setter TargetName="MenuBorder" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+              <Setter TargetName="MenuBorder" Property="BorderThickness" Value="{DynamicResource ControlFocusThickness}" />
+            </Trigger>
             <Trigger Property="HasItems" Value="True"><Setter TargetName="SubmenuArrow" Property="Visibility" Value="Visible" /></Trigger>
             <Trigger Property="Icon" Value="{x:Null}"><Setter TargetName="IconPresenter" Property="Visibility" Value="Collapsed" /></Trigger>
             <Trigger Property="IsCheckable" Value="True"><Setter TargetName="CheckMark" Property="Visibility" Value="Hidden" /></Trigger>
@@ -109,7 +118,7 @@
               <Setter TargetName="GestureText" Property="Foreground" Value="{DynamicResource DisabledTextBrush}" />
               <Setter TargetName="CheckMark" Property="Stroke" Value="{DynamicResource DisabledTextBrush}" />
               <Setter TargetName="SubmenuArrow" Property="Stroke" Value="{DynamicResource DisabledTextBrush}" />
-              <Setter TargetName="IconPresenter" Property="Opacity" Value="0.55" />
+              <Setter TargetName="IconPresenter" Property="Opacity" Value="{DynamicResource DisabledMenuIconOpacity}" />
             </Trigger>
           </ControlTemplate.Triggers>
         </ControlTemplate>
@@ -123,7 +132,7 @@
     <Setter Property="Padding" Value="10,8" />
     <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
     <Setter Property="Background" Value="Transparent" />
-    <Setter Property="BorderBrush" Value="Transparent" />
+    <Setter Property="BorderBrush" Value="{DynamicResource ControlOutlineBrush}" />
     <Setter Property="FocusVisualStyle" Value="{x:Null}" />
     <Setter Property="Cursor" Value="Hand" />
     <Setter Property="Template">
@@ -134,10 +143,23 @@
             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
           </Border>
           <ControlTemplate.Triggers>
-            <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="ButtonBorder" Property="Background" Value="{DynamicResource SurfaceHoverBrush}" /></Trigger>
-            <Trigger Property="IsPressed" Value="True"><Setter TargetName="ButtonBorder" Property="Background" Value="{DynamicResource AccentSurfaceBrush}" /></Trigger>
-            <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="ButtonBorder" Property="BorderBrush" Value="{DynamicResource AccentBrush}" /></Trigger>
-            <Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.32" /><Setter Property="Cursor" Value="Arrow" /></Trigger>
+            <Trigger Property="IsMouseOver" Value="True">
+              <Setter TargetName="ButtonBorder" Property="Background" Value="{DynamicResource HoverBackgroundBrush}" />
+              <Setter Property="Foreground" Value="{DynamicResource SelectionForegroundBrush}" />
+            </Trigger>
+            <Trigger Property="IsPressed" Value="True">
+              <Setter TargetName="ButtonBorder" Property="Background" Value="{DynamicResource SelectionBackgroundBrush}" />
+              <Setter Property="Foreground" Value="{DynamicResource SelectionForegroundBrush}" />
+            </Trigger>
+            <Trigger Property="IsKeyboardFocused" Value="True">
+              <Setter TargetName="ButtonBorder" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+              <Setter TargetName="ButtonBorder" Property="BorderThickness" Value="{DynamicResource ControlFocusThickness}" />
+            </Trigger>
+            <Trigger Property="IsEnabled" Value="False">
+              <Setter Property="Foreground" Value="{DynamicResource DisabledTextBrush}" />
+              <Setter Property="Opacity" Value="{DynamicResource DisabledControlOpacity}" />
+              <Setter Property="Cursor" Value="Arrow" />
+            </Trigger>
           </ControlTemplate.Triggers>
         </ControlTemplate>
       </Setter.Value>
@@ -158,8 +180,15 @@
           <ControlTemplate.Triggers>
             <Trigger Property="IsMouseOver" Value="True"><Setter Property="Opacity" Value="0.88" /></Trigger>
             <Trigger Property="IsPressed" Value="True"><Setter Property="Opacity" Value="0.72" /></Trigger>
-            <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="ButtonBorder" Property="BorderBrush" Value="{DynamicResource PrimaryTextBrush}" /></Trigger>
-            <Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.32" /></Trigger>
+            <Trigger Property="IsKeyboardFocused" Value="True">
+              <Setter TargetName="ButtonBorder" Property="BorderBrush" Value="{DynamicResource AccentTextBrush}" />
+              <Setter TargetName="ButtonBorder" Property="BorderThickness" Value="{DynamicResource ControlFocusThickness}" />
+            </Trigger>
+            <Trigger Property="IsEnabled" Value="False">
+              <Setter TargetName="ButtonBorder" Property="Background" Value="{DynamicResource SurfaceBrush}" />
+              <Setter Property="Foreground" Value="{DynamicResource DisabledTextBrush}" />
+              <Setter Property="Opacity" Value="{DynamicResource DisabledControlOpacity}" />
+            </Trigger>
           </ControlTemplate.Triggers>
         </ControlTemplate>
       </Setter.Value>
@@ -183,7 +212,10 @@
           <ControlTemplate.Triggers>
             <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="ButtonBorder" Property="Background" Value="{DynamicResource DangerBrush}" /><Setter Property="Foreground" Value="{DynamicResource DangerTextBrush}" /></Trigger>
             <Trigger Property="IsPressed" Value="True"><Setter TargetName="ButtonBorder" Property="Background" Value="{DynamicResource DangerPressedBrush}" /><Setter Property="Foreground" Value="{DynamicResource DangerTextBrush}" /></Trigger>
-            <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="ButtonBorder" Property="BorderBrush" Value="{DynamicResource AccentBrush}" /></Trigger>
+            <Trigger Property="IsKeyboardFocused" Value="True">
+              <Setter TargetName="ButtonBorder" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+              <Setter TargetName="ButtonBorder" Property="BorderThickness" Value="{DynamicResource ControlFocusThickness}" />
+            </Trigger>
           </ControlTemplate.Triggers>
         </ControlTemplate>
       </Setter.Value>
@@ -198,7 +230,8 @@
         <Setter Property="TabIndex" Value="0" />
         <Setter Property="AutomationProperties.ItemStatus" Value="{Binding DataContext.CurrentThumbnailLabel, RelativeSource={RelativeSource AncestorType=Window}}" />
         <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
-        <Setter Property="Background" Value="{DynamicResource AccentSurfaceBrush}" />
+        <Setter Property="Background" Value="{DynamicResource SelectionBackgroundBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource SelectionForegroundBrush}" />
       </DataTrigger>
     </Style.Triggers>
   </Style>
@@ -222,7 +255,7 @@
     <Setter Property="Width" Value="17" />
     <Setter Property="Height" Value="17" />
     <Setter Property="Stretch" Value="Uniform" />
-    <Setter Property="Stroke" Value="{DynamicResource PrimaryTextBrush}" />
+    <Setter Property="Stroke" Value="{Binding Path=(TextElement.Foreground), RelativeSource={RelativeSource Self}}" />
     <Setter Property="StrokeThickness" Value="1.5" />
     <Setter Property="StrokeStartLineCap" Value="Round" />
     <Setter Property="StrokeEndLineCap" Value="Round" />
@@ -247,10 +280,10 @@
                 <Thumb MinHeight="18">
                   <Thumb.Template>
                     <ControlTemplate TargetType="Thumb">
-                      <Border x:Name="Grip" Background="{DynamicResource SecondaryTextBrush}" CornerRadius="3" Opacity="0.35" />
+                      <Border x:Name="Grip" Background="{DynamicResource SecondaryTextBrush}" CornerRadius="3" Opacity="{DynamicResource ScrollThumbOpacity}" />
                       <ControlTemplate.Triggers>
-                        <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Grip" Property="Opacity" Value="0.65" /></Trigger>
-                        <Trigger Property="IsDragging" Value="True"><Setter TargetName="Grip" Property="Opacity" Value="0.85" /></Trigger>
+                        <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Grip" Property="Opacity" Value="1" /></Trigger>
+                        <Trigger Property="IsDragging" Value="True"><Setter TargetName="Grip" Property="Opacity" Value="1" /></Trigger>
                       </ControlTemplate.Triggers>
                     </ControlTemplate>
                   </Thumb.Template>
