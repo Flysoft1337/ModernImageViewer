@@ -326,11 +326,13 @@ public sealed class FrameBrowsingUiTests
             Drain(window);
             Button slideshowButton = (Button)window.FindName("SlideshowStatusButton");
             Assert.Equal(Visibility.Collapsed, slideshowButton.Visibility);
+            Assert.False(((ImageViewport)window.FindName("Viewport")).IsTabStop);
             OpenSelection(coordinator, browse, "static.png");
             Drain(window);
             Assert.Null(FrameViewportTests.Field<DispatcherTimer>(window, "_frameTimer"));
             Assert.Equal(0, model.ActiveFrameControllers);
             VerifySlideshowStatus(window, model, themes, localization);
+            VerifyBrowsingTabOrder(window, model, themes, localization);
             VerifyBrowsingAccessibility(window, model, localization);
             OpenSelection(coordinator, browse, "frames.gif");
             Drain(window);
@@ -393,6 +395,97 @@ public sealed class FrameBrowsingUiTests
             Assert.Equal(0, model.ActiveFrameControllers);
         }
         finally { window?.Close(); }
+    }
+
+    private static void VerifyBrowsingTabOrder(MainWindow window, MainWindowViewModel model, ThemeService themes, LocalizationService localization)
+    {
+        ImageViewport viewport = (ImageViewport)window.FindName("Viewport");
+        TextBox zoomInput = (TextBox)window.FindName("ZoomInput");
+        TextBox fileName = (TextBox)window.FindName("InformationFileName");
+        FrameworkElement informationPanel = (FrameworkElement)window.FindName("InformationPanel");
+        FrameworkElement titleBar = (FrameworkElement)window.FindName("TitleBar");
+        Button slideshow = (Button)window.FindName("SlideshowStatusButton");
+        bool savedFilmstrip = model.ShowFilmstrip;
+        bool savedInformation = model.ShowInformation;
+        AppTheme savedTheme = themes.CurrentTheme;
+        string savedCulture = localization.CurrentCulture.Name;
+        try
+        {
+            model.ShowFilmstrip = true;
+            model.ShowInformation = true;
+            Drain(window);
+
+            Assert.True(slideshow.Focus());
+            Button current = Assert.IsType<Button>(MoveTabFocus(FocusNavigationDirection.Previous));
+            Assert.Equal("static.png", AutomationProperties.GetName(current));
+            themes.Apply(AppTheme.Dark);
+            localization.SetCulture("zh-CN");
+            Drain(window);
+            MenuUiRegression.SaveScreenshot(window, "browsing-tab-dark-zh-CN-720x480");
+            themes.Apply(AppTheme.Light);
+            localization.SetCulture("en-US");
+            Drain(window);
+            MenuUiRegression.SaveScreenshot(window, "browsing-tab-light-en-US-720x480");
+
+            Assert.True(current.MoveFocus(new TraversalRequest(FocusNavigationDirection.Right)));
+            Button next = Assert.IsType<Button>(Keyboard.FocusedElement);
+            Assert.Equal("next.png", AutomationProperties.GetName(next));
+            Assert.True(current.TabIndex < next.TabIndex);
+            Assert.Same(slideshow, MoveTabFocus(FocusNavigationDirection.Next));
+            Assert.Same(next, MoveTabFocus(FocusNavigationDirection.Previous));
+            Assert.IsType<Button>(MoveTabFocus(FocusNavigationDirection.Previous));
+            Assert.True(informationPanel.IsKeyboardFocusWithin);
+            Assert.True(fileName.Focus());
+            Assert.IsType<Button>(MoveTabFocus(FocusNavigationDirection.Previous));
+            Assert.True(informationPanel.IsKeyboardFocusWithin);
+            Assert.Equal(model.SettingsLabel, AutomationProperties.GetName(Assert.IsType<Button>(MoveTabFocus(FocusNavigationDirection.Previous))));
+
+            Assert.True(zoomInput.Focus());
+            Assert.Equal(model.ZoomInLabel, AutomationProperties.GetName(Assert.IsType<Button>(MoveTabFocus(FocusNavigationDirection.Next))));
+            Assert.Same(zoomInput, MoveTabFocus(FocusNavigationDirection.Previous));
+
+            model.ShowInformation = false;
+            model.ShowFilmstrip = false;
+            Drain(window);
+            Assert.True(slideshow.Focus());
+            Assert.Equal(model.SettingsLabel, AutomationProperties.GetName(Assert.IsType<Button>(MoveTabFocus(FocusNavigationDirection.Previous))));
+            Assert.Same(slideshow, MoveTabFocus(FocusNavigationDirection.Next));
+            MoveTabFocus(FocusNavigationDirection.Next);
+            Assert.True(titleBar.IsKeyboardFocusWithin);
+            Assert.Same(slideshow, MoveTabFocus(FocusNavigationDirection.Previous));
+            Assert.True(viewport.Focus());
+            MoveTabFocus(FocusNavigationDirection.Previous);
+            Assert.True(titleBar.IsKeyboardFocusWithin);
+            Assert.Same(viewport, MoveTabFocus(FocusNavigationDirection.Next));
+
+            Invoke(window, "ToggleFullScreen");
+            Drain(window);
+            Assert.True(viewport.Focus());
+            Invoke(window, "SetChromeVisible", false);
+            Drain(window);
+            Assert.False(slideshow.IsVisible);
+            KeyEventArgs tab = new(Keyboard.PrimaryDevice, PresentationSource.FromVisual(window), 0, Key.Tab);
+            Invoke(window, "OnPreviewKeyDown", window, tab);
+            Assert.False(tab.Handled);
+            Assert.Same(slideshow, MoveTabFocus(FocusNavigationDirection.Previous));
+            Assert.Same(viewport, MoveTabFocus(FocusNavigationDirection.Next));
+        }
+        finally
+        {
+            if (model.IsFullScreen) { Invoke(window, "ToggleFullScreen"); }
+            model.ShowFilmstrip = savedFilmstrip;
+            model.ShowInformation = savedInformation;
+            themes.Apply(savedTheme);
+            localization.SetCulture(savedCulture);
+            Drain(window);
+            viewport.Focus();
+        }
+    }
+
+    private static IInputElement MoveTabFocus(FocusNavigationDirection direction)
+    {
+        Assert.True(Assert.IsAssignableFrom<UIElement>(Keyboard.FocusedElement).MoveFocus(new TraversalRequest(direction)));
+        return Keyboard.FocusedElement;
     }
 
     private static void VerifyBrowsingAccessibility(MainWindow window, MainWindowViewModel model, LocalizationService localization)
